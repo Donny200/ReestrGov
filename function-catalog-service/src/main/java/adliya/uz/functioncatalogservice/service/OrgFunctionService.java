@@ -19,24 +19,30 @@ import java.util.NoSuchElementException;
 @RequiredArgsConstructor
 public class OrgFunctionService {
 
+    private static final String MANAGE_ANY_ORGANIZATION = "FUNCTIONS_MANAGE_ANY_ORGANIZATION";
+
     private final OrgFunctionRepository orgFunctionRepository;
     private final OrgFunctionTranslationService translationService;
 
     public List<OrgFunction> getAll() {
-        return orgFunctionRepository.findAll();
+        return orgFunctionRepository.findAllByActiveTrue();
     }
 
     public OrgFunction getById(Long id) {
-        return orgFunctionRepository.findById(id)
+        return orgFunctionRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + id));
     }
 
+    public List<OrgFunction> getAllForAdmin() {
+        return orgFunctionRepository.findAll();
+    }
+
     public List<OrgFunction> getByOrganizationId(Long organizationId) {
-        return orgFunctionRepository.findAllByOrganizationId(organizationId);
+        return orgFunctionRepository.findAllByOrganizationIdAndActiveTrue(organizationId);
     }
 
     public List<OrgFunction> getByCategory(String category) {
-        return orgFunctionRepository.findAllByCategory(category);
+        return orgFunctionRepository.findAllByCategoryAndActiveTrue(category);
     }
 
     @Transactional
@@ -54,7 +60,7 @@ public class OrgFunctionService {
 
     @Transactional
     public OrgFunction update(Long id, UpdateOrgFunctionRequest request) {
-        OrgFunction function = getById(id);
+        OrgFunction function = getExistingById(id);
         requireOrganizationAccess(function.getOrganizationId());
 
         boolean nameChanged = request.name() != null && !request.name().equals(function.getName());
@@ -83,17 +89,37 @@ public class OrgFunctionService {
 
     @Transactional
     public OrgFunction updateRequirements(Long id, String requirements) {
-        OrgFunction function = getById(id);
+        OrgFunction function = getExistingById(id);
         requireOrganizationAccess(function.getOrganizationId());
         function.setRequirements(requirements);
         return orgFunctionRepository.save(function);
     }
 
+    @Transactional
+    public void deactivate(Long id) {
+        OrgFunction function = getExistingById(id);
+        requireOrganizationAccess(function.getOrganizationId());
+        function.setActive(false);
+        orgFunctionRepository.save(function);
+    }
+
+    private OrgFunction getExistingById(Long id) {
+        return orgFunctionRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + id));
+    }
+
     private void requireOrganizationAccess(Long organizationId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof JwtPrincipal principal)) {
+            throw new AccessDeniedException("Authentication is required");
+        }
 
-        if (!principal.isSuperAdmin() && !principal.organizationIds().contains(organizationId)) {
+        boolean hasGlobalAccess = principal.isSuperAdmin()
+                || principal.permissions().contains(MANAGE_ANY_ORGANIZATION);
+
+        if (!hasGlobalAccess && !principal.organizationIds().contains(organizationId)) {
             throw new AccessDeniedException(
                     "You can only edit functions within your own organization(s)");
         }

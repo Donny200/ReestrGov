@@ -12,6 +12,7 @@ public record OrgFunctionResponse(
         Long organizationId,
         String requirements,
         String category,
+        Boolean active,
         Map<String, TranslatedText> nameTranslations,
         Map<String, TranslatedText> descriptionTranslations
 ) {
@@ -23,6 +24,7 @@ public record OrgFunctionResponse(
                 function.getOrganizationId(),
                 function.getRequirements(),
                 function.getCategory(),
+                function.getActive(),
                 function.getNameTranslations(),
                 function.getDescriptionTranslations()
         );

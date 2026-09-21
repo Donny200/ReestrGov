@@ -1,6 +1,7 @@
 package adliya.uz.task1.config.security;
 
 import adliya.uz.task1.entity.Organization;
+import adliya.uz.task1.entity.Permission;
 import adliya.uz.task1.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -32,11 +33,15 @@ public class JwtService {
         List<Long> organizationIds = user.getOrganizations().stream()
                 .map(Organization::getId)
                 .toList();
+        List<String> permissionCodes = user.getRole().getPermissions().stream()
+                .map(Permission::getCode)
+                .toList();
 
         return Jwts.builder()
                 .subject(user.getEmail())
                 .claim("role", user.getRole().getName())
                 .claim("organizationIds", organizationIds)
+                .claim("permissions", permissionCodes)
                 .claim("mustChangePassword", Boolean.TRUE.equals(user.getMustChangePassword()))
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtProperties.getExpiration()))

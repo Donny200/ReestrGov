@@ -33,28 +33,41 @@ public class OrgFunctionController {
         return ResponseEntity.ok(orgFunctionService.getAll().stream().map(OrgFunctionResponse::from).toList());
     }
 
+    @GetMapping("/admin")
+    @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
+    public ResponseEntity<List<OrgFunctionResponse>> getAllForAdmin() {
+        return ResponseEntity.ok(orgFunctionService.getAllForAdmin().stream().map(OrgFunctionResponse::from).toList());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<OrgFunctionResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.getById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ORG_ADMIN')")
+    @PreAuthorize("hasAuthority('FUNCTIONS_CREATE')")
     public ResponseEntity<OrgFunctionResponse> create(@Valid @RequestBody CreateOrgFunctionRequest request) {
         return ResponseEntity.status(201).body(OrgFunctionResponse.from(orgFunctionService.create(request)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ORG_ADMIN')")
+    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT')")
     public ResponseEntity<OrgFunctionResponse> update(
             @PathVariable Long id, @Valid @RequestBody UpdateOrgFunctionRequest request) {
         return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.update(id, request)));
     }
 
     @PutMapping("/{id}/requirements")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ORG_ADMIN')")
+    @PreAuthorize("hasAuthority('FUNCTIONS_MANAGE_REQUIREMENTS')")
     public ResponseEntity<OrgFunctionResponse> updateRequirements(
             @PathVariable Long id, @Valid @RequestBody UpdateRequirementsRequest request) {
         return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.updateRequirements(id, request.getRequirements())));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('FUNCTIONS_DEACTIVATE')")
+    public ResponseEntity<Void> deactivate(@PathVariable Long id) {
+        orgFunctionService.deactivate(id);
+        return ResponseEntity.noContent().build();
     }
 }

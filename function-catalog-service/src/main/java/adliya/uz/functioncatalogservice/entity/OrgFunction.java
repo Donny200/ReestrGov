@@ -50,4 +50,8 @@ public class OrgFunction {
     @Column(length = 100)
     private String category;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private Boolean active = true;
+
 }
