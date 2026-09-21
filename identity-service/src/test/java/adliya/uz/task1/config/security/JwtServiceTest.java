@@ -21,7 +21,7 @@ class JwtServiceTest {
         JwtService service = service();
         Permission view = Permission.builder().code("USERS_VIEW").build();
         Permission edit = Permission.builder().code("USERS_EDIT").build();
-        User user = User.builder().email("admin@example.com")
+        User user = User.builder().id(42L).email("admin@example.com")
                 .role(Role.builder()
                         .name("ROLE_SUPER_ADMIN")
                         .permissions(Set.of(view, edit))
@@ -33,6 +33,7 @@ class JwtServiceTest {
         var parsed = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)))
                 .build().parseSignedClaims(token);
 
+        assertThat(parsed.getPayload().get("userId", Long.class)).isEqualTo(42L);
         assertThat(parsed.getHeader().getAlgorithm()).isEqualTo("HS256");
         assertThat(parsed.getPayload().getSubject()).isEqualTo("admin@example.com");
         assertThat(parsed.getPayload().get("role", String.class)).isEqualTo("ROLE_SUPER_ADMIN");

@@ -60,6 +60,12 @@ class DataInitializerTest {
 
         new DataInitializer(roleRepository, permissionRepository).run();
 
+        assertThat(catalogue).hasSize(47);
+        assertThat(catalogue.values().stream().filter(p -> p.getCategory().equals("Function Management")).map(Permission::getCode))
+                .contains("FUNCTIONS_CREATE", "FUNCTIONS_EDIT", "FUNCTIONS_DEACTIVATE",
+                        "FUNCTIONS_SUBMIT_REVIEW", "FUNCTIONS_REVIEW", "FUNCTIONS_PUBLISH",
+                        "FUNCTIONS_REACTIVATE", "FUNCTIONS_TRANSLATIONS_EDIT",
+                        "FUNCTION_CATEGORIES_MANAGE", "FUNCTIONS_IMPORT", "AUDIT_VIEW");
         assertThat(superAdmin.getPermissions())
                 .extracting(Permission::getCode)
                 .contains("ORGANIZATIONS_VIEW", "USERS_VIEW", "FUNCTIONS_EDIT", "TRANSLATIONS_EDIT")
