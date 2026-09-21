@@ -54,6 +54,7 @@ class JwtAuthenticationFilterTest {
         assertThat(authentication).isNotNull();
         assertThat(authentication.getPrincipal()).isInstanceOf(JwtPrincipal.class);
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        assertThat(principal.userId()).isEqualTo(42L);
         assertThat(principal.organizationIds()).containsExactly(10L, 20L);
         assertThat(principal.permissions())
                 .containsExactly("FUNCTIONS_EDIT", "FUNCTIONS_MANAGE_ANY_ORGANIZATION");
@@ -78,6 +79,7 @@ class JwtAuthenticationFilterTest {
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         JwtPrincipal principal = (JwtPrincipal) authentication.getPrincipal();
+        assertThat(principal.userId()).isNull();
         assertThat(principal.permissions()).isEmpty();
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
@@ -92,6 +94,7 @@ class JwtAuthenticationFilterTest {
                 .add("organizationIds", List.of(10L, 20L));
         if (includePermissions) {
             builder.add("permissions", permissions);
+            builder.add("userId", 42L);
         }
         return builder.build();
     }

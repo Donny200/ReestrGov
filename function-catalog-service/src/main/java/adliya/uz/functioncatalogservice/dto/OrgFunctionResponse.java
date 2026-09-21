@@ -1,32 +1,18 @@
 package adliya.uz.functioncatalogservice.dto;
 
-import adliya.uz.functioncatalogservice.entity.OrgFunction;
-import adliya.uz.functioncatalogservice.entity.TranslatedText;
-
+import adliya.uz.functioncatalogservice.entity.*;
 import java.util.Map;
 
 public record OrgFunctionResponse(
-        Long id,
-        String name,
-        String description,
-        Long organizationId,
-        String requirements,
-        String category,
-        Boolean active,
-        Map<String, TranslatedText> nameTranslations,
-        Map<String, TranslatedText> descriptionTranslations
+        Long id, String name, String description, Long organizationId, String requirements,
+        String category, Boolean active,
+        Map<String, TranslatedText> nameTranslations, Map<String, TranslatedText> descriptionTranslations,
+        FunctionStatus status, Long categoryId
 ) {
     public static OrgFunctionResponse from(OrgFunction function) {
-        return new OrgFunctionResponse(
-                function.getId(),
-                function.getName(),
-                function.getDescription(),
-                function.getOrganizationId(),
-                function.getRequirements(),
-                function.getCategory(),
-                function.getActive(),
-                function.getNameTranslations(),
-                function.getDescriptionTranslations()
-        );
+        return new OrgFunctionResponse(function.getId(), function.getName(), function.getDescription(),
+                function.getOrganizationId(), function.getRequirements(), function.getCategory(), function.getActive(),
+                function.getNameTranslations(), function.getDescriptionTranslations(), function.getStatus(),
+                function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId());
     }
 }

@@ -146,7 +146,7 @@ class OrgFunctionControllerSecurityTest {
                 .id(id)
                 .name("Function " + id)
                 .organizationId(10L)
-                .active(active)
+                .status(active ? adliya.uz.functioncatalogservice.entity.FunctionStatus.PUBLISHED : adliya.uz.functioncatalogservice.entity.FunctionStatus.DEACTIVATED)
                 .build();
     }
 }

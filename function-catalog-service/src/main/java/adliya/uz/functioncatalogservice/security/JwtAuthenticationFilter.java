@@ -47,7 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         ? List.of()
                         : rawPermissions.stream().map(Object::toString).toList();
 
-                JwtPrincipal principal = new JwtPrincipal(email, role, organizationIds, permissions);
+                JwtPrincipal principal = new JwtPrincipal(email, role, organizationIds, permissions, claims.get("userId", Long.class));
 
                 List<SimpleGrantedAuthority> authorities = Stream.concat(
                                 Stream.of(role),

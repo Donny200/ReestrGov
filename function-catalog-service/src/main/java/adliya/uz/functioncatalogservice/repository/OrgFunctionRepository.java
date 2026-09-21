@@ -1,17 +1,16 @@
 package adliya.uz.functioncatalogservice.repository;
 
-import adliya.uz.functioncatalogservice.entity.OrgFunction;
+import adliya.uz.functioncatalogservice.entity.*;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import java.util.*;
 
-import java.util.List;
-import java.util.Optional;
-
-@Repository
 public interface OrgFunctionRepository extends JpaRepository<OrgFunction, Long> {
-    List<OrgFunction> findAllByActiveTrue();
-    Optional<OrgFunction> findByIdAndActiveTrue(Long id);
-    List<OrgFunction> findAllByOrganizationIdAndActiveTrue(Long organizationId);
-    List<OrgFunction> findAllByCategoryAndActiveTrue(String category);
+    List<OrgFunction> findAllByStatus(FunctionStatus status);
+    Optional<OrgFunction> findByIdAndStatus(Long id, FunctionStatus status);
+    List<OrgFunction> findAllByOrganizationIdAndStatus(Long organizationId, FunctionStatus status);
+    List<OrgFunction> findAllByFunctionCategory_NameAndStatus(String category, FunctionStatus status);
+    List<OrgFunction> findAllByOrganizationIdIn(Collection<Long> organizationIds);
+    List<OrgFunction> findAllByStatusAndOrganizationIdIn(FunctionStatus status, Collection<Long> organizationIds);
+    boolean existsByFunctionCategory_Id(Long categoryId);
+    Optional<OrgFunction> findBySeedKey(String seedKey);
 }
-
