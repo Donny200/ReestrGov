@@ -25,6 +25,13 @@ public class FunctionWorkflowController {
     public OrgFunctionResponse reactivate(@PathVariable Long id) { return OrgFunctionResponse.from(service.reactivate(id)); }
     @GetMapping("/{id}/audit") @PreAuthorize("hasAuthority('AUDIT_VIEW')")
     public List<AuditLogResponse> audit(@PathVariable Long id) { return service.history(id); }
+    @PutMapping("/{id}/translations/{language}")
+    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
+    public OrgFunctionResponse languageTranslation(@PathVariable Long id, @PathVariable String language,
+                                                   @Valid @RequestBody LanguageTranslationRequest request) {
+        return OrgFunctionResponse.from(service.updateLanguageTranslation(id, language, request));
+    }
+
     @PutMapping("/{id}/translations")
     @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
     public OrgFunctionResponse translations(@PathVariable Long id, @Valid @RequestBody FunctionTranslationsRequest request) {

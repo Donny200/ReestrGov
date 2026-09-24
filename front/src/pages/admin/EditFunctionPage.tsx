@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/AdminLayout';
 import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
 import { FunctionPreview } from '../../components/functions/FunctionPreview';
 import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
@@ -42,6 +43,7 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
   const options = useFunctionOptions();
   const [form, setForm] = useState(() => formOf(record));
   const [busy, setBusy] = useState(false);
+  const [translationDirty, setTranslationDirty] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => { setForm(formOf(record)); }, [record]);
   const dirty = JSON.stringify(form) !== JSON.stringify(formOf(record));
@@ -73,7 +75,7 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
       {t(record.status === 'PENDING_REVIEW' ? 'fnAdmin.reviewHint' : record.status === 'PUBLISHED' ? 'fnAdmin.publishedHint' :
         record.status === 'DEACTIVATED' ? 'fnAdmin.deactivatedHint' : 'fnAdmin.readOnly')}
     </p>}
-    <FunctionWorkflow record={record} dirty={dirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
+    <FunctionWorkflow record={record} dirty={dirty || translationDirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
     <FunctionPreview record={record} />
     <Panel>
       <PanelHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
@@ -81,14 +83,16 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
         {options.loading ? <LoadingState /> : options.error ? <ErrorState error={options.error} onRetry={options.reload} /> :
           <form onSubmit={save} className="max-w-3xl space-y-6">
             <FunctionFields value={form} onChange={setForm} organizations={organizations}
-              categories={options.data?.categories ?? []} disabled={!editable || busy} errors={fieldErrorsOf(error)} />
+              categories={options.data?.categories ?? []} disabled={!editable || busy || translationDirty} errors={fieldErrorsOf(error)} />
             {editable && <p className="text-xs text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
             {Boolean(error) && <ErrorState error={error} />}
             {editable && <Button type="submit" loading={busy}
-              disabled={!dirty || !form.name.trim() || !form.description.trim() || !form.organizationId}>{t('action.save')}</Button>}
+              disabled={translationDirty || !dirty || !form.name.trim() || !form.description.trim() || !form.organizationId}>{t('action.save')}</Button>}
           </form>}
       </PanelBody>
     </Panel>
+    {hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT') &&
+      <FunctionTranslations record={record} busy={busy} blocked={dirty} onBusy={setBusy} onDirty={setTranslationDirty} onUpdate={onUpdate} />}
     {hasPermission('AUDIT_VIEW') && <FunctionAudit record={record} />}
   </div>;
 }

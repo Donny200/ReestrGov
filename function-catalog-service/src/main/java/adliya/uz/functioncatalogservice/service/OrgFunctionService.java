@@ -158,6 +158,29 @@ public class OrgFunctionService {
         return orgFunctionRepository.saveAndFlush(function);
     }
 
+    @Transactional
+    public OrgFunction updateLanguageTranslation(Long id, String language, LanguageTranslationRequest request) {
+        access.requirePermission("FUNCTIONS_EDIT");
+        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
+        var function = scoped(id);
+        if (function.getStatus() != DRAFT) throw new WorkflowConflictException("Translation editing requires DRAFT");
+        String code = language.toLowerCase(Locale.ROOT);
+        if (!code.matches("[a-z]{2,3}(-[a-z0-9]{2,8})*") || code.length() > 35)
+            throw new IllegalArgumentException("Invalid language code");
+        if (code.equals(function.getSourceLanguage()))
+            throw new IllegalArgumentException("Edit original-language text through the main card editor");
+        var names = new LinkedHashMap<>(function.getNameTranslations());
+        var descriptions = new LinkedHashMap<>(function.getDescriptionTranslations());
+        names.put(code, new TranslatedText(request.name(), TranslatedText.HUMAN));
+        if (request.description() != null) descriptions.put(code, new TranslatedText(request.description(), TranslatedText.HUMAN));
+        if (!names.equals(function.getNameTranslations()) || !descriptions.equals(function.getDescriptionTranslations())) {
+            function.setNameTranslations(names);
+            function.setDescriptionTranslations(descriptions);
+            audit.function(function, AuditAction.TRANSLATION_EDIT, "Manual translation: " + code);
+        }
+        return orgFunctionRepository.saveAndFlush(function);
+    }
+
     @Transactional public OrgFunction submitForReview(Long id) {
         return transition(id, DRAFT, PENDING_REVIEW, AuditAction.SUBMIT_REVIEW, null);
     }

@@ -18,3 +18,6 @@ export interface FunctionAuditEntry {
   id: number; performedByUserId: number | null; performedBy: string; action: string; performedAt: string; details: string;
 }
 export const getFunctionAudit = (id: number) => apiRequest<FunctionAuditEntry[]>(`/api/functions/${id}/audit`);
+
+export const saveFunctionTranslation = (id: number, language: string, body: { name: string; description: string }) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}/translations/${encodeURIComponent(language)}`, { method: 'PUT', body });
