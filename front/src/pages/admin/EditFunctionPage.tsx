@@ -5,6 +5,8 @@ import { PageHeader } from '../../components/layout/AdminLayout';
 import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
+import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
 import { FunctionStatusBadge } from '../../components/functions/FunctionStatusBadge';
 import { useFunctionOptions } from '../../hooks/useFunctionOptions';
@@ -70,6 +72,7 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
       {t(record.status === 'PENDING_REVIEW' ? 'fnAdmin.reviewHint' : record.status === 'PUBLISHED' ? 'fnAdmin.publishedHint' :
         record.status === 'DEACTIVATED' ? 'fnAdmin.deactivatedHint' : 'fnAdmin.readOnly')}
     </p>}
+    <FunctionWorkflow record={record} dirty={dirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
     <Panel>
       <PanelHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
       <PanelBody>
@@ -84,5 +87,6 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
           </form>}
       </PanelBody>
     </Panel>
+    {hasPermission('AUDIT_VIEW') && <FunctionAudit record={record} />}
   </div>;
 }

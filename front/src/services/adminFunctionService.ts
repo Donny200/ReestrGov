@@ -10,3 +10,11 @@ export const createFunction = (body: import('../types/adminFunctions').CreateFun
 export const getAdminFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/admin`);
 export const updateFunction = (id: number, body: import('../types/adminFunctions').CreateFunctionRequest & { category?: string }) =>
   apiRequest<AdminFunction>(`/api/functions/${id}`, { method: 'PUT', body });
+
+export const transitionFunction = (id: number, action: 'submit-for-review' | 'reject' | 'publish' | 'reactivate', reason?: string) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}/${action}`, { method: 'POST', body: reason === undefined ? undefined : { reason } });
+export const deactivateFunction = (id: number) => apiRequest<void>(`/api/functions/${id}`, { method: 'DELETE' });
+export interface FunctionAuditEntry {
+  id: number; performedByUserId: number | null; performedBy: string; action: string; performedAt: string; details: string;
+}
+export const getFunctionAudit = (id: number) => apiRequest<FunctionAuditEntry[]>(`/api/functions/${id}/audit`);
