@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/AdminLayout';
 import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+import { FunctionRequirementsEditor } from '../../components/functions/FunctionRequirementsEditor';
 import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
 import { FunctionPreview } from '../../components/functions/FunctionPreview';
 import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
@@ -43,11 +44,12 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
   const options = useFunctionOptions();
   const [form, setForm] = useState(() => formOf(record));
   const [busy, setBusy] = useState(false);
-  const [translationDirty, setTranslationDirty] = useState(false);
+  const [secondaryDirty, setSecondaryDirty] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => { setForm(formOf(record)); }, [record]);
   const dirty = JSON.stringify(form) !== JSON.stringify(formOf(record));
   const editable = record.status === 'DRAFT' && hasPermission('FUNCTIONS_EDIT');
+  const requirementsOnly = record.status === 'DRAFT' && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
   useUnsavedChanges(dirty, t('fnAdmin.discard'));
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -71,11 +73,11 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
       badge={<FunctionStatusBadge status={record.status} />}
       actions={<Link to="/admin/functions" className="text-brand hover:underline">{t('action.back')}</Link>} />
     {dirty && <p role="status" className="mb-4 rounded-control bg-amber-50 p-3 text-sm text-amber-800">{t('fnAdmin.unsaved')}</p>}
-    {!editable && <p className="mb-4 rounded-control bg-navy-50 p-4 text-sm">
+    {!editable && !requirementsOnly && <p className="mb-4 rounded-control bg-navy-50 p-4 text-sm">
       {t(record.status === 'PENDING_REVIEW' ? 'fnAdmin.reviewHint' : record.status === 'PUBLISHED' ? 'fnAdmin.publishedHint' :
         record.status === 'DEACTIVATED' ? 'fnAdmin.deactivatedHint' : 'fnAdmin.readOnly')}
     </p>}
-    <FunctionWorkflow record={record} dirty={dirty || translationDirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
+    <FunctionWorkflow record={record} dirty={dirty || secondaryDirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
     <FunctionPreview record={record} />
     <Panel>
       <PanelHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
@@ -83,16 +85,17 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
         {options.loading ? <LoadingState /> : options.error ? <ErrorState error={options.error} onRetry={options.reload} /> :
           <form onSubmit={save} className="max-w-3xl space-y-6">
             <FunctionFields value={form} onChange={setForm} organizations={organizations}
-              categories={options.data?.categories ?? []} disabled={!editable || busy || translationDirty} errors={fieldErrorsOf(error)} />
+              categories={options.data?.categories ?? []} disabled={!editable || busy || secondaryDirty} errors={fieldErrorsOf(error)} />
             {editable && <p className="text-xs text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
             {Boolean(error) && <ErrorState error={error} />}
             {editable && <Button type="submit" loading={busy}
-              disabled={translationDirty || !dirty || !form.name.trim() || !form.description.trim() || !form.organizationId}>{t('action.save')}</Button>}
+              disabled={secondaryDirty || !dirty || !form.name.trim() || !form.description.trim() || !form.organizationId}>{t('action.save')}</Button>}
           </form>}
       </PanelBody>
     </Panel>
+    {requirementsOnly && <FunctionRequirementsEditor record={record} busy={busy} onBusy={setBusy} onDirty={setSecondaryDirty} onUpdate={onUpdate} />}
     {hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT') &&
-      <FunctionTranslations record={record} busy={busy} blocked={dirty} onBusy={setBusy} onDirty={setTranslationDirty} onUpdate={onUpdate} />}
+      <FunctionTranslations record={record} busy={busy} blocked={dirty} onBusy={setBusy} onDirty={setSecondaryDirty} onUpdate={onUpdate} />}
     {hasPermission('AUDIT_VIEW') && <FunctionAudit record={record} />}
   </div>;
 }
