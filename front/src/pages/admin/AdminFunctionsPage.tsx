@@ -6,7 +6,7 @@ import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Field, Select, TextInput } from '../../components/ui/Field';
 import { Button } from '../../components/ui/Button';
 import { ErrorState } from '../../components/ui/States';
-import { FunctionStatusBadge, FUNCTION_STATUSES, statusLabels } from '../../components/functions/FunctionStatusBadge';
+import { FunctionStatusBadge } from '../../components/functions/FunctionStatusBadge';
 import { useI18n } from '../../contexts/i18n';
 import { useAuth } from '../../contexts/auth';
 import { useAsync } from '../../hooks/useAsync';
@@ -14,7 +14,7 @@ import { useFunctionOptions } from '../../hooks/useFunctionOptions';
 import { getAdminFunctions } from '../../services/adminFunctionService';
 import { functionText, hasFunctionTranslation } from '../../utils/functionLocalization';
 import { localizedText } from '../../utils/translations';
-import type { AdminFunction } from '../../types/adminFunctions';
+import { FUNCTION_STATUSES, statusLabels, type AdminFunction } from '../../types/adminFunctions';
 import { ApiError } from '../../services/http';
 
 export function AdminFunctionsPage() {

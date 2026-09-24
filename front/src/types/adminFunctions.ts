@@ -30,3 +30,6 @@ export interface CreateFunctionRequest {
   categoryId?: number;
   sourceLanguage: string;
 }
+
+export const FUNCTION_STATUSES: FunctionStatus[] = ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'DEACTIVATED'];
+export const statusLabels = { DRAFT: 'Draft', PENDING_REVIEW: 'Pending review', PUBLISHED: 'Published', DEACTIVATED: 'Deactivated' };
