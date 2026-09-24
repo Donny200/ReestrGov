@@ -39,6 +39,12 @@ public class OrgFunctionController {
         return ResponseEntity.ok(orgFunctionService.getAllForAdmin().stream().map(OrgFunctionResponse::from).toList());
     }
 
+    @GetMapping("/{id}/admin")
+    @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
+    public OrgFunctionResponse getForAdmin(@PathVariable Long id) {
+        return OrgFunctionResponse.from(orgFunctionService.getForAdmin(id));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<OrgFunctionResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.getById(id)));

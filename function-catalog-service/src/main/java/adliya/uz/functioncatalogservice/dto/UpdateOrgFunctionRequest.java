@@ -8,8 +8,12 @@ public record UpdateOrgFunctionRequest(
         @Positive Long organizationId,
         @Size(max = 500) String requirements,
         @Size(max = 100) String category,
-        @Positive Long categoryId
+        @Positive Long categoryId,
+        @Pattern(regexp = "[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*") @Size(max = 35) String sourceLanguage
 ) {
+    public UpdateOrgFunctionRequest(String name, String description, Long organizationId, String requirements, String category, Long categoryId) {
+        this(name, description, organizationId, requirements, category, categoryId, null);
+    }
     public UpdateOrgFunctionRequest(String name, String description, Long organizationId, String requirements, String category) {
         this(name, description, organizationId, requirements, category, null);
     }

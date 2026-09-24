@@ -6,3 +6,7 @@ export const getFunctionCategories = () => apiRequest<FunctionCategory[]>('/api/
 
 export const createFunction = (body: import('../types/adminFunctions').CreateFunctionRequest) =>
   apiRequest<AdminFunction>('/api/functions', { method: 'POST', body });
+
+export const getAdminFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/admin`);
+export const updateFunction = (id: number, body: import('../types/adminFunctions').CreateFunctionRequest & { category?: string }) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}`, { method: 'PUT', body });

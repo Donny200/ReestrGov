@@ -46,9 +46,8 @@ const Languages = lazy(() =>
 const LegacyUsers = lazy(() =>
   import('./pages/admin/LegacyUsers').then((module) => ({ default: module.LegacyUsers }))
 );
-const FunctionRequirements = lazy(() =>
-  import('./pages/admin/FunctionRequirements').then((module) => ({ default: module.FunctionRequirements }))
-);
+const EditFunctionPage = lazy(() => import('./pages/admin/EditFunctionPage').then(module => ({ default: module.EditFunctionPage })));
+const LegacyFunctionEditorRedirect = lazy(() => import('./pages/admin/EditFunctionPage').then(module => ({ default: module.LegacyFunctionEditorRedirect })));
 
 function RouteLoading() {
   const { t } = useI18n();
@@ -88,13 +87,17 @@ export function App() {
               <Route element={<AdminLayout />}>
                 <Route element={<RequireAuth anyPermissions={FUNCTION_PERMISSIONS} />}><Route path="/admin/functions" element={<PageBoundary><AdminFunctionsPage /></PageBoundary>} /></Route>
                 <Route element={<RequireAuth anyPermissions={['FUNCTIONS_CREATE']} />}><Route path="/admin/functions/new" element={<PageBoundary><CreateFunctionPage /></PageBoundary>} /></Route>
+                <Route element={<RequireAuth anyPermissions={['FUNCTIONS_VIEW']} />}>
+                  <Route path="/admin/functions/:id" element={<PageBoundary><EditFunctionPage /></PageBoundary>} />
+                  <Route path="/admin/functions/:id/edit" element={<PageBoundary><LegacyFunctionEditorRedirect /></PageBoundary>} />
+                </Route>
                 <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />
                 <Route path="/admin/organizations" element={<PageBoundary><Organizations /></PageBoundary>} />
                 <Route path="/settings/security" element={<PageBoundary><SecuritySettings /></PageBoundary>} />
 
                 <Route element={<RequireAuth roles={['ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN']} />}>
                   <Route path="/admin/moderators" element={<PageBoundary><Moderators /></PageBoundary>} />
-                  <Route path="/admin/functions/:id/edit" element={<PageBoundary><FunctionRequirements /></PageBoundary>} />
+
                 </Route>
 
                 <Route element={<RequireAuth roles={['ROLE_SUPER_ADMIN']} />}>

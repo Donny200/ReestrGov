@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/functions/admin", "/api/functions/pending-review", "/api/functions/*/audit").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/functions/admin", "/api/functions/*/admin", "/api/functions/pending-review", "/api/functions/*/audit").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/functions/**").permitAll()
                         .requestMatchers("/swagger", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()

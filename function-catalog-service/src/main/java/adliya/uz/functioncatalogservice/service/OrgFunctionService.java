@@ -36,6 +36,8 @@ public class OrgFunctionService {
         return access.global() ? orgFunctionRepository.findAll()
                 : orgFunctionRepository.findAllByOrganizationIdIn(access.principal().organizationIds());
     }
+    public OrgFunction getForAdmin(Long id) { return scoped(id); }
+
     public List<OrgFunction> pendingReview() {
         return access.global() ? orgFunctionRepository.findAllByStatus(PENDING_REVIEW)
                 : orgFunctionRepository.findAllByStatusAndOrganizationIdIn(PENDING_REVIEW, access.principal().organizationIds());
@@ -100,7 +102,25 @@ public class OrgFunctionService {
                 audit.function(function, AuditAction.CATEGORY_CHANGE, "categoryId: " + oldId + " -> " + newId);
             }
         }
-        translationService.invalidateMachineTranslations(function, nameChanged, descriptionChanged);
+        boolean languageChanged = request.sourceLanguage() != null
+                && !request.sourceLanguage().equalsIgnoreCase(function.getSourceLanguage());
+        if (languageChanged) {
+            function.setSourceLanguage(request.sourceLanguage().toLowerCase(Locale.ROOT));
+            changed.add("sourceLanguage");
+        }
+        translationService.invalidateMachineTranslations(function, nameChanged || languageChanged, descriptionChanged || languageChanged);
+        // The original-language entry is a mirror, not a separately editable translation.
+        if (nameChanged || languageChanged) {
+            var values = new LinkedHashMap<>(function.getNameTranslations());
+            values.put(function.getSourceLanguage(), new TranslatedText(function.getName(), TranslatedText.HUMAN));
+            function.setNameTranslations(values);
+        }
+        if (descriptionChanged || languageChanged) {
+            var values = new LinkedHashMap<>(function.getDescriptionTranslations());
+            if (function.getDescription() != null) values.put(function.getSourceLanguage(),
+                    new TranslatedText(function.getDescription(), TranslatedText.HUMAN));
+            function.setDescriptionTranslations(values);
+        }
         if (!changed.isEmpty()) audit.function(function, AuditAction.UPDATE, "Changed fields: " + String.join(", ", changed));
         return orgFunctionRepository.saveAndFlush(function);
     }
