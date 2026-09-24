@@ -1,3 +1,4 @@
+import { FunctionAutoTranslate } from './FunctionAutoTranslate';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useI18n } from '../../contexts/i18n';
@@ -65,10 +66,15 @@ export function FunctionTranslations({ record, busy, blocked, onBusy, onDirty, o
     <PanelHeader title={t('fnAdmin.translations')} />
     <PanelBody>
       <div className="max-w-3xl space-y-5">
+        <FunctionAutoTranslate record={record} language={language} blocked={blocked || dirty} busy={busy} onBusy={onBusy} onUpdate={onUpdate} />
         <Field label={t('field.language')}>{() =>
           <Select value={language} disabled={busy} onChange={e => changeLanguage(e.target.value)}>
             {available.map(lang => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
           </Select>}</Field>
+        <div className="flex flex-wrap gap-2" aria-label={t('fnAdmin.languages')}>
+          {available.map(lang => <Button key={lang.code} variant={lang.code === language ? 'primary' : 'outline'}
+            aria-pressed={lang.code === language} disabled={busy} onClick={() => changeLanguage(lang.code)}>{lang.label}</Button>)}
+        </div>
         {original ? <p className="text-sm text-content-muted">{t('fnAdmin.originalLanguageHint')}</p> :
           <form onSubmit={save} className="space-y-5">
             {dirty && <p role="status" className="text-sm text-amber-700">{t('fnAdmin.unsaved')}</p>}

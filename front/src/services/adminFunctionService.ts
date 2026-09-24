@@ -21,3 +21,7 @@ export const getFunctionAudit = (id: number) => apiRequest<FunctionAuditEntry[]>
 
 export const saveFunctionTranslation = (id: number, language: string, body: { name: string; description: string }) =>
   apiRequest<AdminFunction>(`/api/functions/${id}/translations/${encodeURIComponent(language)}`, { method: 'PUT', body });
+
+export const getTranslationCapabilities = () => apiRequest<{ available: boolean }>('/api/functions/translation-capabilities');
+export const translateFunction = (id: number, languages: string[], overwriteMachine = false) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}/translate`, { method: 'POST', body: { languages, overwriteMachine } });

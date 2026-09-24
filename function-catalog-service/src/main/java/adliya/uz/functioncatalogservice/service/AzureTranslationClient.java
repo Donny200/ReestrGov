@@ -1,6 +1,10 @@
 package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.config.AzureTranslatorProperties;
+import adliya.uz.functioncatalogservice.exception.TranslationUnavailableException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientResponseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -38,7 +42,23 @@ public class AzureTranslationClient implements TranslationClient {
     }
 
     @Override
+    public boolean isAvailable() {
+        return StringUtils.hasText(properties.getEndpoint()) && StringUtils.hasText(properties.getKey())
+                && StringUtils.hasText(properties.getRegion());
+    }
+
+    @Override
     public Map<String, String> translate(String text, String fromCode, List<String> toCodes) {
+        try {
+            return translateRequired(text, fromCode, toCodes);
+        } catch (TranslationUnavailableException exception) {
+            log.warn("Azure Translator is unavailable ({}); translations remain pending", exception.status().value());
+            return Map.of();
+        }
+    }
+
+    @Override
+    public Map<String, String> translateRequired(String text, String fromCode, List<String> toCodes) {
         if (!StringUtils.hasText(text) || !StringUtils.hasText(fromCode)) {
             return Map.of();
         }
@@ -53,13 +73,11 @@ public class AzureTranslationClient implements TranslationClient {
         if (targets.isEmpty()) {
             return Map.of();
         }
-        if (!StringUtils.hasText(properties.getEndpoint())
-                || !StringUtils.hasText(properties.getKey())
-                || !StringUtils.hasText(properties.getRegion())) {
-            log.warn("Azure Translator is not configured; skipping {} translation(s)", targets.size());
-            return Map.of();
+        if (!isAvailable()) {
+            throw new TranslationUnavailableException(HttpStatus.SERVICE_UNAVAILABLE, "Automatic translation is not configured");
         }
 
+        try {
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(properties.getEndpoint())
                 .path("/translate")
                 .queryParam("api-version", "3.0")
@@ -67,7 +85,6 @@ public class AzureTranslationClient implements TranslationClient {
         targets.forEach(code -> uriBuilder.queryParam("to", code));
         URI uri = uriBuilder.build(true).toUri();
 
-        try {
             AzureResponse[] response = restClient.post()
                     .uri(uri)
                     .header("Ocp-Apim-Subscription-Key", properties.getKey())
@@ -78,8 +95,7 @@ public class AzureTranslationClient implements TranslationClient {
                     .body(AzureResponse[].class);
 
             if (response == null || response.length == 0 || response[0].translations() == null) {
-                log.warn("Azure Translator returned no translations");
-                return Map.of();
+                throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY, "Translator returned no translations");
             }
 
             Map<String, String> translated = new LinkedHashMap<>();
@@ -89,9 +105,16 @@ public class AzureTranslationClient implements TranslationClient {
                 }
             }
             return translated;
+        } catch (TranslationUnavailableException exception) {
+            throw exception;
+        } catch (ResourceAccessException exception) {
+            throw new TranslationUnavailableException(HttpStatus.GATEWAY_TIMEOUT, "Translator did not respond; retry later");
+        } catch (RestClientResponseException exception) {
+            log.warn("Azure Translator returned HTTP {}", exception.getStatusCode().value());
+            throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY, "Translator rejected the request; retry later or contact the administrator");
         } catch (Exception exception) {
             log.warn("Azure Translator request failed ({})", exception.getClass().getSimpleName());
-            return Map.of();
+            throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY, "Automatic translation failed; retry later");
         }
     }
 

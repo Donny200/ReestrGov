@@ -11,6 +11,8 @@ import java.util.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(TranslationUnavailableException.class)
+    public ResponseEntity<Map<String,Object>> translation(TranslationUnavailableException ex) { return build(ex.status(), ex.getMessage()); }
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String,Object>> forbidden(AccessDeniedException ex) { return build(HttpStatus.FORBIDDEN, ex.getMessage()); }
     @ExceptionHandler(NoSuchElementException.class)
