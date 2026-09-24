@@ -52,6 +52,7 @@ class CatalogPostgresTest {
         registry.add("spring.datasource.password", postgres::getPassword);
     }
     @Autowired OrgFunctionService service;
+    @Autowired FunctionAutoTranslationService automatic;
     @Autowired FunctionCategoryService categories;
     @Autowired FunctionImportService importer;
     @Autowired EditorialSeedService seeder;
@@ -142,6 +143,7 @@ class CatalogPostgresTest {
         service.updateTranslations(function.getId(), new FunctionTranslationsRequest(Map.of("en","Human name","uz","Nom"), Map.of("en","Description")));
         var stored = functions.findById(function.getId()).orElseThrow();
         assertThat(stored.getNameTranslations()).containsEntry("en",new TranslatedText("Human name",TranslatedText.HUMAN));
+        login(List.of(10L),true);
         assertThat(service.history(function.getId())).extracting(AuditLogResponse::action).contains(AuditAction.TRANSLATION_EDIT);
     }
 
@@ -273,6 +275,128 @@ class CatalogPostgresTest {
             first.close(); second.close();
         }
         assertThat(functions.findById(function.getId()).orElseThrow().getStatus()).isEqualTo(PENDING_REVIEW);
+    }
+
+    @Test void adminDetailReadsDraftButRejectsForeignOrganizationAndMissingAuthority() throws Exception {
+        var own = service.create(request("Own",10L));
+        var foreign = service.create(request("Foreign",20L));
+        mvc.perform(get("/api/functions/{id}/admin",own.getId()).with(authentication(auth(false))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"));
+        mvc.perform(get("/api/functions/{id}/admin",foreign.getId()).with(authentication(auth(false))))
+                .andExpect(status().isForbidden());
+        var viewer = new UsernamePasswordAuthenticationToken(
+                new JwtPrincipal("no-permission@example.test","ROLE_MODERATOR",List.of(10L),List.of(),5L),null,List.of());
+        mvc.perform(get("/api/functions/{id}/admin",own.getId()).with(authentication(viewer)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/functions/{id}",own.getId())).andExpect(status().isNotFound());
+    }
+
+    @Test void createApiPersistsOriginalLanguageAndRejectsMalformedLanguage() throws Exception {
+        String body = mapper.writeValueAsString(new CreateOrgFunctionRequest("Maslahat","Tavsif",10L,"",null,null,"uz"));
+        mvc.perform(post("/api/functions").with(authentication(auth(true))).contentType("application/json").content(body))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.sourceLanguage").value("uz"))
+                .andExpect(jsonPath("$.status").value("DRAFT"));
+        assertThat(functions.findAll().get(0).getSourceLanguage()).isEqualTo("uz");
+        String invalid = mapper.writeValueAsString(new CreateOrgFunctionRequest("Invalid","Text",10L,"",null,null,"not a language"));
+        mvc.perform(post("/api/functions").with(authentication(auth(true))).contentType("application/json").content(invalid))
+                .andExpect(status().isBadRequest());
+        assertThat(functions.count()).isEqualTo(1);
+    }
+
+    @Test void oneLanguageEditPreservesOtherTextAndMachineSources() throws Exception {
+        var function = service.create(request("Original",10L));
+        function.setNameTranslations(new LinkedHashMap<>(Map.of("uz",new TranslatedText("Avtomatik","machine"))));
+        function.setDescriptionTranslations(new LinkedHashMap<>(Map.of("uz",new TranslatedText("Tavsif","machine"))));
+        functions.saveAndFlush(function);
+        mvc.perform(put("/api/functions/{id}/translations/ru",function.getId()).with(authentication(auth(false)))
+                        .contentType("application/json").content(mapper.writeValueAsString(new LanguageTranslationRequest("Перевод","Описание"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nameTranslations.ru.source").value("human"))
+                .andExpect(jsonPath("$.nameTranslations.uz.source").value("machine"))
+                .andExpect(jsonPath("$.name").value("Original"));
+        login(List.of(10L),true);
+        assertThat(service.history(function.getId())).extracting(AuditLogResponse::action).contains(AuditAction.TRANSLATION_EDIT);
+        service.submitForReview(function.getId());
+        mvc.perform(put("/api/functions/{id}/translations/ru",function.getId()).with(authentication(auth(true)))
+                        .contentType("application/json").content(mapper.writeValueAsString(new LanguageTranslationRequest("Blocked",null))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test void manualTranslationRequiresBothPermissionsAndOrganizationScope() throws Exception {
+        var function = service.create(request("Foreign",20L));
+        String body = mapper.writeValueAsString(new LanguageTranslationRequest("No access",null));
+        mvc.perform(put("/api/functions/{id}/translations/ru",function.getId()).with(authentication(auth(false)))
+                .contentType("application/json").content(body)).andExpect(status().isForbidden());
+        var principal = new JwtPrincipal("editor@example.test","ROLE_SUPER_ADMIN",List.of(),List.of("FUNCTIONS_EDIT"),42L);
+        var authentication = new UsernamePasswordAuthenticationToken(principal,null,List.of(new SimpleGrantedAuthority("FUNCTIONS_EDIT")));
+        mvc.perform(put("/api/functions/{id}/translations/ru",function.getId()).with(authentication(authentication))
+                .contentType("application/json").content(body)).andExpect(status().isForbidden());
+        assertThat(functions.findById(function.getId()).orElseThrow().getNameTranslations()).isEmpty();
+    }
+
+    @Test void autoTranslationDoesNotHoldTransactionDuringNetworkAndPreservesHumanEntries() {
+        var function = service.create(request("Original",10L));
+        service.updateLanguageTranslation(function.getId(),"ru",new LanguageTranslationRequest("Ручной","Ручное описание"));
+        when(translator.isAvailable()).thenReturn(true);
+        when(translator.translateRequired(any(),eq("en"),any())).thenAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat((List<String>)call.getArgument(2)).containsExactly("uz");
+            return Map.of("uz","Avtomatik");
+        });
+        var saved = automatic.translate(function.getId(),new AutoTranslateRequest(List.of("ru","uz"),true));
+        assertThat(saved.getNameTranslations().get("ru")).isEqualTo(new TranslatedText("Ручной","human"));
+        assertThat(saved.getNameTranslations().get("uz").source()).isEqualTo("machine");
+        assertThat(service.history(function.getId())).hasSize(3);
+    }
+
+    @Test void failedAutoTranslationIsAtomicAndReturnsSafeHttpError() throws Exception {
+        var function = service.create(request("Original",10L));
+        when(translator.isAvailable()).thenReturn(true);
+        when(translator.translateRequired(eq("Original"),eq("en"),any())).thenReturn(Map.of("uz","Name"));
+        when(translator.translateRequired(eq("Описание"),eq("en"),any())).thenThrow(
+                new adliya.uz.functioncatalogservice.exception.TranslationUnavailableException(org.springframework.http.HttpStatus.GATEWAY_TIMEOUT,"Translator did not respond"));
+        mvc.perform(post("/api/functions/{id}/translate",function.getId()).with(authentication(auth(true)))
+                        .contentType("application/json").content(mapper.writeValueAsString(new AutoTranslateRequest(List.of("uz"),false))))
+                .andExpect(status().isGatewayTimeout());
+        assertThat(functions.findById(function.getId()).orElseThrow().getNameTranslations()).isEmpty();
+        login(List.of(10L),true);
+        assertThat(service.history(function.getId())).hasSize(1);
+    }
+
+    @Test void automaticTranslationCannotOverwriteConcurrentWorkflowDecision() {
+        var function = service.create(request("Original",10L));
+        when(translator.isAvailable()).thenReturn(true);
+        when(translator.translateRequired(eq("Original"),eq("en"),any())).thenAnswer(call -> {
+            service.submitForReview(function.getId());
+            return Map.of("uz","Name");
+        });
+        when(translator.translateRequired(eq("Описание"),eq("en"),any())).thenReturn(Map.of("uz","Description"));
+        assertThatThrownBy(() -> automatic.translate(function.getId(),new AutoTranslateRequest(List.of("uz"),false)))
+                .isInstanceOf(adliya.uz.functioncatalogservice.exception.WorkflowConflictException.class);
+        var saved = functions.findById(function.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(PENDING_REVIEW);
+        assertThat(saved.getNameTranslations()).isEmpty();
+    }
+
+    @Test void missingAzureConfigurationLeavesDraftIntactAndReportsUnavailable() throws Exception {
+        var function = service.create(request("Original",10L));
+        mvc.perform(get("/api/functions/translation-capabilities").with(authentication(auth(true))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));
+        mvc.perform(post("/api/functions/{id}/translate",function.getId()).with(authentication(auth(true)))
+                        .contentType("application/json").content(mapper.writeValueAsString(new AutoTranslateRequest(List.of("ru"),false))))
+                .andExpect(status().isServiceUnavailable());
+        login(List.of(10L),true);
+        assertThat(service.history(function.getId())).hasSize(1);
+    }
+
+    @Test void originalLanguageEditsRefreshSeedMirrorsWithoutDiscardingOtherHumanTranslations() {
+        var function = service.create(new CreateOrgFunctionRequest("Имя","Описание",10L,"",null,null,"ru"));
+        function.setNameTranslations(new LinkedHashMap<>(Map.of("ru",new TranslatedText("Имя","human"),
+                "en",new TranslatedText("Human","human"),"uz",new TranslatedText("Machine","machine"))));
+        functions.saveAndFlush(function);
+        var saved = service.update(function.getId(),new UpdateOrgFunctionRequest("Новое","Новое описание",10L,"",null,null,"ru"));
+        assertThat(saved.getNameTranslations().get("ru").text()).isEqualTo("Новое");
+        assertThat(saved.getNameTranslations().get("en").text()).isEqualTo("Human");
+        assertThat(saved.getNameTranslations()).doesNotContainKey("uz");
     }
 
     private CreateOrgFunctionRequest request(String name, Long organization) {

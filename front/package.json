@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test --project=ui",
+    "test:backend": "playwright test --project=backend"
   },
   "dependencies": {
     "framer-motion": "^11.5.4",
@@ -20,6 +22,7 @@
     "tailwind-merge": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^20.11.18",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
