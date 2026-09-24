@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/AdminLayout';
 import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from '../../components/ui/States';
+import { FunctionPreview } from '../../components/functions/FunctionPreview';
 import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
@@ -73,6 +74,7 @@ function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate:
         record.status === 'DEACTIVATED' ? 'fnAdmin.deactivatedHint' : 'fnAdmin.readOnly')}
     </p>}
     <FunctionWorkflow record={record} dirty={dirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
+    <FunctionPreview record={record} />
     <Panel>
       <PanelHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
       <PanelBody>

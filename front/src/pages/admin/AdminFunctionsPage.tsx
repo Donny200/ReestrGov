@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/auth';
 import { useAsync } from '../../hooks/useAsync';
 import { useFunctionOptions } from '../../hooks/useFunctionOptions';
 import { getAdminFunctions } from '../../services/adminFunctionService';
+import { functionText, hasFunctionTranslation } from '../../utils/functionLocalization';
 import { localizedText } from '../../utils/translations';
 import type { AdminFunction } from '../../types/adminFunctions';
 import { ApiError } from '../../services/http';
@@ -34,15 +35,15 @@ export function AdminFunctionsPage() {
     (!status || row.status === status) &&
     (!organization || (organization === 'unassigned' ? row.organizationId === null : row.organizationId === Number(organization))) &&
     (!category || row.categoryId === Number(category)) &&
-    (localizedText(row.name, row.nameTranslations, language) ?? '').toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+    functionText(row, 'name', language).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   ).sort((a, b) => b.id - a.id);
   const pages = Math.max(1, Math.ceil(rows.length / 50));
   const currentPage = Math.min(page, pages);
   const columns: Column<AdminFunction>[] = [
     { key: 'name', header: t('field.name'), render: row => <div>
-      <Link className="font-semibold text-brand hover:underline" to={`/admin/functions/${row.id}`}>{localizedText(row.name, row.nameTranslations, language)}</Link>
-      <p className="mt-1 text-xs text-content-muted">{localizedText(row.description, row.descriptionTranslations, language)}</p>
-      {language !== row.sourceLanguage && !row.nameTranslations?.[language]?.text?.trim() &&
+      <Link className="font-semibold text-brand hover:underline" to={`/admin/functions/${row.id}`}>{functionText(row, 'name', language)}</Link>
+      <p className="mt-1 text-xs text-content-muted">{functionText(row, 'description', language)}</p>
+      {!hasFunctionTranslation(row, language) &&
         <p className="mt-1 text-xs text-amber-700">{t('fnAdmin.missingTranslation', 'Translation missing; showing original')}</p>}
     </div> },
     { key: 'organization', header: t('field.organization'), render: row =>
@@ -54,8 +55,7 @@ export function AdminFunctionsPage() {
     } },
     { key: 'status', header: t('field.status'), render: row => <FunctionStatusBadge status={row.status} /> },
     { key: 'languages', header: t('fnAdmin.languages', 'Languages'), render: row => {
-      const filled = available.filter(lang => lang.code === row.sourceLanguage ||
-        (row.nameTranslations?.[lang.code]?.text?.trim() && (!row.description || row.descriptionTranslations?.[lang.code]?.text?.trim())));
+      const filled = available.filter(lang => hasFunctionTranslation(row, lang.code));
       return <span title={filled.map(lang => lang.label).join(', ')}>{filled.length}/{available.length} · {filled.map(lang => lang.code).join(', ')}</span>;
     } },
     { key: 'actions', header: t('field.actions'), render: row => <Link className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline"

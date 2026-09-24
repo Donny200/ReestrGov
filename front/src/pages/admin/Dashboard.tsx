@@ -9,19 +9,23 @@ import { useAsync } from '../../hooks/useAsync';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { getOrganizations } from '../../services/organizationService';
-import { getFunctions } from '../../services/functionService';
+import { getAdminFunctions } from '../../services/adminFunctionService';
+import { functionText } from '../../utils/functionLocalization';
+import { FunctionStatusBadge } from '../../components/functions/FunctionStatusBadge';
+import type { AdminFunction } from '../../types/adminFunctions';
 import { getModerators, getOrgAdmins } from '../../services/staffService';
-import type { CatalogFunction, Organization } from '../../types/api';
+import type { Organization } from '../../types/api';
 import { formatDate, fullName, roleLabel, truncate } from '../../utils/format';
 
 export function Dashboard() {
   const { t, locale } = useI18n();
-  const { user, isSuperAdmin, hasRole } = useAuth();
+  const { user, isSuperAdmin, hasRole, hasPermission } = useAuth();
   const canSeeOrgAdmins = isSuperAdmin;
   const canSeeModerators = hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN');
 
   const organizations = useAsync(getOrganizations, []);
-  const functions = useAsync(() => getFunctions(), []);
+  const canSeeFunctions = hasPermission('FUNCTIONS_VIEW');
+  const functions = useAsync(() => canSeeFunctions ? getAdminFunctions() : Promise.resolve([]), [canSeeFunctions]);
   const orgAdmins = useAsync(() => canSeeOrgAdmins ? getOrgAdmins() : Promise.resolve([]), [canSeeOrgAdmins]);
   const moderators = useAsync(() => canSeeModerators ? getModerators() : Promise.resolve([]), [canSeeModerators]);
 
@@ -61,9 +65,9 @@ export function Dashboard() {
     value: fnList.length,
     hint: `${new Set(fnList.map((item) => item.category)).size} ${t('field.category').toLowerCase()}`,
     icon: FileTextIcon,
-    to: '/admin/organizations',
+    to: '/admin/functions',
     loading: functions.loading,
-    visible: true
+    visible: canSeeFunctions
   }].
   filter((card) => card.visible);
 
@@ -94,7 +98,8 @@ export function Dashboard() {
   }];
 
 
-  const fnColumns: Column<CatalogFunction>[] = [
+  const fnColumns: Column<AdminFunction>[] = [
+  { key: 'status', header: t('field.status'), render: row => <FunctionStatusBadge status={row.status} /> },
   {
     key: 'id',
     header: t('field.id'),
@@ -107,10 +112,10 @@ export function Dashboard() {
     header: t('field.name'),
     render: (row) =>
     <div>
-          <Link to={`/functions/${row.id}`} className="font-medium text-navy-900 hover:text-teal-700">
-            {row.name}
+          <Link to={`/admin/functions/${row.id}`} className="font-medium text-navy-900 hover:text-teal-700">
+            {functionText(row, 'name', locale)}
           </Link>
-          <p className="text-[12px] text-navy-400">{truncate(row.description, 70)}</p>
+          <p className="text-[12px] text-navy-400">{truncate(functionText(row, 'description', locale), 70)}</p>
         </div>
 
   },
@@ -130,19 +135,19 @@ export function Dashboard() {
     <span className="text-navy-500">{orgList.find((org) => org.id === row.organizationId)?.name ?? '—'}</span>
 
   },
-  ...(hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN') ?
+  ...(canSeeFunctions ?
   [
   {
     key: 'actions',
     header: t('field.actions'),
     className: 'text-right',
     headerClassName: 'text-right',
-    render: (row: CatalogFunction) =>
+    render: (row: AdminFunction) =>
     <Link
-      to={`/admin/functions/${row.id}/edit`}
+      to={`/admin/functions/${row.id}`}
       className="inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-semibold text-teal-700 transition-colors hover:bg-teal-50 hover:text-teal-800">
       
-                {t('fnEdit.title')}
+                {t('action.details')}
               </Link>
 
   }] :
@@ -209,8 +214,9 @@ export function Dashboard() {
           
         </Panel>
 
-        <Panel className="overflow-hidden [&_table]:!min-w-0">
-          <PanelHeader title={t('admin.recentFunctions')} description={t('home.catalogSubtitle')} />
+        {canSeeFunctions && <Panel className="overflow-hidden [&_table]:!min-w-0">
+          <PanelHeader title={t('admin.recentFunctions')} description={t('home.catalogSubtitle')}
+            actions={<Link className="text-brand hover:underline" to="/admin/functions">{t('action.viewAll')}</Link>} />
           <DataTable
             columns={fnColumns}
             rows={fnList.slice(0, 8)}
@@ -221,7 +227,7 @@ export function Dashboard() {
             emptyTitle={t('state.emptyTitle')}
             caption={t('admin.recentFunctions')} />
           
-        </Panel>
+        </Panel>}
       </div>
     </div>);
 
