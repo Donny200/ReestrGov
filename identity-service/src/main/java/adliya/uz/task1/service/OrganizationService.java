@@ -3,11 +3,13 @@ package adliya.uz.task1.service;
 import adliya.uz.task1.dto.CreateOrganizationRequest;
 import adliya.uz.task1.dto.UpdateOrganizationRequest;
 import adliya.uz.task1.entity.Organization;
+import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.OrganizationAlreadyExistsException;
 import adliya.uz.task1.exception.OrganizationHasActiveMembersException;
 import adliya.uz.task1.exception.ResourceNotFoundException;
 import adliya.uz.task1.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +20,19 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class OrganizationService {
 
+    private static final String ORGANIZATIONS_CREATE = "ORGANIZATIONS_CREATE";
+    private static final String ORGANIZATIONS_EDIT = "ORGANIZATIONS_EDIT";
+    private static final String ORGANIZATIONS_EDIT_OWN = "ORGANIZATIONS_EDIT_OWN";
+    private static final String ORGANIZATIONS_DEACTIVATE = "ORGANIZATIONS_DEACTIVATE";
+    private static final String ORGANIZATIONS_REACTIVATE = "ORGANIZATIONS_REACTIVATE";
+
     private final OrganizationRepository organizationRepository;
     private final OrganizationTranslationStateService translationStateService;
+    private final UserService userService;
 
     @Transactional
     public Organization create(CreateOrganizationRequest request) {
+        requirePermission(ORGANIZATIONS_CREATE);
         if (organizationRepository.existsByName(request.getName())) {
             throw new OrganizationAlreadyExistsException(
                     "Organization already exists with name: " + request.getName());
@@ -49,6 +59,7 @@ public class OrganizationService {
 
     @Transactional
     public Organization update(Long id, UpdateOrganizationRequest request) {
+        requireUpdateAccess(id);
         Organization org = getById(id);
 
         boolean nameChanged = request.getName() != null && !request.getName().equals(org.getName());
@@ -73,6 +84,7 @@ public class OrganizationService {
 
     @Transactional
     public void deactivate(Long id) {
+        requirePermission(ORGANIZATIONS_DEACTIVATE);
         Organization org = getById(id);
 
         boolean hasActiveStaff = org.getMembers().stream()
@@ -90,6 +102,14 @@ public class OrganizationService {
         organizationRepository.save(org);
     }
 
+    @Transactional
+    public Organization reactivate(Long id) {
+        requirePermission(ORGANIZATIONS_REACTIVATE);
+        Organization organization = getById(id);
+        organization.setEnabled(true);
+        return organizationRepository.save(organization);
+    }
+
     public List<Organization> getAllPublic() {
         return organizationRepository.findAllByEnabledTrue();
     }
@@ -100,5 +120,41 @@ public class OrganizationService {
             throw new ResourceNotFoundException("Organization not found, ID: " + id);
         }
         return org;
+    }
+
+    private void requireUpdateAccess(Long organizationId) {
+        User current = requireEnabledUser();
+        if (hasPermission(current, ORGANIZATIONS_EDIT)) {
+            return;
+        }
+
+        boolean canEditOwn = hasPermission(current, ORGANIZATIONS_EDIT_OWN)
+                && current.getOrganizations().stream()
+                .map(Organization::getId)
+                .anyMatch(organizationId::equals);
+        if (!canEditOwn) {
+            throw new AccessDeniedException("You can only edit your own organization");
+        }
+    }
+
+    private User requirePermission(String permissionCode) {
+        User current = requireEnabledUser();
+        if (!hasPermission(current, permissionCode)) {
+            throw new AccessDeniedException("Missing required permission: " + permissionCode);
+        }
+        return current;
+    }
+
+    private User requireEnabledUser() {
+        User current = userService.getCurrentUser();
+        if (!Boolean.TRUE.equals(current.getEnabled()) || current.getRole() == null) {
+            throw new AccessDeniedException("An enabled user with an assigned role is required");
+        }
+        return current;
+    }
+
+    private boolean hasPermission(User user, String permissionCode) {
+        return user.getRole().getPermissions().stream()
+                .anyMatch(permission -> permissionCode.equals(permission.getCode()));
     }
 }

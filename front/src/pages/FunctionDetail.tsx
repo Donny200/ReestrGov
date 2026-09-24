@@ -28,16 +28,16 @@ export function FunctionDetail() {
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
       <Link
         to="/#functions"
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-semibold text-navy-500 transition-colors hover:text-navy-950"
+        className="inline-flex min-h-11 items-center gap-2 rounded-full pr-3 text-sm font-semibold text-content-muted transition-colors hover:text-content-strong"
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-navy-100 bg-white shadow-card">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white shadow-card">
           <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
         </span>
         {t('nav.functions')}
       </Link>
 
       {item.loading ? (
-        <div className="mt-5 rounded-2xl border border-navy-100 bg-white p-7 shadow-card sm:p-9">
+        <div className="mt-5 rounded-card border border-line bg-white p-7 shadow-card sm:p-9">
           <SkeletonText lines={6} />
         </div>
       ) : item.error ? (
@@ -46,8 +46,8 @@ export function FunctionDetail() {
         </div>
       ) : item.data ? (
         <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start">
-          <article className="overflow-hidden rounded-2xl border border-navy-100 bg-white shadow-card">
-            <div className="h-1 bg-teal-600" aria-hidden="true" />
+          <article className="overflow-hidden rounded-card border border-line bg-white shadow-card">
+            <div className="h-1 bg-accent" aria-hidden="true" />
             <div className="p-6 sm:p-9">
               <div className="flex flex-wrap items-center gap-2">
                 {item.data.category && <Badge tone="teal">{item.data.category}</Badge>}

@@ -1,10 +1,9 @@
 import { SearchIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Field';
 import { useI18n } from '../../contexts/i18n';
 import type { Language, Region } from '../../types/api';
-
-const HERO_IMAGE = '/3e42b6c2-ea58-46c4-a3f2-45342d80cb5b.jpg';
 
 interface HeroProps {
   query: string;
@@ -36,36 +35,29 @@ export function Hero({
   ];
 
   return (
-    <section className="relative isolate overflow-hidden bg-navy-950 text-white">
-      <img
-        src={HERO_IMAGE}
-        alt={t('home.heroImageAlt', 'Zamonaviy davlat idorasi binosi va oldidagi maydon')}
-        width={1376}
-        height={768}
-        decoding="async"
-        className="absolute inset-0 h-full w-full object-cover object-center opacity-25 lg:object-[70%_center]"
-      />
-      <div
-        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,15,28,0.98)_0%,rgba(7,15,28,0.9)_48%,rgba(7,15,28,0.42)_100%)]"
-        aria-hidden="true"
-      />
+    <section className="relative isolate overflow-hidden bg-brand text-white">
+      <div className="pointer-events-none absolute -right-20 -top-32 h-[34rem] w-[34rem] rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-48 left-1/3 h-[28rem] w-[28rem] rounded-full bg-white/5 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-[-1.8rem] select-none text-center font-display text-[clamp(5rem,18vw,14rem)] font-extrabold leading-none tracking-[-0.08em] text-white/[0.045]" aria-hidden="true">
+        REESTR
+      </div>
 
       <div className="relative mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-        <div className="max-w-3xl">
-          <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 text-xs font-semibold tracking-wide text-teal-100">
-            <span className="h-2 w-2 rounded-full bg-flag-green ring-4 ring-flag-green/15" aria-hidden="true" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 210, damping: 26 }} className="max-w-3xl">
+          <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 text-xs font-semibold tracking-wide text-white/80">
+            <span className="h-2 w-2 rounded-full bg-accent ring-4 ring-accent/20" aria-hidden="true" />
             {t('home.heroBadge')}
           </span>
 
-          <h1 className="mt-5 max-w-3xl text-balance font-display text-3xl font-extrabold leading-[1.08] tracking-[-0.035em] text-white sm:text-4xl lg:text-[3.4rem]">
+          <motion.h1 initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 180, damping: 26, delay: 0.05 }} className="mt-5 max-w-3xl text-balance font-display text-4xl font-extrabold leading-[1.04] tracking-[-0.045em] text-white sm:text-5xl lg:text-[4.5rem]">
             {t('home.heroTitle')}
-          </h1>
-          <p className="mt-5 max-w-2xl text-[15px] leading-7 text-navy-200 sm:text-base">
+          </motion.h1>
+          <p className="mt-5 max-w-2xl text-[15px] leading-7 text-white/65 sm:text-base">
             {t('home.heroSubtitle')}
           </p>
 
           <form
-            className="mt-8 grid w-full gap-2 rounded-2xl border border-white/15 bg-white p-2 shadow-pop transition-shadow focus-within:ring-4 focus-within:ring-teal-400/25 sm:grid-cols-[minmax(0,1fr)_auto]"
+            className="mt-8 grid w-full gap-2 rounded-card border border-white/15 bg-white p-2 shadow-pop transition-shadow focus-within:ring-4 focus-within:ring-accent/25 sm:grid-cols-[minmax(0,1fr)_auto]"
             onSubmit={(event) => {
               event.preventDefault();
               onSubmit();
@@ -82,14 +74,14 @@ export function Hero({
                 className="h-12 min-w-0 w-full border-0 bg-transparent text-sm text-navy-950 placeholder:text-navy-400 focus:outline-none"
               />
             </label>
-            <Button type="submit" variant="secondary" size="lg" className="w-full sm:w-auto sm:min-w-36">
+            <Button type="submit" variant="secondary" size="lg" className="w-full rounded-full sm:w-auto sm:min-w-36">
               {t('action.search')}
             </Button>
           </form>
 
-          <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-navy-900/80 p-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 rounded-surface border border-white/10 bg-white/[0.06] p-3 sm:grid-cols-2">
             <label className="min-w-0">
-              <span className="mb-1.5 block text-xs font-semibold text-navy-200">{t('field.region')}</span>
+              <span className="mb-1.5 block text-xs font-semibold text-white/60">{t('field.region')}</span>
               <Select
                 value={regionId}
                 onChange={(event) => onRegionChange(event.target.value)}
@@ -105,7 +97,7 @@ export function Hero({
             </label>
 
             <label className="min-w-0">
-              <span className="mb-1.5 block text-xs font-semibold text-navy-200">{t('field.language')}</span>
+              <span className="mb-1.5 block text-xs font-semibold text-white/60">{t('field.language')}</span>
               <Select
                 value={locale}
                 onChange={(event) => setLocale(event.target.value)}
@@ -130,7 +122,7 @@ export function Hero({
               </div>
             ))}
           </dl>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

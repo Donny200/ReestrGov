@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/interface-translations/**",
                                 "/api/translation-keys/**"
-                        ).hasRole("SUPER_ADMIN")
+                        ).authenticated()
 
                         .requestMatchers(
                                 "/swagger",

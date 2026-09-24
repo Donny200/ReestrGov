@@ -1,5 +1,5 @@
 /* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap');
 
 /* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
 @import 'tailwindcss/base';
@@ -17,31 +17,31 @@ body,
 
 :root {
   color-scheme: light;
-  --color-canvas: 246 248 251;
+  --color-canvas: 255 255 255;
   --color-surface: 255 255 255;
-  --color-surface-subtle: 241 245 249;
+  --color-surface-subtle: 241 240 238;
   --color-surface-raised: 255 255 255;
-  --color-surface-inverse: 13 27 48;
-  --color-content: 30 53 87;
-  --color-content-strong: 13 27 48;
-  --color-content-muted: 72 94 124;
-  --color-content-subtle: 82 106 137;
+  --color-surface-inverse: 10 10 10;
+  --color-content: 17 17 17;
+  --color-content-strong: 10 10 10;
+  --color-content-muted: 110 110 108;
+  --color-content-subtle: 150 150 146;
   --color-content-inverse: 255 255 255;
-  --color-line: 220 228 237;
-  --color-line-strong: 190 202 216;
-  --color-brand: 21 40 69;
-  --color-brand-hover: 13 27 48;
-  --color-brand-pressed: 7 15 28;
-  --color-brand-subtle: 239 243 248;
-  --color-accent: 15 127 125;
-  --color-accent-hover: 11 109 107;
-  --color-accent-pressed: 9 90 89;
-  --color-accent-subtle: 232 247 245;
+  --color-line: 230 229 226;
+  --color-line-strong: 210 208 203;
+  --color-brand: 10 10 10;
+  --color-brand-hover: 0 0 0;
+  --color-brand-pressed: 0 0 0;
+  --color-brand-subtle: 241 240 238;
+  --color-accent: 177 95 44;
+  --color-accent-hover: 151 80 31;
+  --color-accent-pressed: 122 65 25;
+  --color-accent-subtle: 250 237 227;
   --color-positive: 20 122 75;
   --color-warning: 146 91 11;
   --color-danger: 180 35 24;
   --color-info: 23 107 147;
-  --color-focus: 31 165 164;
+  --color-focus: 177 95 44;
 }
 
 html {
@@ -53,7 +53,7 @@ body {
   margin: 0;
   background-color: rgb(var(--color-canvas));
   color: rgb(var(--color-content));
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Onest', system-ui, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -84,16 +84,9 @@ textarea {
   color: rgb(var(--color-content-strong));
 }
 
-.pattern-band {
-  background-image: linear-gradient(
-    90deg,
-    #1eaf5b 0 25%,
-    #ffffff 25% 50%,
-    #1a8fd1 50% 75%,
-    #1fa5a4 75% 100%
-  );
-  background-size: 72px 100%;
-}
+.pattern-band { background: rgb(var(--color-accent)); }
+
+::selection { background: rgb(var(--color-accent) / 0.2); }
 
 @media (prefers-reduced-motion: reduce) {
   html {

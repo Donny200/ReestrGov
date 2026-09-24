@@ -22,7 +22,7 @@ public class OrganizationController {
     private final OrganizationService organizationService;
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_CREATE')")
     public ResponseEntity<OrganizationResponse> create(@Valid @RequestBody CreateOrganizationRequest request) {
         Organization org = organizationService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrganizationResponse.from(org));
@@ -44,15 +44,21 @@ public class OrganizationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_EDIT') or hasAuthority('ORGANIZATIONS_EDIT_OWN')")
     public ResponseEntity<OrganizationResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateOrganizationRequest request) {
         return ResponseEntity.ok(OrganizationResponse.from(organizationService.update(id, request)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_DEACTIVATE')")
     public ResponseEntity<String> deactivate(@PathVariable Long id) {
         organizationService.deactivate(id);
         return ResponseEntity.ok("Organization deactivated successfully.");
+    }
+
+    @PostMapping("/{id}/reactivate")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_REACTIVATE')")
+    public ResponseEntity<OrganizationResponse> reactivate(@PathVariable Long id) {
+        return ResponseEntity.ok(OrganizationResponse.from(organizationService.reactivate(id)));
     }
 }

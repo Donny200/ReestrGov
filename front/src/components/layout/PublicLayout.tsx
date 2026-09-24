@@ -36,10 +36,10 @@ export function PublicLayout() {
   }, [location.hash, location.pathname]);
 
   return (
-    <div className="flex min-h-screen min-h-dvh w-full flex-col bg-canvas text-navy-900">
+    <div className="flex min-h-screen min-h-dvh w-full flex-col bg-canvas text-content">
       <a
         href="#main-content"
-        className="fixed left-4 top-3 z-[80] -translate-y-20 rounded-lg bg-navy-900 px-4 py-2.5 text-sm font-semibold text-white shadow-pop transition-transform focus:translate-y-0"
+        className="fixed left-4 top-3 z-[80] -translate-y-20 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-pop transition-transform focus:translate-y-0"
       >
         {t('a11y.skipToContent', "Asosiy tarkibga o'tish")}
       </a>

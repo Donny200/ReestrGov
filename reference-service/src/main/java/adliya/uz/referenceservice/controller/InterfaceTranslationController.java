@@ -25,7 +25,7 @@ public class InterfaceTranslationController {
     }
 
     @PutMapping("/{languageCode}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('TRANSLATIONS_EDIT')")
     public ResponseEntity<Map<String, String>> update(
             @PathVariable String languageCode,
             @Valid @RequestBody UpdateInterfaceTranslationsRequest request
@@ -35,26 +35,26 @@ public class InterfaceTranslationController {
     }
 
     @DeleteMapping("/{languageCode}/{key}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('TRANSLATIONS_EDIT')")
     public ResponseEntity<Void> delete(@PathVariable String languageCode, @PathVariable String key) {
         translationService.deleteTranslation(languageCode, key);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{languageCode}/exact")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('TRANSLATIONS_VIEW_COVERAGE')")
     public ResponseEntity<Map<String, String>> getExact(@PathVariable String languageCode) {
         return ResponseEntity.ok(translationService.getExactTranslations(languageCode));
     }
 
     @GetMapping("/{languageCode}/missing")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('TRANSLATIONS_VIEW_COVERAGE')")
     public ResponseEntity<List<String>> getMissing(@PathVariable String languageCode) {
         return ResponseEntity.ok(translationService.getMissingKeys(languageCode));
     }
 
     @GetMapping("/{languageCode}/coverage")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('TRANSLATIONS_VIEW_COVERAGE')")
     public ResponseEntity<TranslationCoverageResponse> getCoverage(@PathVariable String languageCode) {
         return ResponseEntity.ok(translationService.getCoverage(languageCode));
     }

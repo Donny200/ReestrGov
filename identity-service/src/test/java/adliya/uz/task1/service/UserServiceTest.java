@@ -5,6 +5,7 @@ import adliya.uz.task1.dto.CreateUserRequest;
 import adliya.uz.task1.dto.UpdateUserRequest;
 import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.Organization;
+import adliya.uz.task1.entity.Permission;
 import adliya.uz.task1.entity.Role;
 import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.EmailAlreadyExistsException;
@@ -62,7 +63,7 @@ class UserServiceTest {
     @Test
     void createResolvesManagedRelationsHashesPasswordAndForcesEnabled() {
         User caller = user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true);
-        authenticate(caller);
+        authenticate(caller, "USERS_CREATE");
 
         Role role = role(2L, SystemRole.MODERATOR.authority());
         Organization organization = Organization.builder()
@@ -109,7 +110,7 @@ class UserServiceTest {
 
     @Test
     void createRejectsInactiveOrganization() {
-        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true));
+        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true), "USERS_CREATE");
         Role role = role(2L, SystemRole.MODERATOR.authority());
         Organization inactive = Organization.builder().id(10L).name("Inactive").enabled(false).build();
         CreateUserRequest request = CreateUserRequest.builder()
@@ -133,7 +134,7 @@ class UserServiceTest {
 
     @Test
     void updateRejectsAnEmailAlreadyUsedByAnotherUser() {
-        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true));
+        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true), "USERS_EDIT");
         User target = user(2L, "old@example.com", SystemRole.MODERATOR.authority(), true);
         UpdateUserRequest request = UpdateUserRequest.builder()
                 .email("used@example.com")
@@ -149,7 +150,7 @@ class UserServiceTest {
 
     @Test
     void updateHashesANewPassword() {
-        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true));
+        authenticate(user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true), "USERS_EDIT");
         User target = user(2L, "user@example.com", SystemRole.MODERATOR.authority(), true);
         UpdateUserRequest request = UpdateUserRequest.builder()
                 .password("new-password")
@@ -168,7 +169,7 @@ class UserServiceTest {
     @Test
     void deactivateRejectsTheCurrentUser() {
         User caller = user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true);
-        authenticate(caller);
+        authenticate(caller, "USERS_DEACTIVATE");
         when(userRepository.findById(caller.getId())).thenReturn(Optional.of(caller));
 
         assertThatThrownBy(() -> userService.deactivate(caller.getId()))
@@ -181,7 +182,7 @@ class UserServiceTest {
     void deactivateRejectsTheLastEnabledSuperAdmin() {
         User caller = user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true);
         User target = user(2L, "other-admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true);
-        authenticate(caller);
+        authenticate(caller, "USERS_DEACTIVATE");
         when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
         when(userRepository.countByRole_NameAndEnabledTrue(SystemRole.SUPER_ADMIN.authority()))
                 .thenReturn(1L);
@@ -197,7 +198,7 @@ class UserServiceTest {
     void deactivateIsSoftAndKeepsTheUserRecord() {
         User caller = user(1L, "admin@reestr.uz", SystemRole.SUPER_ADMIN.authority(), true);
         User target = user(2L, "moderator@reestr.uz", SystemRole.MODERATOR.authority(), true);
-        authenticate(caller);
+        authenticate(caller, "USERS_DEACTIVATE");
         when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
 
         userService.deactivate(target.getId());
@@ -229,7 +230,10 @@ class UserServiceTest {
         assertThat(json).doesNotContain("password", "must-not-appear");
     }
 
-    private void authenticate(User caller) {
+    private void authenticate(User caller, String... permissionCodes) {
+        caller.getRole().setPermissions(java.util.Arrays.stream(permissionCodes)
+                .map(code -> Permission.builder().code(code).build())
+                .collect(java.util.stream.Collectors.toSet()));
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 caller.getEmail(),
                 "unused",

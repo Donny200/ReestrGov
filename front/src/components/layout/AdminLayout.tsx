@@ -107,8 +107,8 @@ export function AdminLayout() {
   };
 
   const sidebar = (mobile = false) => (
-    <div className="relative flex h-full flex-col overflow-hidden bg-navy-950 text-white">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-teal-400/80" />
+    <div className="relative flex h-full flex-col overflow-hidden bg-brand text-white">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-accent" />
 
       <div className="flex min-h-[76px] items-center justify-between gap-3 border-b border-white/10 px-5">
         <div onClick={mobile ? closeDrawer : undefined}>
@@ -140,7 +140,7 @@ export function AdminLayout() {
                     `group relative flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13.5px] font-medium transition-all duration-200 ${
                       isActive
                         ? 'bg-white/[0.11] text-white shadow-sm ring-1 ring-inset ring-white/10'
-                        : 'text-navy-300 hover:bg-white/[0.06] hover:text-white'
+                        : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
                     }`
                   }
                 >
@@ -148,13 +148,13 @@ export function AdminLayout() {
                     <>
                       <span
                         className={`absolute inset-y-2 left-0 w-0.5 rounded-full transition-colors ${
-                          isActive ? 'bg-teal-400' : 'bg-transparent'
+                          isActive ? 'bg-accent' : 'bg-transparent'
                         }`}
                         aria-hidden="true"
                       />
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                          isActive ? 'bg-teal-400/15 text-teal-300' : 'text-navy-400 group-hover:text-navy-100'
+                          isActive ? 'bg-accent/20 text-accent' : 'text-white/35 group-hover:text-white/80'
                         }`}
                       >
                         <Icon className="h-[17px] w-[17px]" aria-hidden="true" />
@@ -172,7 +172,7 @@ export function AdminLayout() {
       <div className="border-t border-white/10 px-3 py-4">
         <Link
           to="/"
-          className="flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium text-navy-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+          className="flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white"
         >
           <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           {t('nav.backToSite')}
@@ -194,7 +194,7 @@ export function AdminLayout() {
             tabIndex={-1}
             aria-label={t('action.close')}
             onClick={closeDrawer}
-            className="absolute inset-0 h-full w-full cursor-default bg-navy-950/60 backdrop-blur-[2px]"
+            className="absolute inset-0 h-full w-full cursor-default bg-brand/70 backdrop-blur-[2px]"
           />
           <div
             ref={drawerRef}
@@ -211,7 +211,7 @@ export function AdminLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-navy-100/90 bg-white/90 px-3 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-line/90 bg-white/90 px-3 backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               ref={menuButtonRef}
@@ -276,7 +276,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions, badge }: PageHeaderProps) {
   return (
-    <header className="mb-7 border-b border-navy-100/90 pb-6 sm:mb-8 sm:pb-7">
+    <header className="mb-7 border-b border-line pb-6 sm:mb-8 sm:pb-7">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">

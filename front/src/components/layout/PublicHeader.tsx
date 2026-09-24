@@ -92,7 +92,7 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-navy-100 bg-white">
+      <header className="sticky top-0 z-50 border-b border-line bg-white/90 backdrop-blur-xl">
         <div className="pattern-band h-1 w-full" aria-hidden="true" />
         <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <Logo />
@@ -105,14 +105,13 @@ export function PublicHeader() {
                   key={link.to}
                   to={link.to}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative inline-flex h-11 items-center rounded-lg px-3.5 text-sm font-medium transition-colors ${
+                    className={`relative inline-flex h-11 items-center rounded-full px-4 text-sm font-medium transition-all duration-200 ${
                     active
-                      ? 'bg-navy-50 text-navy-900'
-                      : 'text-navy-500 hover:bg-navy-50 hover:text-navy-900'
+                      ? 'bg-brand text-content-inverse'
+                      : 'text-content-muted hover:bg-surface-subtle hover:text-content-strong'
                   }`}
                 >
                   {t(link.key)}
-                  {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-teal-600" aria-hidden="true" />}
                 </Link>
               );
             })}
@@ -124,11 +123,11 @@ export function PublicHeader() {
             </div>
 
             {initializing ? (
-              <span className="hidden h-11 w-24 animate-pulse rounded-lg bg-navy-50 sm:block" aria-hidden="true" />
+              <span className="hidden h-11 w-24 animate-pulse rounded-full bg-surface-subtle sm:block" aria-hidden="true" />
             ) : user ? (
               <Link
                 to="/admin"
-                className="group inline-flex h-11 items-center gap-2 rounded-lg bg-navy-900 px-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-navy-800 sm:px-3.5"
+                className="group inline-flex h-11 items-center gap-2 rounded-full bg-brand px-2.5 text-[13px] font-semibold text-white transition-all hover:bg-brand-hover hover:-translate-y-px sm:px-3.5"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-[11px] font-bold">
                   {initials(user)}
@@ -139,7 +138,7 @@ export function PublicHeader() {
             ) : (
               <Link
                 to="/login"
-                className="hidden h-11 items-center gap-2 rounded-lg bg-navy-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-navy-800 sm:inline-flex"
+                className="hidden h-11 items-center gap-2 rounded-full bg-brand px-4 text-sm font-semibold text-white transition-all hover:bg-brand-hover hover:-translate-y-px sm:inline-flex"
               >
                 <LogInIcon className="h-4 w-4" aria-hidden="true" />
                 {t('action.login')}
@@ -153,7 +152,7 @@ export function PublicHeader() {
               aria-label={t('a11y.openMenu', 'Menyuni ochish')}
               aria-expanded={open}
               aria-controls="public-mobile-menu"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-navy-100 text-navy-700 transition-colors hover:bg-navy-50 lg:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-content transition-colors hover:bg-surface-subtle lg:hidden"
             >
               <MenuIcon className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -172,7 +171,7 @@ export function PublicHeader() {
             closeDrawer();
             window.requestAnimationFrame(() => menuButtonRef.current?.focus());
           }}
-          className={`absolute inset-0 h-full w-full bg-navy-950/55 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 h-full w-full bg-brand/60 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
         />
 
         <aside
@@ -181,12 +180,12 @@ export function PublicHeader() {
           role="dialog"
           aria-modal="true"
           aria-labelledby={drawerTitleId}
-          className={`absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-1rem))] flex-col bg-white shadow-pop transition-transform duration-300 ease-out motion-reduce:transition-none ${
+            className={`absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-1rem))] flex-col bg-brand text-content-inverse shadow-pop transition-transform duration-300 ease-out motion-reduce:transition-none ${
             open ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
           <div className="pattern-band h-1 w-full shrink-0" aria-hidden="true" />
-          <div className="flex items-center justify-between border-b border-navy-100 px-4 py-3.5">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
             <div id={drawerTitleId} className="min-w-0">
               <Logo />
             </div>
@@ -197,7 +196,7 @@ export function PublicHeader() {
                 window.requestAnimationFrame(() => menuButtonRef.current?.focus());
               }}
               aria-label={t('action.close')}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-navy-500 transition-colors hover:bg-navy-50 hover:text-navy-900"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
             >
               <XIcon className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -214,7 +213,7 @@ export function PublicHeader() {
                       onClick={closeDrawerAfterNavigation}
                       aria-current={active ? 'page' : undefined}
                       className={`flex min-h-12 items-center justify-between rounded-xl px-4 py-3 text-[15px] font-semibold transition-colors ${
-                        active ? 'bg-navy-900 text-white' : 'text-navy-700 hover:bg-navy-50 hover:text-navy-900'
+                        active ? 'bg-white/10 text-accent' : 'text-white/75 hover:bg-white/10 hover:text-white'
                       }`}
                     >
                       {t(link.key)}
@@ -226,8 +225,8 @@ export function PublicHeader() {
             </ul>
           </nav>
 
-          <div className="border-t border-navy-100 bg-navy-50/70 px-4 py-4">
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-navy-400">{t('field.language')}</p>
+          <div className="border-t border-white/10 bg-black/10 px-4 py-4">
+            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-white/45">{t('field.language')}</p>
             <LanguageSwitcher />
             {!initializing && (
               user ? (
@@ -248,7 +247,7 @@ export function PublicHeader() {
                 <Link
                   to="/login"
                   onClick={closeDrawerAfterNavigation}
-                  className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+                  className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
                 >
                   <LogInIcon className="h-4 w-4" aria-hidden="true" />
                   {t('action.login')}

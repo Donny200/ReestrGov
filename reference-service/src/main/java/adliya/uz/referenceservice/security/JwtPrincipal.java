@@ -1,4 +1,6 @@
 package adliya.uz.referenceservice.security;
 
-public record JwtPrincipal(String email, String role) {
+import java.util.List;
+
+public record JwtPrincipal(String email, String role, List<String> permissions) {
 }

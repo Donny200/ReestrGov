@@ -14,12 +14,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<Variant, string> = {
   primary:
-    'border border-brand bg-brand text-content-inverse shadow-sm hover:border-brand-hover hover:bg-brand-hover active:border-brand-pressed active:bg-brand-pressed',
+    'border border-brand bg-brand text-content-inverse shadow-sm hover:border-brand-hover hover:bg-brand-hover hover:-translate-y-px active:border-brand-pressed active:bg-brand-pressed',
   secondary:
-    'border border-accent bg-accent text-content-inverse shadow-sm hover:border-accent-hover hover:bg-accent-hover active:border-accent-pressed active:bg-accent-pressed',
+    'border border-accent bg-accent text-content-inverse shadow-sm hover:border-accent-hover hover:bg-accent-hover hover:-translate-y-px active:border-accent-pressed active:bg-accent-pressed',
   outline:
-    'border border-line-strong bg-surface text-content-strong shadow-sm hover:border-brand/30 hover:bg-brand-subtle active:bg-navy-100',
-  ghost: 'border border-transparent text-content hover:bg-brand-subtle active:bg-navy-100',
+    'border border-line-strong bg-surface text-content-strong shadow-sm hover:border-brand/30 hover:bg-brand-subtle active:bg-line',
+  ghost: 'border border-transparent text-content hover:bg-brand-subtle active:bg-line',
   danger:
     'border border-danger bg-danger text-white shadow-sm hover:bg-red-800 active:bg-red-900'
 };

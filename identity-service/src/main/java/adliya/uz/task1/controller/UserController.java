@@ -23,27 +23,30 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class UserController {
 
     private final UserService userService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('USERS_CREATE')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request));
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('USERS_VIEW')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllForLegacyApi());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('USERS_VIEW')")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getForLegacyApi(id));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('USERS_EDIT')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UpdateUserRequest request
@@ -52,6 +55,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('USERS_DEACTIVATE')")
     public ResponseEntity<Void> deactivateUser(@PathVariable Long id) {
         userService.deactivate(id);
         return ResponseEntity.noContent().build();

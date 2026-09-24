@@ -65,12 +65,15 @@ class UserControllerSecurityTest {
     private AuthenticationProvider authenticationProvider;
 
     @Test
-    @WithMockUser(username = "org-admin@example.com", roles = "ORG_ADMIN")
-    void everyLegacyUserOperationIsForbiddenWithoutSuperAdminRole() throws Exception {
+    @WithMockUser(username = "viewer@example.com", authorities = "USERS_VIEW")
+    void usersViewPermissionCanReadButCannotMutate() throws Exception {
+        when(userService.getAllForLegacyApi()).thenReturn(List.of());
+        when(userService.getForLegacyApi(7L)).thenReturn(response());
+
         mockMvc.perform(get("/api/user"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/user/7"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/user")
                         .contentType("application/json")
                         .content(validCreateRequest()))
@@ -82,7 +85,38 @@ class UserControllerSecurityTest {
         mockMvc.perform(delete("/api/user/7"))
                 .andExpect(status().isForbidden());
 
-        verifyNoInteractions(userService);
+        verify(userService).getAllForLegacyApi();
+        verify(userService).getForLegacyApi(7L);
+    }
+
+    @Test
+    @WithMockUser(username = "creator@example.com", authorities = "USERS_CREATE")
+    void usersCreatePermissionCanCreateButCannotRead() throws Exception {
+        when(userService.create(any())).thenReturn(response());
+
+        mockMvc.perform(post("/api/user")
+                        .contentType("application/json")
+                        .content(validCreateRequest()))
+                .andExpect(status().isCreated());
+        mockMvc.perform(get("/api/user"))
+                .andExpect(status().isForbidden());
+
+        verify(userService).create(any());
+    }
+
+    @Test
+    @WithMockUser(username = "editor@example.com", authorities = "USERS_EDIT")
+    void usersEditPermissionCanUpdateButCannotDeactivate() throws Exception {
+        when(userService.update(eq(7L), any())).thenReturn(response());
+
+        mockMvc.perform(put("/api/user/7")
+                        .contentType("application/json")
+                        .content("{\"firstName\":\"Updated\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/user/7"))
+                .andExpect(status().isForbidden());
+
+        verify(userService).update(eq(7L), any());
     }
 
     @Test
@@ -94,7 +128,9 @@ class UserControllerSecurityTest {
     }
 
     @Test
-    @WithMockUser(username = "root@example.com", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "root@example.com", authorities = {
+            "ROLE_SUPER_ADMIN", "USERS_VIEW", "USERS_CREATE", "USERS_EDIT"
+    })
     void passwordNeverAppearsInAnyLegacyUserResponse() throws Exception {
         UserResponse response = response();
         when(userService.getAllForLegacyApi()).thenReturn(List.of(response));
@@ -121,7 +157,7 @@ class UserControllerSecurityTest {
     }
 
     @Test
-    @WithMockUser(username = "root@example.com", roles = "SUPER_ADMIN")
+    @WithMockUser(username = "manager@example.com", authorities = "USERS_DEACTIVATE")
     void superAdminDeleteSoftDeactivatesAndReturnsNoContent() throws Exception {
         mockMvc.perform(delete("/api/user/7"))
                 .andExpect(status().isNoContent());

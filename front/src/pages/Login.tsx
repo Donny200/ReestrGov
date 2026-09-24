@@ -10,8 +10,6 @@ import { homeRouteForRole, useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
 import { errorMessage, fieldErrorsOf, statusOf } from '../utils/errors';
 
-const HERO_IMAGE = '/3e42b6c2-ea58-46c4-a3f2-45342d80cb5b.jpg';
-
 export function Login() {
   const { t } = useI18n();
   const { signIn, user } = useAuth();
@@ -81,17 +79,9 @@ export function Login() {
         {t('a11y.skipToContent', "Asosiy tarkibga o'tish")}
       </a>
 
-      <aside className="relative hidden w-[46%] shrink-0 overflow-hidden bg-navy-950 lg:block">
-        <img
-          src={HERO_IMAGE}
-          alt=""
-          aria-hidden="true"
-          width={1376}
-          height={768}
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover opacity-45"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,15,28,0.3)_0%,rgba(7,15,28,0.92)_100%)]" aria-hidden="true" />
+      <aside className="relative hidden w-[46%] shrink-0 overflow-hidden bg-brand lg:block">
+        <div className="pointer-events-none absolute -right-28 top-20 h-[32rem] w-[32rem] rounded-full bg-accent/20 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute bottom-[-5rem] left-[-4rem] font-display text-[14rem] font-extrabold leading-none tracking-[-0.1em] text-white/[0.04]" aria-hidden="true">R</div>
         <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
           <Logo tone="light" />
           <div className="max-w-lg">
@@ -101,8 +91,8 @@ export function Login() {
             <h2 className="mt-5 font-display text-3xl font-extrabold leading-tight tracking-tight text-white xl:text-4xl">
               {t('home.ctaTitle')}
             </h2>
-            <p className="mt-4 max-w-md text-sm leading-7 text-navy-200">{t('home.ctaText')}</p>
-            <p className="mt-8 max-w-md border-l-2 border-teal-500 pl-4 text-xs leading-5 text-navy-300">
+              <p className="mt-4 max-w-md text-sm leading-7 text-white/60">{t('home.ctaText')}</p>
+            <p className="mt-8 max-w-md border-l-2 border-accent pl-4 text-xs leading-5 text-white/45">
               {t('app.demoNotice')}
             </p>
           </div>
@@ -110,7 +100,7 @@ export function Login() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-navy-100 px-4 sm:px-8 lg:justify-end lg:border-b-0">
+        <header className="flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-line px-4 sm:px-8 lg:justify-end lg:border-b-0">
           <div className="min-w-0 lg:hidden"><Logo /></div>
           <div className="shrink-0"><LanguageSwitcher /></div>
         </header>
@@ -119,15 +109,15 @@ export function Login() {
           <div className="w-full max-w-md">
             <Link
               to="/"
-              className="mb-8 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold text-navy-500 transition-colors hover:text-navy-950"
+              className="mb-8 inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-semibold text-content-muted transition-colors hover:text-content-strong"
             >
               <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               {t('nav.backToSite')}
             </Link>
 
-            <div className="rounded-2xl border border-navy-100 bg-white p-5 shadow-card sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">{t('nav.admin')}</p>
-              <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-navy-950 sm:text-3xl">
+            <div className="rounded-card border border-line bg-white p-5 shadow-pop sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{t('nav.admin')}</p>
+              <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight text-content-strong sm:text-4xl">
                 {t('login.title')}
               </h1>
               <p className="mt-2 text-sm leading-6 text-navy-500">{t('login.subtitle')}</p>

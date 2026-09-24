@@ -39,20 +39,19 @@ public class LanguageController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('LANGUAGES_VIEW')")
     public ResponseEntity<List<LanguageSearchResult>> search(@RequestParam("q") String query) {
         return ResponseEntity.ok(languageService.search(query));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_A" +
-            "DMIN')")
+    @PreAuthorize("hasAuthority('LANGUAGES_CREATE')")
     public ResponseEntity<LanguageResponse> add(@Valid @RequestBody AddLanguageRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(LanguageResponse.from(languageService.add(request)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('LANGUAGES_DELETE')")
     public ResponseEntity<Void> remove(@PathVariable Long id) {
         languageService.remove(id);
         return ResponseEntity.noContent().build();

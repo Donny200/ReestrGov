@@ -2,6 +2,41 @@
 
 Spring Boot microservices with PostgreSQL, Eureka and an API Gateway. Secrets are not stored in the repository: provide them through the deployment environment or an untracked local `.env` file.
 
+## Local database and IntelliJ IDEA
+
+Docker PostgreSQL is published on `localhost:5433`. The three application services use
+`postgres:5432` inside Docker; their local Spring configuration uses `localhost:5433`
+so that launching a service from IDEA connects to the same database. A native Windows
+PostgreSQL on port `5432` is a separate instance.
+
+| Database | Data to inspect |
+| --- | --- |
+| `adlita_project1` | `users`, `organizations`, `languages`, `permissions`, `roles`, `role_permissions` |
+| `reference_service_db` | `regions`, `translation_keys`, `translations` |
+| `function_catalog_db` | `org_functions` |
+
+In IDEA's **Database** tool window, use host `localhost`, port `5433`, and the database
+name above. Use `POSTGRES_USER` (default `postgres`) and `POSTGRES_PASSWORD` from your
+local `.env`; save the password through IDEA's password storage, not in the JDBC URL.
+Services launched outside Docker also use `POSTGRES_PASSWORD` by default. The optional
+`IDENTITY_DB_PASSWORD`, `REFERENCE_DB_PASSWORD` and `FUNCTION_CATALOG_DB_PASSWORD`
+variables override it for their respective services.
+
+If IDEA was open when its connection files changed, reopen the project if the old
+connections remain visible, then reconnect and use **Test Connection**. In a query
+console, `SELECT version(), current_database();` should identify PostgreSQL 16.x and
+the selected database. Do not rely on cached metadata from an older connection.
+
+Double-click a table to view its rows. After saving through the application, use
+**Reload Page** (`Ctrl+F5`) or set **Update Interval** in the table toolbar, for example
+to 5 seconds. The interval refreshes that table's rows; the table tree alone does not
+show newly inserted records. See the [IDEA data editor documentation](https://www.jetbrains.com/help/idea/data-editor-and-viewer.html).
+
+Keep the existing Compose project name and `pgdata` volume. When applying only the
+PostgreSQL port mapping, run `docker compose up -d --no-deps postgres`; database
+connections briefly disconnect while the container is recreated. Do not use
+`docker compose down -v` for this operation.
+
 ## Required security configuration
 
 | Variable | Used by | Purpose |

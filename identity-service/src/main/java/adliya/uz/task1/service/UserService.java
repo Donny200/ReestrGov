@@ -31,6 +31,11 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String USERS_VIEW = "USERS_VIEW";
+    private static final String USERS_CREATE = "USERS_CREATE";
+    private static final String USERS_EDIT = "USERS_EDIT";
+    private static final String USERS_DEACTIVATE = "USERS_DEACTIVATE";
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final OrganizationRepository organizationRepository;
@@ -57,7 +62,7 @@ public class UserService {
 
     @Transactional
     public UserResponse create(CreateUserRequest request) {
-        requireSuperAdmin();
+        User current = requirePermission(USERS_CREATE);
 
         String email = request.getEmail().trim();
         if (userRepository.existsByEmail(email)) {
@@ -65,6 +70,7 @@ public class UserService {
         }
 
         Role role = resolveRole(request.getRoleId());
+        requireSuperAdminForSuperAdminRole(current, role);
         Set<Organization> organizations = resolveActiveOrganizations(request.getOrganizationIds());
 
         User user = User.builder()
@@ -83,7 +89,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> getAllForLegacyApi() {
-        requireSuperAdmin();
+        requirePermission(USERS_VIEW);
         return userRepository.findAll().stream()
                 .map(UserResponse::from)
                 .toList();
@@ -91,14 +97,15 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponse getForLegacyApi(Long id) {
-        requireSuperAdmin();
+        requirePermission(USERS_VIEW);
         return UserResponse.from(getById(id));
     }
 
     @Transactional
     public UserResponse update(Long id, UpdateUserRequest request) {
-        requireSuperAdmin();
+        User current = requirePermission(USERS_EDIT);
         User user = getById(id);
+        requireSuperAdminForSuperAdminTarget(current, user);
 
         if (request.getFirstName() != null) {
             user.setFirstName(request.getFirstName().trim());
@@ -125,8 +132,10 @@ public class UserService {
 
     @Transactional
     public void deactivate(Long id) {
-        User current = requireSuperAdmin();
+        User current = requirePermission(USERS_DEACTIVATE);
         User target = getById(id);
+
+        requireSuperAdminForSuperAdminTarget(current, target);
 
         if (Objects.equals(current.getId(), target.getId())) {
             throw new IllegalStateException("You cannot deactivate your own account");
@@ -151,14 +160,32 @@ public class UserService {
         return getByEmail(authentication.getName());
     }
 
-    private User requireSuperAdmin() {
+    private User requirePermission(String permissionCode) {
         User current = getCurrentUser();
         if (!Boolean.TRUE.equals(current.getEnabled())
                 || current.getRole() == null
-                || !SystemRole.SUPER_ADMIN.authority().equals(current.getRole().getName())) {
-            throw new AccessDeniedException("Only an enabled SUPER_ADMIN can manage legacy users");
+                || current.getRole().getPermissions().stream()
+                .noneMatch(permission -> permissionCode.equals(permission.getCode()))) {
+            throw new AccessDeniedException("Missing required permission: " + permissionCode);
         }
         return current;
+    }
+
+    private void requireSuperAdminForSuperAdminRole(User current, Role requestedRole) {
+        if (SystemRole.SUPER_ADMIN.authority().equals(requestedRole.getName()) && !isSuperAdmin(current)) {
+            throw new AccessDeniedException("Only SUPER_ADMIN can create another SUPER_ADMIN");
+        }
+    }
+
+    private void requireSuperAdminForSuperAdminTarget(User current, User target) {
+        if (isSuperAdmin(target) && !isSuperAdmin(current)) {
+            throw new AccessDeniedException("Only SUPER_ADMIN can manage another SUPER_ADMIN");
+        }
+    }
+
+    private boolean isSuperAdmin(User user) {
+        return user.getRole() != null
+                && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
     }
 
     private Role resolveRole(Long roleId) {

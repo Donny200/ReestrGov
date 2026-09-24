@@ -96,35 +96,35 @@ export function Home() {
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">{t('nav.catalog')}</p>
-            <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-navy-950 sm:text-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{t('nav.catalog')}</p>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight text-content-strong sm:text-4xl">
               {t('home.catalogTitle')}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-navy-500">{t('home.catalogSubtitle')}</p>
+            <p className="mt-2 text-sm leading-6 text-content-muted">{t('home.catalogSubtitle')}</p>
           </div>
           <p
             aria-live="polite"
-            className="inline-flex min-h-9 w-fit items-center rounded-full border border-navy-100 bg-white px-3 text-xs font-semibold text-navy-500 shadow-card"
+            className="inline-flex min-h-9 w-fit items-center rounded-full border border-line bg-surface-subtle px-3 text-xs font-semibold text-content-muted"
           >
             {filtered.length} {t('home.resultsCount')}
           </p>
         </div>
 
-        <div className="mt-7 rounded-2xl border border-navy-100 bg-white p-4 shadow-card sm:p-5">
-          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-navy-400">
+        <div className="mt-7 rounded-surface border border-line bg-surface p-4 shadow-surface sm:p-5">
+          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-content-muted">
             <SlidersHorizontalIcon className="h-4 w-4" aria-hidden="true" />
             {t('action.search')}
           </div>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_13rem_auto] lg:items-end">
             <label className="min-w-0 md:col-span-2 lg:col-span-1">
-              <span className="mb-1.5 block text-xs font-semibold text-navy-600">{t('action.search')}</span>
+              <span className="mb-1.5 block text-xs font-semibold text-content">{t('action.search')}</span>
               <span className="relative block">
                 <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400" aria-hidden="true" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t('home.heroSearchPlaceholder')}
-                  className="h-11 w-full rounded-lg border border-navy-200 bg-white pl-10 pr-3 text-sm text-navy-950 placeholder:text-navy-400 transition-colors hover:border-navy-300 focus:border-teal-500"
+                  className="h-11 w-full rounded-control border border-line bg-white pl-10 pr-3 text-sm text-content-strong placeholder:text-content-subtle transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/10"
                 />
               </span>
             </label>
@@ -192,15 +192,15 @@ export function Home() {
       <section
         id="organizations"
         tabIndex={-1}
-        className="scroll-mt-24 border-y border-navy-100 bg-white py-14 focus:outline-none sm:py-20"
+        className="scroll-mt-24 border-y border-line bg-surface-subtle py-14 focus:outline-none sm:py-20"
       >
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">{t('nav.organizations')}</p>
-            <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-navy-950 sm:text-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{t('nav.organizations')}</p>
+            <h2 className="mt-2 font-display text-3xl font-extrabold tracking-tight text-content-strong sm:text-4xl">
               {t('home.orgsTitle')}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-navy-500">{t('home.orgsSubtitle')}</p>
+            <p className="mt-2 text-sm leading-6 text-content-muted">{t('home.orgsSubtitle')}</p>
           </div>
 
           <div className="mt-7">
@@ -230,19 +230,19 @@ export function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-        <div className="grid overflow-hidden rounded-2xl border border-navy-800 bg-navy-950 shadow-pop lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
+        <div className="grid overflow-hidden rounded-card border border-brand bg-brand shadow-pop lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
           <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-12">
-            <span className="inline-flex min-h-8 w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-teal-100">
+            <span className="inline-flex min-h-8 w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/75">
               <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
               {t('nav.admin')}
             </span>
             <h2 className="mt-5 max-w-xl font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
               {t('home.ctaTitle')}
             </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-navy-200">{t('home.ctaText')}</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">{t('home.ctaText')}</p>
             <Link
               to="/login"
-              className="mt-7 inline-flex h-12 w-fit items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+              className="mt-7 inline-flex h-12 w-fit items-center justify-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
             >
               {t('action.login')}
               <ArrowRightIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />

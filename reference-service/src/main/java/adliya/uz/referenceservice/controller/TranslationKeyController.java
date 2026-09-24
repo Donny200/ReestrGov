@@ -23,17 +23,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/translation-keys")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class TranslationKeyController {
 
     private final TranslationKeyService translationKeyService;
 
     @GetMapping
+    @PreAuthorize("hasAuthority('TRANSLATION_KEYS_VIEW')")
     public ResponseEntity<List<TranslationKeyResponse>> getAll() {
         return ResponseEntity.ok(translationKeyService.getAll());
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('TRANSLATION_KEYS_CREATE')")
     public ResponseEntity<TranslationKeyResponse> create(
             @Valid @RequestBody CreateTranslationKeyRequest request
     ) {
@@ -41,6 +42,7 @@ public class TranslationKeyController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('TRANSLATION_KEYS_EDIT')")
     public ResponseEntity<TranslationKeyResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTranslationKeyRequest request
@@ -49,6 +51,7 @@ public class TranslationKeyController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('TRANSLATION_KEYS_DEACTIVATE')")
     public ResponseEntity<Void> deactivate(@PathVariable Long id) {
         translationKeyService.deactivate(id);
         return ResponseEntity.noContent().build();
