@@ -19,6 +19,8 @@ export interface AuthUser {
   role: RoleName;
   enabled: boolean;
   mustChangePassword: boolean;
+  permissions: string[];
+  organizations: { id: number; name: string }[];
   organizationIds: number[];
 }
 

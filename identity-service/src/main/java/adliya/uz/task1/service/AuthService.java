@@ -31,6 +31,7 @@ public class AuthService {
         return userService.getByEmail(request.getEmail());
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public UserResponse getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {

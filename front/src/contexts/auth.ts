@@ -8,6 +8,7 @@ export interface AuthValue {
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasRole: (...roles: RoleName[]) => boolean;
+  hasPermission: (permission: string) => boolean;
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
   isModerator: boolean;

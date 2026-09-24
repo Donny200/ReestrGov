@@ -6,8 +6,8 @@ import { EmptyState } from '../ui/States';
 import { useI18n } from '../../contexts/i18n';
 
 /** Guards admin routes. Restricted sections render a forbidden state, never a blank page. */
-export function RequireAuth({ roles }: {roles?: RoleName[];}) {
-  const { user, initializing } = useAuth();
+export function RequireAuth({ roles, anyPermissions }: {roles?: RoleName[]; anyPermissions?: readonly string[];}) {
+  const { user, initializing, hasPermission } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
 
@@ -28,7 +28,7 @@ export function RequireAuth({ roles }: {roles?: RoleName[];}) {
     return <Navigate to="/settings/security" replace />;
   }
 
-  if (roles && !roles.includes(user.role)) {
+  if ((roles && !roles.includes(user.role)) || (anyPermissions && !anyPermissions.some(hasPermission))) {
     return (
       <div className="mx-auto w-full max-w-xl px-4 py-16">
         <div className="rounded-xl border border-navy-100 bg-white shadow-card">

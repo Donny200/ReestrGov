@@ -1,10 +1,12 @@
+import { FUNCTION_PERMISSIONS } from '../../utils/functionPermissions';
 import type { RoleName } from '../../types/api';
 
 export interface AdminNavItem {
   to: string;
   labelKey: string;
-  icon: 'dashboard' | 'building' | 'shield' | 'users' | 'key' | 'globe' | 'legacy' | 'lock';
+  icon: 'dashboard' | 'building' | 'shield' | 'users' | 'key' | 'globe' | 'legacy' | 'lock' | 'functions';
   roles: RoleName[];
+  anyPermissions?: readonly string[];
   end?: boolean;
   dividerBefore?: boolean;
 }
@@ -15,6 +17,7 @@ export interface AdminNavItem {
  * MODERATOR: read-only catalog + own security settings.
  */
 export const adminNav: AdminNavItem[] = [
+{ to: '/admin/functions', labelKey: 'nav.functions', icon: 'functions', roles: [], anyPermissions: FUNCTION_PERMISSIONS },
 {
   to: '/admin',
   labelKey: 'nav.dashboard',
@@ -53,7 +56,7 @@ export const adminNav: AdminNavItem[] = [
 }];
 
 
-export function navForRole(role: RoleName | undefined): AdminNavItem[] {
+export function navForRole(role: RoleName | undefined, permissions: string[] = []): AdminNavItem[] {
   if (!role) return [];
-  return adminNav.filter((item) => item.roles.includes(role));
+  return adminNav.filter((item) => item.anyPermissions ? item.anyPermissions.some((permission) => permissions.includes(permission)) : item.roles.includes(role));
 }

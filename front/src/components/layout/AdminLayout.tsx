@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
+  FileTextIcon,
   ArrowLeftIcon,
   BuildingIcon,
   DatabaseIcon,
@@ -23,6 +24,7 @@ import { useI18n } from '../../contexts/i18n';
 import { fullName, initials, roleLabel } from '../../utils/format';
 
 const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>> = {
+  functions: FileTextIcon,
   dashboard: LayoutDashboardIcon,
   building: BuildingIcon,
   shield: ShieldCheckIcon,
@@ -42,13 +44,13 @@ export function AdminLayout() {
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
-  const items = navForRole(user?.role);
+  const items = navForRole(user?.role, user?.permissions);
 
   const currentItem = [...items]
     .reverse()
     .find((item) => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
   const currentPageTitle = location.pathname.startsWith('/admin/functions/')
-    ? t('fnEdit.title')
+    ? t('nav.functions')
     : currentItem
       ? t(currentItem.labelKey)
       : t('nav.admin');

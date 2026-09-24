@@ -50,6 +50,8 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
 
   const hasRole = useCallback((...roles: RoleName[]) => user ? roles.includes(user.role) : false, [user]);
 
+  const hasPermission = useCallback((permission: string) => user?.permissions?.includes(permission) ?? false, [user]);
+
   const value = useMemo<AuthValue>(
     () => ({
       user,
@@ -58,11 +60,12 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
       signOut,
       refreshUser: loadUser,
       hasRole,
+      hasPermission,
       isSuperAdmin: user?.role === 'ROLE_SUPER_ADMIN',
       isOrgAdmin: user?.role === 'ROLE_ORG_ADMIN',
       isModerator: user?.role === 'ROLE_MODERATOR'
     }),
-    [user, initializing, signIn, signOut, loadUser, hasRole]
+    [user, initializing, signIn, signOut, loadUser, hasRole, hasPermission]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
