@@ -10,6 +10,9 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { RequireAuth } from './components/auth/RequireAuth';
 import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { useI18n } from './contexts/i18n';
+import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
+
+const AdminFunctionsPage = lazy(() => import('./pages/admin/AdminFunctionsPage').then(module => ({ default: module.AdminFunctionsPage })));
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const OrganizationDetail = lazy(() =>
@@ -82,6 +85,7 @@ export function App() {
             {/* Staff area — role-aware */}
             <Route element={<RequireAuth />}>
               <Route element={<AdminLayout />}>
+                <Route element={<RequireAuth anyPermissions={FUNCTION_PERMISSIONS} />}><Route path="/admin/functions" element={<PageBoundary><AdminFunctionsPage /></PageBoundary>} /></Route>
                 <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />
                 <Route path="/admin/organizations" element={<PageBoundary><Organizations /></PageBoundary>} />
                 <Route path="/settings/security" element={<PageBoundary><SecuritySettings /></PageBoundary>} />
