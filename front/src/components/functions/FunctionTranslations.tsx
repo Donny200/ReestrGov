@@ -1,3 +1,4 @@
+import { CheckIcon } from 'lucide-react';
 import { FunctionAutoTranslate } from './FunctionAutoTranslate';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -60,7 +61,7 @@ export function FunctionTranslations({ record, busy, blocked, onBusy, onDirty, o
   const errors = fieldErrorsOf(error);
   const sourceBadge = (field: 'nameTranslations' | 'descriptionTranslations') => {
     const source = record[field]?.[language]?.source;
-    return source ? <Badge tone={source === 'human' ? 'teal' : 'gray'}>{t('fnAdmin.' + source)}</Badge> : null;
+    return source ? <Badge tone={source === 'human' ? 'teal' : 'gray'}>{source === 'human' && <CheckIcon className="mr-1 h-3 w-3" aria-hidden="true" />}{t('fnAdmin.' + source)}</Badge> : null;
   };
   return <Panel className="mt-5">
     <PanelHeader title={t('fnAdmin.translations')} />
