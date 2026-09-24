@@ -69,6 +69,7 @@ public class OrgFunctionService {
         return OrgFunction.builder().name(request.name()).description(request.description())
                 .organizationId(request.organizationId()).requirements(request.requirements())
                 .functionCategory(categories.resolve(request.categoryId(), request.category()))
+                .sourceLanguage(request.sourceLanguage() == null ? "en" : request.sourceLanguage().toLowerCase(Locale.ROOT))
                 .status(DRAFT).build();
     }
 

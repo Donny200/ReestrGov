@@ -29,7 +29,7 @@ public class EditorialSeedService {
                     categories.save(FunctionCategory.builder().name(seed.category())
                             .nameTranslations(new LinkedHashMap<>(Map.of("ru", new TranslatedText(seed.category(), TranslatedText.HUMAN)))).build()));
             function = OrgFunction.builder().seedKey(seed.key()).name(seed.name()).description(seed.description())
-                    .requirements(seed.requirements()).functionCategory(category).status(FunctionStatus.DRAFT)
+                    .sourceLanguage("ru").requirements(seed.requirements()).functionCategory(category).status(FunctionStatus.DRAFT)
                     .nameTranslations(new LinkedHashMap<>(Map.of("ru", new TranslatedText(seed.name(), TranslatedText.HUMAN))))
                     .descriptionTranslations(new LinkedHashMap<>(Map.of("ru", new TranslatedText(seed.description(), TranslatedText.HUMAN))))
                     .build();

@@ -62,7 +62,8 @@ export function AdminFunctionsPage() {
       to={`/admin/functions/${row.id}`}>{hasPermission('FUNCTIONS_EDIT') && row.status === 'DRAFT' ? t('action.edit') : t('action.details')}</Link> },
   ];
   return <div>
-    <PageHeader title={t('nav.functions')} description={t('fnAdmin.subtitle', 'Drafts, review queue and published services.')} />
+    <PageHeader title={t('nav.functions')} description={t('fnAdmin.subtitle', 'Drafts, review queue and published services.')}
+      actions={hasPermission('FUNCTIONS_CREATE') ? <Link className="inline-flex min-h-11 items-center rounded-control bg-brand px-4 font-semibold text-white" to="/admin/functions/new">{t('fnAdmin.create')}</Link> : undefined} />
     <Panel><PanelBody>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Field label={t('field.status')}>{() => <Select value={status} onChange={e => setStatus(e.target.value)}>

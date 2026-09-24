@@ -12,6 +12,7 @@ import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { useI18n } from './contexts/i18n';
 import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
 
+const CreateFunctionPage = lazy(() => import('./pages/admin/CreateFunctionPage').then(module => ({ default: module.CreateFunctionPage })));
 const AdminFunctionsPage = lazy(() => import('./pages/admin/AdminFunctionsPage').then(module => ({ default: module.AdminFunctionsPage })));
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
@@ -86,6 +87,7 @@ export function App() {
             <Route element={<RequireAuth />}>
               <Route element={<AdminLayout />}>
                 <Route element={<RequireAuth anyPermissions={FUNCTION_PERMISSIONS} />}><Route path="/admin/functions" element={<PageBoundary><AdminFunctionsPage /></PageBoundary>} /></Route>
+                <Route element={<RequireAuth anyPermissions={['FUNCTIONS_CREATE']} />}><Route path="/admin/functions/new" element={<PageBoundary><CreateFunctionPage /></PageBoundary>} /></Route>
                 <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />
                 <Route path="/admin/organizations" element={<PageBoundary><Organizations /></PageBoundary>} />
                 <Route path="/settings/security" element={<PageBoundary><SecuritySettings /></PageBoundary>} />

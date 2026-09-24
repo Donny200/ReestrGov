@@ -37,6 +37,8 @@ public class OrgFunction {
     private Long version;
     @Column(unique = true, length = 100)
     private String seedKey;
+    @Column(nullable = false, length = 35) @Builder.Default
+    private String sourceLanguage = "en";
 
     // Preserve the public response contract without a second persisted state/category.
     public Boolean getActive() { return status == FunctionStatus.PUBLISHED; }

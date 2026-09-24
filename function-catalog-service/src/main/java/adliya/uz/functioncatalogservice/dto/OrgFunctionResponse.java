@@ -7,12 +7,12 @@ public record OrgFunctionResponse(
         Long id, String name, String description, Long organizationId, String requirements,
         String category, Boolean active,
         Map<String, TranslatedText> nameTranslations, Map<String, TranslatedText> descriptionTranslations,
-        FunctionStatus status, Long categoryId
+        FunctionStatus status, Long categoryId, String sourceLanguage
 ) {
     public static OrgFunctionResponse from(OrgFunction function) {
         return new OrgFunctionResponse(function.getId(), function.getName(), function.getDescription(),
                 function.getOrganizationId(), function.getRequirements(), function.getCategory(), function.getActive(),
                 function.getNameTranslations(), function.getDescriptionTranslations(), function.getStatus(),
-                function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId());
+                function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId(), function.getSourceLanguage());
     }
 }
