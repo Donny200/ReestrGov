@@ -1,18 +1,46 @@
 package adliya.uz.functioncatalogservice.service;
 
-import adliya.uz.functioncatalogservice.dto.*;
-import adliya.uz.functioncatalogservice.entity.*;
+import adliya.uz.functioncatalogservice.dto.AuditLogResponse;
+import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
+import adliya.uz.functioncatalogservice.dto.FunctionTranslationsRequest;
+import adliya.uz.functioncatalogservice.dto.LanguageTranslationRequest;
+import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
+import adliya.uz.functioncatalogservice.entity.AuditAction;
+import adliya.uz.functioncatalogservice.entity.FunctionCategory;
+import adliya.uz.functioncatalogservice.entity.FunctionStatus;
+import adliya.uz.functioncatalogservice.entity.OrgFunction;
+import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
-import adliya.uz.functioncatalogservice.repository.*;
+import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
+import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.*;
-import static adliya.uz.functioncatalogservice.entity.FunctionStatus.*;
 
-@Service @RequiredArgsConstructor
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.regex.Pattern;
+
+import static adliya.uz.functioncatalogservice.entity.FunctionStatus.DEACTIVATED;
+import static adliya.uz.functioncatalogservice.entity.FunctionStatus.DRAFT;
+import static adliya.uz.functioncatalogservice.entity.FunctionStatus.PENDING_REVIEW;
+import static adliya.uz.functioncatalogservice.entity.FunctionStatus.PUBLISHED;
+
+@Service
+@RequiredArgsConstructor
 public class OrgFunctionService {
+
+    private static final String DEFAULT_SOURCE_LANGUAGE = "en";
+    private static final int LANGUAGE_CODE_MAX_LENGTH = 35;
+    private static final int REJECTION_REASON_MAX_LENGTH = 2000;
+    private static final Pattern LANGUAGE_CODE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]{2,8})*");
+
     private final OrgFunctionRepository orgFunctionRepository;
     private final OrgFunctionTranslationService translationService;
     private final FunctionCategoryService categories;
@@ -21,69 +49,91 @@ public class OrgFunctionService {
     private final AuditLogRepository auditLogs;
     private final IdentityOrganizationClient organizations;
 
-    public List<OrgFunction> getAll() { return orgFunctionRepository.findAllByStatus(PUBLISHED); }
-    public OrgFunction getById(Long id) {
-        return orgFunctionRepository.findByIdAndStatus(id, PUBLISHED)
-                .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + id));
+    public List<OrgFunction> getAll() {
+        return orgFunctionRepository.findAllByStatus(PUBLISHED);
     }
+
+    public OrgFunction getById(Long id) {
+        return orgFunctionRepository.findByIdAndStatus(id, PUBLISHED).orElseThrow(() -> notFound(id));
+    }
+
     public List<OrgFunction> getByOrganizationId(Long id) {
         return orgFunctionRepository.findAllByOrganizationIdAndStatus(id, PUBLISHED);
     }
+
     public List<OrgFunction> getByCategory(String category) {
         return orgFunctionRepository.findAllByFunctionCategory_NameAndStatus(category, PUBLISHED);
     }
+
     public List<OrgFunction> getAllForAdmin() {
-        return access.global() ? orgFunctionRepository.findAll()
+        return access.global()
+                ? orgFunctionRepository.findAll()
                 : orgFunctionRepository.findAllByOrganizationIdIn(access.principal().organizationIds());
     }
-    public OrgFunction getForAdmin(Long id) { return scoped(id); }
+
+    public OrgFunction getForAdmin(Long id) {
+        return scoped(id);
+    }
 
     public List<OrgFunction> pendingReview() {
-        return access.global() ? orgFunctionRepository.findAllByStatus(PENDING_REVIEW)
+        return access.global()
+                ? orgFunctionRepository.findAllByStatus(PENDING_REVIEW)
                 : orgFunctionRepository.findAllByStatusAndOrganizationIdIn(PENDING_REVIEW, access.principal().organizationIds());
     }
+
     public List<AuditLogResponse> history(Long id) {
         scoped(id);
         boolean global = access.global();
-        return auditLogs.findFunctionHistory(id).stream().map(log -> {
-            var response = AuditLogResponse.from(log);
-            if (log.getAction() == AuditAction.IMPORT && !global) {
-                // A global import may span organizations; do not expose its other card IDs/counts.
-                return new AuditLogResponse(response.id(), response.performedByUserId(), response.performedBy(),
-                        response.action(), response.performedAt(), "Imported this function as DRAFT");
-            }
-            return response;
-        }).toList();
+        return auditLogs.findFunctionHistory(id).stream()
+                .map(log -> global || log.getAction() != AuditAction.IMPORT
+                        ? AuditLogResponse.from(log)
+                        : new AuditLogResponse(log.getId(), log.getPerformedByUserId(), log.getPerformedBy(),
+                                log.getAction(), log.getPerformedAt(), "Imported this function as DRAFT"))
+                .toList();
     }
 
     @Transactional
     public OrgFunction create(CreateOrgFunctionRequest request) {
-        var function = newDraft(request);
+        OrgFunction function = newDraft(request);
         orgFunctionRepository.saveAndFlush(function);
         audit.function(function, AuditAction.CREATE, "Draft created");
         return function;
     }
 
-    // Used by the import row transaction; the batch owns its single IMPORT audit event.
     public OrgFunction newDraft(CreateOrgFunctionRequest request) {
         access.requireOrganization(request.organizationId());
-        if (request.organizationId() != null) organizations.requireExisting(request.organizationId());
-        return OrgFunction.builder().name(request.name()).description(request.description())
-                .organizationId(request.organizationId()).requirements(request.requirements())
+        if (request.organizationId() != null) {
+            organizations.requireExisting(request.organizationId());
+        }
+        return OrgFunction.builder()
+                .name(request.name())
+                .description(request.description())
+                .organizationId(request.organizationId())
+                .requirements(request.requirements())
                 .functionCategory(categories.resolve(request.categoryId(), request.category()))
-                .sourceLanguage(request.sourceLanguage() == null ? "en" : request.sourceLanguage().toLowerCase(Locale.ROOT))
-                .status(DRAFT).build();
+                .sourceLanguage(request.sourceLanguage() == null
+                        ? DEFAULT_SOURCE_LANGUAGE
+                        : request.sourceLanguage().toLowerCase(Locale.ROOT))
+                .status(DRAFT)
+                .build();
     }
 
     @Transactional
     public OrgFunction update(Long id, UpdateOrgFunctionRequest request) {
-        var function = scoped(id);
+        OrgFunction function = scoped(id);
         requireEditable(function);
-        var changed = new ArrayList<String>();
+        List<String> changed = new ArrayList<>();
+
         boolean nameChanged = request.name() != null && !request.name().equals(function.getName());
         boolean descriptionChanged = request.description() != null && !request.description().equals(function.getDescription());
-        if (nameChanged) { function.setName(request.name()); changed.add("name"); }
-        if (descriptionChanged) { function.setDescription(request.description()); changed.add("description"); }
+        if (nameChanged) {
+            function.setName(request.name());
+            changed.add("name");
+        }
+        if (descriptionChanged) {
+            function.setDescription(request.description());
+            changed.add("description");
+        }
         if (request.organizationId() != null && !request.organizationId().equals(function.getOrganizationId())) {
             access.requireOrganization(request.organizationId());
             organizations.requireExisting(request.organizationId());
@@ -91,16 +141,11 @@ public class OrgFunctionService {
             changed.add("organizationId");
         }
         if (request.requirements() != null && !request.requirements().equals(function.getRequirements())) {
-            function.setRequirements(request.requirements()); changed.add("requirements");
+            function.setRequirements(request.requirements());
+            changed.add("requirements");
         }
         if (request.categoryId() != null || request.category() != null) {
-            var category = categories.resolve(request.categoryId(), request.category());
-            Long oldId = function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId();
-            Long newId = category == null ? null : category.getId();
-            if (!Objects.equals(oldId, newId)) {
-                function.setFunctionCategory(category);
-                audit.function(function, AuditAction.CATEGORY_CHANGE, "categoryId: " + oldId + " -> " + newId);
-            }
+            changeCategory(function, categories.resolve(request.categoryId(), request.category()));
         }
         boolean languageChanged = request.sourceLanguage() != null
                 && !request.sourceLanguage().equalsIgnoreCase(function.getSourceLanguage());
@@ -108,26 +153,26 @@ public class OrgFunctionService {
             function.setSourceLanguage(request.sourceLanguage().toLowerCase(Locale.ROOT));
             changed.add("sourceLanguage");
         }
-        translationService.invalidateMachineTranslations(function, nameChanged || languageChanged, descriptionChanged || languageChanged);
-        // The original-language entry is a mirror, not a separately editable translation.
+
+        translationService.invalidateMachineTranslations(function,
+                nameChanged || languageChanged, descriptionChanged || languageChanged);
         if (nameChanged || languageChanged) {
-            var values = new LinkedHashMap<>(function.getNameTranslations());
-            values.put(function.getSourceLanguage(), new TranslatedText(function.getName(), TranslatedText.HUMAN));
-            function.setNameTranslations(values);
+            function.setNameTranslations(
+                    withSourceMirror(function.getNameTranslations(), function.getSourceLanguage(), function.getName()));
         }
         if (descriptionChanged || languageChanged) {
-            var values = new LinkedHashMap<>(function.getDescriptionTranslations());
-            if (function.getDescription() != null) values.put(function.getSourceLanguage(),
-                    new TranslatedText(function.getDescription(), TranslatedText.HUMAN));
-            function.setDescriptionTranslations(values);
+            function.setDescriptionTranslations(
+                    withSourceMirror(function.getDescriptionTranslations(), function.getSourceLanguage(), function.getDescription()));
         }
-        if (!changed.isEmpty()) audit.function(function, AuditAction.UPDATE, "Changed fields: " + String.join(", ", changed));
+        if (!changed.isEmpty()) {
+            audit.function(function, AuditAction.UPDATE, "Changed fields: " + String.join(", ", changed));
+        }
         return orgFunctionRepository.saveAndFlush(function);
     }
 
     @Transactional
     public OrgFunction updateRequirements(Long id, String requirements) {
-        var function = scoped(id);
+        OrgFunction function = scoped(id);
         requireEditable(function);
         if (!Objects.equals(requirements, function.getRequirements())) {
             function.setRequirements(requirements);
@@ -138,41 +183,53 @@ public class OrgFunctionService {
 
     @Transactional
     public OrgFunction updateTranslations(Long id, FunctionTranslationsRequest request) {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
-        var function = scoped(id);
+        requireTranslationEditor();
+        OrgFunction function = scoped(id);
         requireEditable(function);
         if (request.nameTranslations() == null && request.descriptionTranslations() == null) {
             throw new IllegalArgumentException("At least one translation field is required");
         }
-        var changed = new ArrayList<String>();
+        List<String> changed = new ArrayList<>();
         if (request.nameTranslations() != null) {
-            var values = humanTranslations(request.nameTranslations());
-            if (!values.equals(function.getNameTranslations())) { function.setNameTranslations(values); changed.add("nameTranslations"); }
+            Map<String, TranslatedText> values = TranslatedText.humanEdits(request.nameTranslations());
+            if (!values.equals(function.getNameTranslations())) {
+                function.setNameTranslations(values);
+                changed.add("nameTranslations");
+            }
         }
         if (request.descriptionTranslations() != null) {
-            var values = humanTranslations(request.descriptionTranslations());
-            if (!values.equals(function.getDescriptionTranslations())) { function.setDescriptionTranslations(values); changed.add("descriptionTranslations"); }
+            Map<String, TranslatedText> values = TranslatedText.humanEdits(request.descriptionTranslations());
+            if (!values.equals(function.getDescriptionTranslations())) {
+                function.setDescriptionTranslations(values);
+                changed.add("descriptionTranslations");
+            }
         }
-        if (!changed.isEmpty()) audit.function(function, AuditAction.TRANSLATION_EDIT, "Replaced fields: " + String.join(", ", changed));
+        if (!changed.isEmpty()) {
+            audit.function(function, AuditAction.TRANSLATION_EDIT, "Replaced fields: " + String.join(", ", changed));
+        }
         return orgFunctionRepository.saveAndFlush(function);
     }
 
     @Transactional
     public OrgFunction updateLanguageTranslation(Long id, String language, LanguageTranslationRequest request) {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
-        var function = scoped(id);
-        if (function.getStatus() != DRAFT) throw new WorkflowConflictException("Translation editing requires DRAFT");
+        requireTranslationEditor();
+        OrgFunction function = scoped(id);
+        if (function.getStatus() != DRAFT) {
+            throw new WorkflowConflictException("Translation editing requires DRAFT");
+        }
         String code = language.toLowerCase(Locale.ROOT);
-        if (!code.matches("[a-z]{2,3}(-[a-z0-9]{2,8})*") || code.length() > 35)
+        if (code.length() > LANGUAGE_CODE_MAX_LENGTH || !LANGUAGE_CODE.matcher(code).matches()) {
             throw new IllegalArgumentException("Invalid language code");
-        if (code.equals(function.getSourceLanguage()))
+        }
+        if (code.equals(function.getSourceLanguage())) {
             throw new IllegalArgumentException("Edit original-language text through the main card editor");
-        var names = new LinkedHashMap<>(function.getNameTranslations());
-        var descriptions = new LinkedHashMap<>(function.getDescriptionTranslations());
+        }
+        Map<String, TranslatedText> names = new LinkedHashMap<>(function.getNameTranslations());
+        Map<String, TranslatedText> descriptions = new LinkedHashMap<>(function.getDescriptionTranslations());
         names.put(code, new TranslatedText(request.name(), TranslatedText.HUMAN));
-        if (request.description() != null) descriptions.put(code, new TranslatedText(request.description(), TranslatedText.HUMAN));
+        if (request.description() != null) {
+            descriptions.put(code, new TranslatedText(request.description(), TranslatedText.HUMAN));
+        }
         if (!names.equals(function.getNameTranslations()) || !descriptions.equals(function.getDescriptionTranslations())) {
             function.setNameTranslations(names);
             function.setDescriptionTranslations(descriptions);
@@ -181,37 +238,60 @@ public class OrgFunctionService {
         return orgFunctionRepository.saveAndFlush(function);
     }
 
-    @Transactional public OrgFunction submitForReview(Long id) {
+    @Transactional
+    public OrgFunction submitForReview(Long id) {
         return transition(id, DRAFT, PENDING_REVIEW, AuditAction.SUBMIT_REVIEW, null);
     }
-    @Transactional public OrgFunction reject(Long id, String reason) {
-        if (reason == null || reason.isBlank() || reason.length() > 2000) throw new IllegalArgumentException("A rejection reason of 1-2000 characters is required");
+
+    @Transactional
+    public OrgFunction reject(Long id, String reason) {
+        if (reason == null || reason.isBlank() || reason.length() > REJECTION_REASON_MAX_LENGTH) {
+            throw new IllegalArgumentException("A rejection reason of 1-2000 characters is required");
+        }
         return transition(id, PENDING_REVIEW, DRAFT, AuditAction.REJECT, reason);
     }
-    @Transactional public OrgFunction publish(Long id) {
+
+    @Transactional
+    public OrgFunction publish(Long id) {
         return transition(id, PENDING_REVIEW, PUBLISHED, AuditAction.PUBLISH, null);
     }
-    @Transactional public OrgFunction reactivate(Long id) {
+
+    @Transactional
+    public OrgFunction reactivate(Long id) {
         return transition(id, DEACTIVATED, PENDING_REVIEW, AuditAction.REACTIVATE, null);
     }
-    @Transactional public void deactivate(Long id) {
+
+    @Transactional
+    public void deactivate(Long id) {
         transition(id, PUBLISHED, DEACTIVATED, AuditAction.DEACTIVATE, null);
     }
 
     private OrgFunction transition(Long id, FunctionStatus from, FunctionStatus to, AuditAction action, String reason) {
-        var function = scoped(id);
-        if (function.getStatus() != from) throw new WorkflowConflictException(
-                "Expected " + from + ", found " + function.getStatus() + "; cannot transition to " + to);
-        if (to == PENDING_REVIEW || to == PUBLISHED) organizations.requireExisting(function.getOrganizationId());
+        OrgFunction function = scoped(id);
+        if (function.getStatus() != from) {
+            throw new WorkflowConflictException(
+                    "Expected " + from + ", found " + function.getStatus() + "; cannot transition to " + to);
+        }
+        if (to == PENDING_REVIEW || to == PUBLISHED) {
+            organizations.requireExisting(function.getOrganizationId());
+        }
         function.setStatus(to);
         orgFunctionRepository.saveAndFlush(function);
         audit.function(function, action, reason == null ? from + " -> " + to : reason);
         return function;
     }
 
+    private void changeCategory(OrgFunction function, FunctionCategory category) {
+        Long previousId = function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId();
+        Long nextId = category == null ? null : category.getId();
+        if (!Objects.equals(previousId, nextId)) {
+            function.setFunctionCategory(category);
+            audit.function(function, AuditAction.CATEGORY_CHANGE, "categoryId: " + previousId + " -> " + nextId);
+        }
+    }
+
     private OrgFunction scoped(Long id) {
-        var function = orgFunctionRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + id));
+        OrgFunction function = orgFunctionRepository.findById(id).orElseThrow(() -> notFound(id));
         access.requireOrganization(function.getOrganizationId());
         return function;
     }
@@ -221,9 +301,21 @@ public class OrgFunctionService {
             throw new WorkflowConflictException("Editing requires DRAFT or DEACTIVATED; reject/deactivate the card first");
         }
     }
-    private Map<String, TranslatedText> humanTranslations(Map<String, String> values) {
-        Map<String, TranslatedText> result = new LinkedHashMap<>();
-        values.forEach((code, text) -> result.put(code, new TranslatedText(text, TranslatedText.HUMAN)));
+
+    private void requireTranslationEditor() {
+        access.requirePermission("FUNCTIONS_EDIT");
+        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
+    }
+
+    private static Map<String, TranslatedText> withSourceMirror(Map<String, TranslatedText> values, String language, String text) {
+        Map<String, TranslatedText> result = new LinkedHashMap<>(values);
+        if (text != null) {
+            result.put(language, new TranslatedText(text, TranslatedText.HUMAN));
+        }
         return result;
+    }
+
+    private static NoSuchElementException notFound(Long id) {
+        return new NoSuchElementException("Function not found, ID: " + id);
     }
 }

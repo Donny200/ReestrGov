@@ -23,7 +23,6 @@ public class OrgFunction {
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, TranslatedText> descriptionTranslations = new LinkedHashMap<>();
-    // Drafts may await assignment; review/publication require an existing organization.
     private Long organizationId;
     @Column(length = 500)
     private String requirements;
@@ -40,7 +39,6 @@ public class OrgFunction {
     @Column(nullable = false, length = 35) @Builder.Default
     private String sourceLanguage = "en";
 
-    // Preserve the public response contract without a second persisted state/category.
     public Boolean getActive() { return status == FunctionStatus.PUBLISHED; }
     public String getCategory() { return functionCategory == null ? null : functionCategory.getName(); }
 }

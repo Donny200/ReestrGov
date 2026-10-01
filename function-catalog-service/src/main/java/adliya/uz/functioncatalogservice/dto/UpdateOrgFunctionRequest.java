@@ -1,6 +1,8 @@
 package adliya.uz.functioncatalogservice.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record UpdateOrgFunctionRequest(
         @Size(min = 1, max = 150) @Pattern(regexp = ".*\\S.*", flags = Pattern.Flag.DOTALL) String name,
@@ -10,11 +12,4 @@ public record UpdateOrgFunctionRequest(
         @Size(max = 100) String category,
         @Positive Long categoryId,
         @Pattern(regexp = "[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*") @Size(max = 35) String sourceLanguage
-) {
-    public UpdateOrgFunctionRequest(String name, String description, Long organizationId, String requirements, String category, Long categoryId) {
-        this(name, description, organizationId, requirements, category, categoryId, null);
-    }
-    public UpdateOrgFunctionRequest(String name, String description, Long organizationId, String requirements, String category) {
-        this(name, description, organizationId, requirements, category, null);
-    }
-}
+) {}

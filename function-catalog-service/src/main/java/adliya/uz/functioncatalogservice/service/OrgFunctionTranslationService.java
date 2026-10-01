@@ -19,17 +19,12 @@ public class OrgFunctionTranslationService {
         }
     }
 
-    private Map<String, TranslatedText> withoutMachineTranslations(Map<String, TranslatedText> translations) {
-        if (translations == null || translations.isEmpty()) {
-            return new LinkedHashMap<>();
-        }
-
-        Map<String, TranslatedText> preserved = new LinkedHashMap<>();
-        translations.forEach((languageCode, translatedText) -> {
-            if (translatedText == null || !TranslatedText.MACHINE.equals(translatedText.source())) {
-                preserved.put(languageCode, translatedText);
-            }
-        });
+    private static Map<String, TranslatedText> withoutMachineTranslations(Map<String, TranslatedText> translations) {
+        Map<String, TranslatedText> preserved = translations == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(translations);
+        preserved.entrySet().removeIf(entry ->
+                entry.getValue() != null && TranslatedText.MACHINE.equals(entry.getValue().source()));
         return preserved;
     }
 }

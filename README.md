@@ -90,3 +90,8 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 ## Required manual rotation after merge
 
 Previously committed database passwords and the old shared HMAC JWT secret must be treated as compromised. DevOps must rotate the PostgreSQL password, generate a new RSA key pair, replace deployment secrets and restart the services. During that coordinated rotation, revoke every existing refresh session (for example, run `UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` against the identity database in an operator-controlled transaction). Otherwise an old opaque refresh token could obtain a newly signed RS256 access token. Every access and refresh token issued before the rotation must be treated as compromised and invalidated. Secret generation, rotation and deployment are intentionally not performed by this repository change.
+
+## Function catalog tests
+
+`function-catalog-service/src/test/resources/docker-java.properties` pins the Docker API version to 1.44 for the
+Testcontainers client only, because Docker Engine 29 requires API 1.44 or newer.

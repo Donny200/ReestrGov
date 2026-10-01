@@ -46,10 +46,6 @@ public class UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
 
-    public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
-    }
-
     @Transactional
     public User save(User user) {
         return userRepository.save(user);
@@ -126,7 +122,6 @@ public class UserService {
         if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
-
         return UserResponse.from(userRepository.save(user));
     }
 
@@ -134,18 +129,15 @@ public class UserService {
     public void deactivate(Long id) {
         User current = requirePermission(USERS_DEACTIVATE);
         User target = getById(id);
-
         requireSuperAdminForSuperAdminTarget(current, target);
 
         if (Objects.equals(current.getId(), target.getId())) {
             throw new IllegalStateException("You cannot deactivate your own account");
         }
-
         if (isEnabledSuperAdmin(target)
                 && userRepository.countByRole_NameAndEnabledTrue(SystemRole.SUPER_ADMIN.authority()) <= 1) {
             throw new IllegalStateException("The last enabled SUPER_ADMIN cannot be deactivated");
         }
-
         if (Boolean.TRUE.equals(target.getEnabled())) {
             target.setEnabled(false);
             userRepository.save(target);
@@ -183,9 +175,13 @@ public class UserService {
         }
     }
 
-    private boolean isSuperAdmin(User user) {
+    private static boolean isSuperAdmin(User user) {
         return user.getRole() != null
                 && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
+    }
+
+    private static boolean isEnabledSuperAdmin(User user) {
+        return Boolean.TRUE.equals(user.getEnabled()) && isSuperAdmin(user);
     }
 
     private Role resolveRole(Long roleId) {
@@ -200,15 +196,13 @@ public class UserService {
         if (organizationIds == null) {
             throw new IllegalArgumentException("organizationIds is required");
         }
-
         Set<Organization> organizations = new LinkedHashSet<>();
         for (Long organizationId : organizationIds) {
             if (organizationId == null) {
                 throw new IllegalArgumentException("organizationId must not be null");
             }
             Organization organization = organizationRepository.findById(organizationId)
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Organization not found, ID: " + organizationId));
+                    .orElseThrow(() -> new ResourceNotFoundException("Organization not found, ID: " + organizationId));
             if (!Boolean.TRUE.equals(organization.getEnabled())) {
                 throw new IllegalStateException("Organization is not active, ID: " + organizationId);
             }
@@ -217,13 +211,7 @@ public class UserService {
         return organizations;
     }
 
-    private boolean isEnabledSuperAdmin(User user) {
-        return Boolean.TRUE.equals(user.getEnabled())
-                && user.getRole() != null
-                && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
-    }
-
-    private String normalizeNullableText(String value) {
+    private static String normalizeNullableText(String value) {
         if (value == null) {
             return null;
         }

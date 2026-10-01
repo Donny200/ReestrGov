@@ -1,5 +1,6 @@
 package adliya.uz.task1.dto;
 
+import adliya.uz.task1.entity.Permission;
 import adliya.uz.task1.entity.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,10 +21,9 @@ public class RoleResponse {
 
     public static RoleResponse from(Role role) {
         List<PermissionResponse> permissions = role.getPermissions().stream()
-                .sorted(Comparator.comparing(permission -> permission.getCode()))
+                .sorted(Comparator.comparing(Permission::getCode))
                 .map(PermissionResponse::from)
                 .toList();
-
         return RoleResponse.builder()
                 .id(role.getId())
                 .name(role.getName())

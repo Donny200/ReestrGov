@@ -23,7 +23,7 @@ public class FunctionImportService {
     private final AuditWriter audit;
 
     public FunctionImportResponse importFile(MultipartFile file) {
-        var actor = audit.actor(); // Fail before any writes for stale/unidentified sessions.
+        var actor = audit.actor();
         var records = parse(file);
         Long auditId = audit.startImport(actor);
         List<Long> ids = new ArrayList<>();
@@ -82,7 +82,6 @@ public class FunctionImportService {
                 return result;
             }
         } catch (IOException | UncheckedIOException exception) {
-            // Broken CSV quoting has no reliable row boundaries: reject before writing any rows.
             throw new IllegalArgumentException("Invalid UTF-8 or malformed CSV: " + exception.getMessage());
         }
     }

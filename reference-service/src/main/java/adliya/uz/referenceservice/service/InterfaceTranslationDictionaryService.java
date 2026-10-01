@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,12 +33,12 @@ public class InterfaceTranslationDictionaryService {
                 result.putAll(dictionaryForCode(candidate));
             }
         }
-        return Map.copyOf(result);
+        return Collections.unmodifiableMap(result);
     }
 
     @Transactional(readOnly = true)
     public Map<String, String> getExactTranslations(String languageCode) {
-        return Map.copyOf(dictionaryForCode(languageCode));
+        return Collections.unmodifiableMap(dictionaryForCode(languageCode));
     }
 
     private Map<String, String> dictionaryForCode(String languageCode) {

@@ -22,10 +22,9 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
+    public DaoAuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 

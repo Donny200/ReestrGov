@@ -23,9 +23,7 @@ public class UpdateOrgAdminRequest {
     @Size(max = 20)
     private String phone;
 
-    // null = leave organization unchanged
     private Long organizationId;
 
-    // null = leave enabled status unchanged
     private Boolean enabled;
 }

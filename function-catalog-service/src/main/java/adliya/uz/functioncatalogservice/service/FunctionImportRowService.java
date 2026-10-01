@@ -16,7 +16,6 @@ public class FunctionImportRowService {
     public Long persist(CreateOrgFunctionRequest request, Long batchId) {
         var function = functions.newDraft(request);
         repository.saveAndFlush(function);
-        // Commit the row and its membership in the single import event together.
         audit.addImported(batchId, function.getId());
         return function.getId();
     }

@@ -1,5 +1,6 @@
 package adliya.uz.task1.service;
 
+import adliya.uz.task1.config.security.SystemRole;
 import adliya.uz.task1.dto.CreateOrganizationRequest;
 import adliya.uz.task1.dto.UpdateOrganizationRequest;
 import adliya.uz.task1.entity.Organization;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,8 @@ public class OrganizationService {
     private static final String ORGANIZATIONS_EDIT_OWN = "ORGANIZATIONS_EDIT_OWN";
     private static final String ORGANIZATIONS_DEACTIVATE = "ORGANIZATIONS_DEACTIVATE";
     private static final String ORGANIZATIONS_REACTIVATE = "ORGANIZATIONS_REACTIVATE";
+    private static final Set<String> STAFF_ROLES = Set.of(
+            SystemRole.ORG_ADMIN.authority(), SystemRole.MODERATOR.authority());
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationTranslationStateService translationStateService;
@@ -34,18 +38,13 @@ public class OrganizationService {
     public Organization create(CreateOrganizationRequest request) {
         requirePermission(ORGANIZATIONS_CREATE);
         if (organizationRepository.existsByName(request.getName())) {
-            throw new OrganizationAlreadyExistsException(
-                    "Organization already exists with name: " + request.getName());
+            throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.getName());
         }
-
-        Organization org = Organization.builder()
+        return organizationRepository.save(Organization.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .enabled(true)
-                .build();
-
-        translationStateService.invalidateMachineTranslations(org, true, request.getDescription() != null);
-        return organizationRepository.save(org);
+                .build());
     }
 
     public Organization getById(Long id) {
@@ -68,16 +67,13 @@ public class OrganizationService {
 
         if (nameChanged) {
             if (organizationRepository.existsByName(request.getName())) {
-                throw new OrganizationAlreadyExistsException(
-                        "Organization already exists with name: " + request.getName());
+                throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.getName());
             }
             org.setName(request.getName());
         }
-
         if (descriptionChanged) {
             org.setDescription(request.getDescription());
         }
-
         translationStateService.invalidateMachineTranslations(org, nameChanged, descriptionChanged);
         return organizationRepository.save(org);
     }
@@ -88,16 +84,13 @@ public class OrganizationService {
         Organization org = getById(id);
 
         boolean hasActiveStaff = org.getMembers().stream()
-                .anyMatch(u -> Boolean.TRUE.equals(u.getEnabled())
-                        && ("ROLE_ORG_ADMIN".equals(u.getRole().getName())
-                        || "ROLE_MODERATOR".equals(u.getRole().getName())));
-
+                .anyMatch(member -> Boolean.TRUE.equals(member.getEnabled())
+                        && STAFF_ROLES.contains(member.getRole().getName()));
         if (hasActiveStaff) {
             throw new OrganizationHasActiveMembersException(
-                    "Cannot deactivate organization while it still has an active org admin or moderator assigned. " +
-                            "Reassign or deactivate them first.");
+                    "Cannot deactivate organization while it still has an active org admin or moderator assigned. "
+                            + "Reassign or deactivate them first.");
         }
-
         org.setEnabled(false);
         organizationRepository.save(org);
     }
@@ -127,7 +120,6 @@ public class OrganizationService {
         if (hasPermission(current, ORGANIZATIONS_EDIT)) {
             return;
         }
-
         boolean canEditOwn = hasPermission(current, ORGANIZATIONS_EDIT_OWN)
                 && current.getOrganizations().stream()
                 .map(Organization::getId)
@@ -137,12 +129,10 @@ public class OrganizationService {
         }
     }
 
-    private User requirePermission(String permissionCode) {
-        User current = requireEnabledUser();
-        if (!hasPermission(current, permissionCode)) {
+    private void requirePermission(String permissionCode) {
+        if (!hasPermission(requireEnabledUser(), permissionCode)) {
             throw new AccessDeniedException("Missing required permission: " + permissionCode);
         }
-        return current;
     }
 
     private User requireEnabledUser() {
@@ -153,7 +143,7 @@ public class OrganizationService {
         return current;
     }
 
-    private boolean hasPermission(User user, String permissionCode) {
+    private static boolean hasPermission(User user, String permissionCode) {
         return user.getRole().getPermissions().stream()
                 .anyMatch(permission -> permissionCode.equals(permission.getCode()));
     }

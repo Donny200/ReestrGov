@@ -28,10 +28,6 @@ spring:
           default-filters:
             - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin, RETAIN_FIRST
           routes:
-            - id: identity-language-service
-              uri: lb://identity-service
-              predicates:
-                - Path=/api/languages,/api/languages/**
             - id: reference-service
               uri: lb://reference-service
               predicates:
