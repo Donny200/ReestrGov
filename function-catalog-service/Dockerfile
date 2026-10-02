@@ -1,7 +1,7 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dsilent=true dependency:resolve-plugins dependency:resolve || true
 COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests
 
