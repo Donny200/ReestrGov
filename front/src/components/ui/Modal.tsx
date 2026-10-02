@@ -51,7 +51,8 @@ export function Modal({ open, title, description, onClose, children, footer, siz
     if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
 
     const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !closeDisabledRef.current) {
+      if (event.key === 'Escape') {
+        if (event.defaultPrevented || closeDisabledRef.current) return;
         event.preventDefault();
         onCloseRef.current();
         return;

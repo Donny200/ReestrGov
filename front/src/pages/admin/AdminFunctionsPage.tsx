@@ -6,7 +6,8 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { Field } from '../../components/ui/Field';
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { Badge, FunctionStatusBadge } from '../../components/ui/Badge';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { Tooltip } from '../../components/ui/Tooltip';
@@ -158,42 +159,55 @@ export function AdminFunctionsPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <Field label={t('field.status')}>
               {(control) => (
-                <Select {...control} value={status} onChange={(event) => setStatus(event.target.value)}>
-                  <option value="">{t('status.all')}</option>
-                  {FUNCTION_STATUSES.map((value) => (
-                    <option key={value} value={value}>{t(`fnAdmin.status.${value}`, statusLabels[value])}</option>
-                  ))}
-                </Select>
+                <Select
+                  {...control}
+                  value={status}
+                  onValueChange={setStatus}
+                  options={[
+                    { value: '', label: t('status.all') },
+                    ...FUNCTION_STATUSES.map((value) => ({ value, label: t(`fnAdmin.status.${value}`, statusLabels[value]) })),
+                  ]}
+                />
               )}
             </Field>
             <Field label={t('field.organization')}>
               {(control) => (
-                <Select {...control} value={organization} onChange={(event) => setOrganization(event.target.value)}>
-                  <option value="">{t('status.all')}</option>
-                  <option value="unassigned">{t('fnAdmin.unassigned', 'Unassigned')}</option>
-                  {options.data?.organizations.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </Select>
+                <Select
+                  {...control}
+                  value={organization}
+                  onValueChange={setOrganization}
+                  options={[
+                    { value: '', label: t('status.all') },
+                    { value: 'unassigned', label: t('fnAdmin.unassigned', 'Unassigned') },
+                    ...(options.data?.organizations ?? []).map((item) => ({ value: String(item.id), label: item.name })),
+                  ]}
+                />
               )}
             </Field>
             <Field label={t('field.category')}>
               {(control) => (
-                <Select {...control} value={category} onChange={(event) => setCategory(event.target.value)}>
-                  <option value="">{t('status.all')}</option>
-                  {options.data?.categories.map((item) => (
-                    <option key={item.id} value={item.id}>{localizedText(item.name, item.nameTranslations, language)}</option>
-                  ))}
-                </Select>
+                <Select
+                  {...control}
+                  value={category}
+                  onValueChange={setCategory}
+                  options={[
+                    { value: '', label: t('status.all') },
+                    ...(options.data?.categories ?? []).map((item) => ({
+                      value: String(item.id),
+                      label: localizedText(item.name, item.nameTranslations, language) ?? item.name,
+                    })),
+                  ]}
+                />
               )}
             </Field>
             <Field label={t('field.language')}>
               {(control) => (
-                <Select {...control} value={language} onChange={(event) => setLanguage(event.target.value)}>
-                  {available.map((item) => (
-                    <option key={item.code} value={item.code}>{item.label}</option>
-                  ))}
-                </Select>
+                <Select
+                  {...control}
+                  value={language}
+                  onValueChange={setLanguage}
+                  options={available.map((item) => ({ value: item.code, label: item.label }))}
+                />
               )}
             </Field>
             <Field label={t('action.search')}>

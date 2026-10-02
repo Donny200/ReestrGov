@@ -8,7 +8,7 @@ import { FunctionCard } from '../components/catalog/FunctionCard';
 import { Button } from '../components/ui/Button';
 import { buttonVariants } from '../components/ui/buttonVariants';
 import { Card } from '../components/ui/Card';
-import { Select } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { SearchInput } from '../components/ui/SearchInput';
 import { SkeletonCards } from '../components/ui/Skeleton';
 import { ErrorState, NoResultsState } from '../components/ui/States';
@@ -126,26 +126,24 @@ export function Home() {
               placeholder={t('home.heroSearchPlaceholder')}
               className="md:col-span-2 lg:col-span-1"
             />
-            <label className="min-w-0">
-              <span className="sr-only">{t('field.organization')}</span>
-              <Select value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
-                <option value="">{t('field.organization')} · {t('status.all')}</option>
-                {orgList.map((item) => (
-                  <option key={item.id} value={String(item.id)}>
-                    {localizedText(item.name, item.nameTranslations, locale)}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="min-w-0">
-              <span className="sr-only">{t('field.category')}</span>
-              <Select value={category} onChange={(event) => setCategory(event.target.value)}>
-                <option value="">{t('field.category')} · {t('status.all')}</option>
-                {categories.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </Select>
-            </label>
+            <Select
+              aria-label={t('field.organization')}
+              value={organizationId}
+              onValueChange={setOrganizationId}
+              options={[
+                { value: '', label: `${t('field.organization')} · ${t('status.all')}` },
+                ...orgList.map((item) => ({ value: String(item.id), label: orgName.get(item.id) ?? item.name })),
+              ]}
+            />
+            <Select
+              aria-label={t('field.category')}
+              value={category}
+              onValueChange={setCategory}
+              options={[
+                { value: '', label: `${t('field.category')} · ${t('status.all')}` },
+                ...categories.map((item) => ({ value: item, label: item })),
+              ]}
+            />
             <div className="flex md:justify-end lg:justify-start">
               {hasFilters && (
                 <Button variant="ghost" className="w-full md:w-auto" icon={<RotateCcwIcon />} onClick={resetFilters}>

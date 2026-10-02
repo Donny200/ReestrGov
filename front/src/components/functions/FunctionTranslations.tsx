@@ -13,7 +13,8 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Field } from '../ui/Field';
-import { Input, Select, Textarea } from '../ui/Input';
+import { Input, Textarea } from '../ui/Input';
+import { Select } from '../ui/Select';
 import type { AdminFunction } from '../../types/adminFunctions';
 
 interface Props {
@@ -136,11 +137,14 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
               );
             })}
           </div>
-          <Select className="sm:hidden" aria-label={t('fnAdmin.languages')} value={language} disabled={busy} onChange={(event) => changeLanguage(event.target.value)}>
-            {available.map((item) => (
-              <option key={item.code} value={item.code}>{item.label}</option>
-            ))}
-          </Select>
+          <Select
+            className="sm:hidden"
+            aria-label={t('fnAdmin.languages')}
+            value={language}
+            disabled={busy}
+            onValueChange={changeLanguage}
+            options={available.map((item) => ({ value: item.code, label: item.label }))}
+          />
         </div>
 
         {pendingLanguage && (

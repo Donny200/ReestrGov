@@ -1,6 +1,6 @@
 import { CheckboxList } from '../../components/ui/CheckboxList';
 import { Field } from '../../components/ui/Field';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization } from '../../types/api';
 import type { OrganizationMode } from './types';
@@ -37,6 +37,8 @@ export function OrganizationsField({ mode, organizations, value, onChange, error
     );
   }
 
+  const options = organizations.map((organization) => ({ value: String(organization.id), label: label(organization) }));
+
   return (
     <Field label={t('field.organization')} error={error} hint={hint} required={required} className={className}>
       {(control) => (
@@ -44,13 +46,10 @@ export function OrganizationsField({ mode, organizations, value, onChange, error
           {...control}
           disabled={disabled}
           value={value[0]?.toString() ?? ''}
-          onChange={(event) => onChange(event.target.value ? [Number(event.target.value)] : [])}
-        >
-          <option value="">{required ? t('validation.selectOrg') : t('staff.keepOrganization', 'Keep current organization')}</option>
-          {organizations.map((organization) => (
-            <option key={organization.id} value={organization.id}>{label(organization)}</option>
-          ))}
-        </Select>
+          onValueChange={(next) => onChange(next ? [Number(next)] : [])}
+          placeholder={required ? t('validation.selectOrg') : undefined}
+          options={required ? options : [{ value: '', label: t('staff.keepOrganization', 'Keep current organization') }, ...options]}
+        />
       )}
     </Field>
   );

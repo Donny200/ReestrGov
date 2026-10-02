@@ -2,7 +2,8 @@ import { useId, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../contexts/i18n';
 import { FieldControlContext, type FieldControlContextValue } from './fieldContext';
-import { Input, Select, Textarea } from './Input';
+import { Input, Textarea } from './Input';
+import { Select } from './Select';
 
 export interface FieldControl {
   id: string;

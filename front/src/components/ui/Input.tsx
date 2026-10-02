@@ -1,12 +1,5 @@
-import {
-  forwardRef,
-  useContext,
-  useId,
-  type InputHTMLAttributes,
-  type SelectHTMLAttributes,
-  type TextareaHTMLAttributes,
-} from 'react';
-import { CheckIcon, ChevronDownIcon } from 'lucide-react';
+import { forwardRef, useContext, useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { CheckIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { FieldControlContext, type FieldControlContextValue } from './fieldContext';
 
@@ -79,33 +72,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       {...attributes}
       className={cn(controlClass, 'min-h-24 resize-y py-2.5 leading-relaxed', stateClass, className)}
     />
-  );
-});
-
-export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, ControlStateProps {}
-
-export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { invalid, valid, describedBy, className, id, required, children, ...rest },
-  ref,
-) {
-  const field = useContext(FieldControlContext);
-  const { attributes, stateClass } = resolveControl(field, {
-    id, invalid, valid, describedBy, required,
-    'aria-describedby': rest['aria-describedby'],
-    'aria-errormessage': rest['aria-errormessage'],
-  });
-  return (
-    <span className="relative block w-full">
-      <select
-        ref={ref}
-        {...rest}
-        {...attributes}
-        className={cn(controlClass, 'h-10 cursor-pointer appearance-none pr-9', stateClass, className)}
-      >
-        {children}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-muted" aria-hidden="true" />
-    </span>
   );
 });
 

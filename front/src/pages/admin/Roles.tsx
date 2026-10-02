@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { KeyRoundIcon, MoreHorizontalIcon, PlusIcon, ShieldCheckIcon, ShieldIcon, Trash2Icon, UserCheckIcon } from 'lucide-react';
@@ -9,7 +9,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable } from '../../components/ui/DataTable';
@@ -42,7 +42,7 @@ function AssignRoleCard({ roles }: { roles: RoleEntity[] }) {
   const assign = useAssignRole();
   const schema = useMemo(() => assignSchema(t), [t]);
   const {
-    register,
+    control,
     handleSubmit,
     reset,
     setError,
@@ -66,24 +66,45 @@ function AssignRoleCard({ roles }: { roles: RoleEntity[] }) {
         <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <Field label={t('staff.selectUser')} error={errors.userId?.message} required>
             {(fieldControl) => (
-              <Select {...fieldControl} disabled={candidates.isPending} {...register('userId')}>
-                <option value="">{t('staff.selectUser')}</option>
-                {(candidates.data ?? []).map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    #{candidate.id} — {fullName(candidate)} ({candidate.email})
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                control={control}
+                name="userId"
+                render={({ field }) => (
+                  <Select
+                    {...fieldControl}
+                    ref={field.ref}
+                    disabled={candidates.isPending}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder={t('staff.selectUser')}
+                    options={(candidates.data ?? []).map((candidate) => ({
+                      value: String(candidate.id),
+                      label: `#${candidate.id} — ${fullName(candidate)}`,
+                      description: candidate.email,
+                    }))}
+                  />
+                )}
+              />
             )}
           </Field>
           <Field label={t('field.role')} error={errors.roleId?.message} required>
             {(fieldControl) => (
-              <Select {...fieldControl} {...register('roleId')}>
-                <option value="">{t('field.role')}</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
-                ))}
-              </Select>
+              <Controller
+                control={control}
+                name="roleId"
+                render={({ field }) => (
+                  <Select
+                    {...fieldControl}
+                    ref={field.ref}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder={t('field.role')}
+                    options={roles.map((role) => ({ value: String(role.id), label: role.name }))}
+                  />
+                )}
+              />
             )}
           </Field>
           <Button type="submit" loading={isSubmitting} icon={<UserCheckIcon />} className="sm:mb-0">{t('action.assign')}</Button>

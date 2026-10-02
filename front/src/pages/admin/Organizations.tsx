@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable } from '../../components/ui/DataTable';
@@ -18,9 +18,9 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
+import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { formatDate, truncate } from '../../utils/format';
 
-type StatusFilter = '' | 'active' | 'inactive';
 type DialogState = { mode: 'create' } | { mode: 'edit'; organization: Organization } | null;
 
 function matchesFilters(item: Organization, term: string, status: StatusFilter): boolean {
@@ -165,11 +165,13 @@ export function Organizations() {
       <Card>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
           <SearchInput value={search} onChange={setSearch} label={t('action.search')} className="sm:w-64" />
-          <Select value={status} aria-label={t('field.status')} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="sm:w-40">
-            <option value="">{t('status.all')}</option>
-            <option value="active">{t('status.active')}</option>
-            <option value="inactive">{t('status.inactive')}</option>
-          </Select>
+          <Select
+            value={status}
+            aria-label={t('field.status')}
+            onValueChange={(next) => setStatus(next as StatusFilter)}
+            className="sm:w-40"
+            options={statusFilterOptions(t)}
+          />
         </Toolbar>
         <DataTable
           columns={columns}

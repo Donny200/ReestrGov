@@ -1,5 +1,6 @@
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import { cn } from '../../lib/cn';
+import { menuItemClass, menuSurfaceClass } from './menuStyles';
 
 export const DropdownMenu = Menu.Root;
 export const DropdownMenuTrigger = Menu.Trigger;
@@ -10,7 +11,8 @@ export function DropdownMenuContent({ className, align = 'end', ...props }: Menu
       <Menu.Content
         align={align}
         sideOffset={6}
-        className={cn('glass-strong z-50 min-w-[11rem] overflow-hidden rounded-xl p-1 text-content shadow-pop animate-fade-up', className)}
+        collisionPadding={12}
+        className={cn(menuSurfaceClass, 'min-w-[11rem] origin-[var(--radix-dropdown-menu-content-transform-origin)]', className)}
         {...props}
       />
     </Menu.Portal>
@@ -21,8 +23,9 @@ export function DropdownMenuItem({ className, destructive = false, ...props }: M
   return (
     <Menu.Item
       className={cn(
-        'flex cursor-pointer select-none items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors duration-fast data-[highlighted]:bg-surface-subtle data-[highlighted]:text-content-strong data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-content-muted',
-        destructive && 'text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger [&>svg]:text-danger',
+        menuItemClass,
+        '[&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-content-muted data-[highlighted]:[&>svg]:text-link',
+        destructive && 'text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger [&>svg]:text-danger data-[highlighted]:[&>svg]:text-danger',
         className,
       )}
       {...props}

@@ -74,6 +74,10 @@ export default {
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'fade-in': { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        'pop-in': {
+          '0%': { opacity: '0', transform: 'scale(0.96) translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
         shimmer: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
         'pulse-ring': {
           '0%': { boxShadow: '0 0 0 0 rgb(var(--positive) / 0.55)' },
@@ -83,6 +87,7 @@ export default {
       animation: {
         'fade-up': 'fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
         'fade-in': 'fade-in 0.3s ease-out both',
+        'pop-in': 'pop-in 0.15s ease-out both',
         shimmer: 'shimmer 1.6s linear infinite',
         'pulse-ring': 'pulse-ring 1.8s ease-out infinite',
       },

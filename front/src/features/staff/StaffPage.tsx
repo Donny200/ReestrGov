@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable } from '../../components/ui/DataTable';
@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization, StaffUser } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
+import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 import { useOrganizations } from '../organizations/queries';
 import { PromoteDialog } from './PromoteDialog';
@@ -24,7 +25,6 @@ import { StaffCreateDialog, StaffEditDialog } from './StaffFormDialog';
 import { useStaffMutation } from './queries';
 import type { StaffConfig } from './types';
 
-type StatusFilter = '' | 'active' | 'inactive';
 type DialogState = { mode: 'create' } | { mode: 'promote' } | { mode: 'edit'; user: StaffUser } | null;
 
 function useAssignableOrganizations(all: Organization[] | undefined): Organization[] {
@@ -180,17 +180,23 @@ export function StaffPage({ config }: { config: StaffConfig }) {
       <Card>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
           <SearchInput value={search} onChange={setSearch} label={t('action.search')} className="sm:w-60" />
-          <Select value={organizationFilter} aria-label={t('field.organization')} onChange={(event) => setOrganizationFilter(event.target.value)} className="sm:w-48">
-            <option value="">{t('field.organization')} — {t('status.all')}</option>
-            {assignable.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </Select>
-          <Select value={status} aria-label={t('field.status')} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="sm:w-36">
-            <option value="">{t('status.all')}</option>
-            <option value="active">{t('status.active')}</option>
-            <option value="inactive">{t('status.inactive')}</option>
-          </Select>
+          <Select
+            value={organizationFilter}
+            aria-label={t('field.organization')}
+            onValueChange={setOrganizationFilter}
+            className="sm:w-48"
+            options={[
+              { value: '', label: `${t('field.organization')} — ${t('status.all')}` },
+              ...assignable.map((item) => ({ value: String(item.id), label: item.name })),
+            ]}
+          />
+          <Select
+            value={status}
+            aria-label={t('field.status')}
+            onValueChange={(next) => setStatus(next as StatusFilter)}
+            className="sm:w-36"
+            options={statusFilterOptions(t)}
+          />
         </Toolbar>
         <DataTable
           columns={columns}

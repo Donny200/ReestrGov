@@ -1,6 +1,6 @@
 import type { AdminFunction } from '../src/types/adminFunctions';
 import { test, expect } from '@playwright/test';
-import { setup, allPermissions } from './fixtures';
+import { setup, allPermissions, chooseOption } from './fixtures';
 
 test('React → actual Spring controller → PostgreSQL: create, translate, publish, deactivate and reject foreign access', async ({ page, request }, testInfo) => {
   const backend = process.env.CATALOG_TEST_URL;
@@ -12,7 +12,7 @@ test('React → actual Spring controller → PostgreSQL: create, translate, publ
   await page.goto('/admin/functions/new');
   await page.getByLabel('Name', { exact: false }).first().fill('Browser service');
   await page.getByLabel('Description', { exact: false }).first().fill('A real persisted browser service');
-  await page.getByLabel('Organization', { exact: false }).first().selectOption('10');
+  await chooseOption(page.getByLabel('Organization', { exact: false }).first(), '10');
   await page.getByRole('button', { name: 'Create service', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/functions\/\d+$/);
   const id = Number(page.url().split('/').at(-1));
@@ -39,9 +39,9 @@ test('React → actual Spring controller → PostgreSQL: create, translate, publ
   expect((await response.json()).some((item: AdminFunction) => item.id === id)).toBe(true);
   await page.getByRole('main').getByRole('link', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('table')).toBeVisible();
-  await page.getByRole('main').getByLabel('Language', { exact: true }).selectOption('ru');
+  await chooseOption(page.getByRole('main').getByLabel('Language', { exact: true }), 'ru');
   await expect(page.getByRole('table').getByText('Услуга браузера', { exact: true })).toBeVisible();
-  await page.getByRole('main').getByLabel('Language', { exact: true }).selectOption('uz');
+  await chooseOption(page.getByRole('main').getByLabel('Language', { exact: true }), 'uz');
   await expect(page.getByRole('table').getByText('Brauzer xizmati', { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('admin-functions.png'), fullPage: true });
   await page.goto('/admin/functions/' + id);

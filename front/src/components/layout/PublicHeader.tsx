@@ -212,7 +212,7 @@ export function PublicHeader() {
 
               <div className="space-y-3 border-t border-line/80 px-4 py-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">{t('field.language')}</p>
-                <LanguageSwitcher className="w-full [&>select]:w-full [&>select]:max-w-none" />
+                <LanguageSwitcher className="w-full" />
                 {!initializing &&
                   (user ? (
                     <Link

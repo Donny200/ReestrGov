@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { CheckboxList } from '../../components/ui/CheckboxList';
 import { useI18n } from '../../contexts/i18n';
 import { applyServerErrors } from '../../lib/forms';
@@ -96,12 +97,21 @@ export function LegacyUserCreateDialog({ open, roles, organizations, onClose }: 
         </Field>
         <Field label={t('field.role')} error={errors.roleId?.message} required>
           {(fieldControl) => (
-            <Select {...fieldControl} {...register('roleId')}>
-              <option value="">{t('action.select', 'Select role')}</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>{roleLabel(role.name, t)}</option>
-              ))}
-            </Select>
+            <Controller
+              control={control}
+              name="roleId"
+              render={({ field }) => (
+                <Select
+                  {...fieldControl}
+                  ref={field.ref}
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  onBlur={field.onBlur}
+                  placeholder={t('action.select', 'Select role')}
+                  options={roles.map((role) => ({ value: String(role.id), label: roleLabel(role.name, t) }))}
+                />
+              )}
+            />
           )}
         </Field>
         <Controller

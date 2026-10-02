@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable } from '../../components/ui/DataTable';
@@ -20,9 +20,9 @@ import { useRoles } from '../../features/roles/queries';
 import { useI18n } from '../../contexts/i18n';
 import type { LegacyUser } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
+import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 
-type StatusFilter = '' | 'active' | 'inactive';
 type DialogState = { mode: 'create' } | { mode: 'edit'; user: LegacyUser } | null;
 
 function matchesFilters(item: LegacyUser, term: string, status: StatusFilter, role: string): boolean {
@@ -175,17 +175,23 @@ export function LegacyUsers() {
       <Card>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
           <SearchInput value={search} onChange={setSearch} label={t('action.search')} className="sm:w-64" />
-          <Select value={role} aria-label={t('field.role')} onChange={(event) => setRole(event.target.value)} className="sm:w-48">
-            <option value="">{t('field.role')} — {t('status.all')}</option>
-            {roleOptions.map((item) => (
-              <option key={item} value={item}>{roleLabel(item, t)}</option>
-            ))}
-          </Select>
-          <Select value={status} aria-label={t('field.status')} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="sm:w-36">
-            <option value="">{t('status.all')}</option>
-            <option value="active">{t('status.active')}</option>
-            <option value="inactive">{t('status.inactive')}</option>
-          </Select>
+          <Select
+            value={role}
+            aria-label={t('field.role')}
+            onValueChange={setRole}
+            className="sm:w-48"
+            options={[
+              { value: '', label: `${t('field.role')} — ${t('status.all')}` },
+              ...roleOptions.map((item) => ({ value: item, label: roleLabel(item, t) })),
+            ]}
+          />
+          <Select
+            value={status}
+            aria-label={t('field.status')}
+            onValueChange={(next) => setStatus(next as StatusFilter)}
+            className="sm:w-36"
+            options={statusFilterOptions(t)}
+          />
         </Toolbar>
         <DataTable
           columns={columns}

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
-import { Select } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { SkeletonText } from '../../components/ui/Skeleton';
 import { useI18n } from '../../contexts/i18n';
 import { applyServerErrors } from '../../lib/forms';
@@ -33,7 +33,6 @@ export function PromoteDialog({ config, open, organizations, onClose }: PromoteD
     config.promote(userId, organizationIds));
   const schema = useMemo(() => promoteSchema(t), [t]);
   const {
-    register,
     control,
     handleSubmit,
     reset,
@@ -79,14 +78,25 @@ export function PromoteDialog({ config, open, organizations, onClose }: PromoteD
         ) : (
           <Field label={t('staff.selectUser')} error={errors.userId?.message} required>
             {(fieldControl) => (
-              <Select {...fieldControl} {...register('userId')}>
-                <option value="">{t('staff.selectUser')}</option>
-                {(candidates.data ?? []).map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    #{candidate.id} — {fullName(candidate)} ({candidate.email})
-                  </option>
-                ))}
-              </Select>
+              <Controller
+                control={control}
+                name="userId"
+                render={({ field }) => (
+                  <Select
+                    {...fieldControl}
+                    ref={field.ref}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder={t('staff.selectUser')}
+                    options={(candidates.data ?? []).map((candidate) => ({
+                      value: String(candidate.id),
+                      label: `#${candidate.id} — ${fullName(candidate)}`,
+                      description: candidate.email,
+                    }))}
+                  />
+                )}
+              />
             )}
           </Field>
         )}
