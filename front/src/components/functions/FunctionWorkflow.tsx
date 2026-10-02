@@ -1,68 +1,140 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { CheckCircle2Icon, PowerOffIcon, RotateCcwIcon, SendIcon, UndoIcon, WorkflowIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { Button } from '../ui/Button';
-import { Field, TextArea } from '../ui/Field';
-import { Modal, ConfirmModal } from '../ui/Modal';
-import { ErrorState } from '../ui/States';
-import { Panel, PanelBody } from '../ui/Card';
-import { transitionFunction, deactivateFunction, getAdminFunction } from '../../services/adminFunctionService';
-import type { AdminFunction } from '../../types/adminFunctions';
+import { Card, CardBody, CardHeader } from '../ui/Card';
+import { Field } from '../ui/Field';
+import { Textarea } from '../ui/Input';
+import { ConfirmModal, Modal } from '../ui/Modal';
+import { useDeactivateFunction, useTransitionFunction } from '../../features/functions/queries';
+import { REASON_MAX } from '../../features/functions/schema';
+import { InlineAlert } from '../../features/functions/InlineAlert';
+import { errorMessage } from '../../utils/errors';
+import type { AdminFunction, FunctionTransition } from '../../types/adminFunctions';
 
 interface Props {
   record: AdminFunction;
   dirty: boolean;
   busy: boolean;
-  onBusy: (busy: boolean) => void;
-  onUpdate: (record: AdminFunction) => void;
 }
-export function FunctionWorkflow({ record, dirty, busy, onBusy, onUpdate }: Props) {
+
+type Dialog = 'reject' | 'deactivate' | null;
+
+export function FunctionWorkflow({ record, dirty, busy }: Props) {
   const { hasPermission } = useAuth();
   const { t } = useI18n();
-  const [dialog, setDialog] = useState<'reject' | 'deactivate' | null>(null);
+  const transition = useTransitionFunction(record.id);
+  const deactivate = useDeactivateFunction(record.id);
+  const [dialog, setDialog] = useState<Dialog>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<unknown>(null);
-  const [running, setRunning] = useState(false);
+  const running = transition.isPending || deactivate.isPending;
   const disabled = dirty || busy;
-  async function run(action: 'submit-for-review' | 'reject' | 'publish' | 'reactivate' | 'deactivate') {
-    if (disabled) return;
-    setRunning(true); onBusy(true); setError(null);
-    try {
-      const updated = action === 'deactivate'
-        ? await deactivateFunction(record.id).then(() => getAdminFunction(record.id))
-        : await transitionFunction(record.id, action, action === 'reject' ? reason.trim() : undefined);
-      onUpdate(updated); setDialog(null); setReason(''); toast.success(t('fnAdmin.saved'));
-    } catch (failure) { setError(failure); } finally { onBusy(false); setRunning(false); }
-  }
+
   const canSubmit = record.status === 'DRAFT' && hasPermission('FUNCTIONS_SUBMIT_REVIEW');
   const canReview = record.status === 'PENDING_REVIEW' && hasPermission('FUNCTIONS_REVIEW');
   const canPublish = record.status === 'PENDING_REVIEW' && hasPermission('FUNCTIONS_PUBLISH');
   const canDeactivate = record.status === 'PUBLISHED' && hasPermission('FUNCTIONS_DEACTIVATE');
   const canReactivate = record.status === 'DEACTIVATED' && hasPermission('FUNCTIONS_REACTIVATE');
   if (!(canSubmit || canReview || canPublish || canDeactivate || canReactivate)) return null;
-  return <Panel className="mb-5"><PanelBody>
-    <div className="flex flex-wrap gap-3">
-      {canSubmit && <Button disabled={disabled || record.organizationId === null} loading={running}
-        onClick={() => void run('submit-for-review')}>{t('fnAdmin.submit')}</Button>}
-      {canPublish && <Button disabled={disabled} loading={running} onClick={() => void run('publish')}>{t('fnAdmin.publish')}</Button>}
-      {canReview && <Button variant="outline" disabled={disabled} onClick={() => { setError(null); setDialog('reject'); }}>{t('fnAdmin.reject')}</Button>}
-      {canDeactivate && <Button variant="danger" disabled={disabled} onClick={() => { setError(null); setDialog('deactivate'); }}>{t('action.deactivate')}</Button>}
-      {canReactivate && <Button disabled={disabled} loading={running} onClick={() => void run('reactivate')}>{t('fnAdmin.reactivate')}</Button>}
-    </div>
-    {dirty && <p className="mt-3 text-sm text-amber-700">{t('fnAdmin.saveFirst')}</p>}
-    {canSubmit && record.organizationId === null && <p role="alert" className="mt-3 text-sm text-amber-700">{t('fnAdmin.assignFirst')}</p>}
-    {Boolean(error) && dialog !== 'reject' && <ErrorState error={error} />}
-    <Modal open={dialog === 'reject'} onClose={() => setDialog(null)} closeDisabled={busy} title={t('fnAdmin.reject')}>
-      <form className="space-y-4" onSubmit={event => { event.preventDefault(); void run('reject'); }}>
-        <Field label={t('fnAdmin.reason')} required>{() =>
-          <TextArea rows={4} value={reason} maxLength={2000} disabled={busy} onChange={event => setReason(event.target.value)} />}</Field>
-        {Boolean(error) && <ErrorState error={error} />}
-        <Button type="submit" loading={running} disabled={disabled || !reason.trim()}>{t('fnAdmin.reject')}</Button>
-      </form>
-    </Modal>
-    <ConfirmModal open={dialog === 'deactivate'} onClose={() => setDialog(null)}
-      onConfirm={() => void run('deactivate')} loading={running} title={t('action.deactivate')}
-      message={t('fnAdmin.deactivateConfirm')} confirmLabel={t('action.deactivate')} cancelLabel={t('action.cancel')} />
-  </PanelBody></Panel>;
+
+  async function run(action: FunctionTransition | 'deactivate') {
+    if (disabled) return;
+    setError(null);
+    try {
+      if (action === 'deactivate') {
+        await deactivate.mutateAsync(undefined);
+      } else {
+        await transition.mutateAsync({ action, reason: action === 'reject' ? reason.trim() : undefined });
+      }
+      setDialog(null);
+      setReason('');
+      toast.success(t('fnAdmin.saved'));
+    } catch (failure) {
+      setError(failure);
+    }
+  }
+
+  const openDialog = (next: Exclude<Dialog, null>) => {
+    setError(null);
+    setDialog(next);
+  };
+
+  const submitReject = (event: FormEvent) => {
+    event.preventDefault();
+    void run('reject');
+  };
+
+  return (
+    <Card>
+      <CardHeader title={t('fnAdmin.workflow', 'Workflow')} icon={<WorkflowIcon className="h-4 w-4" />} />
+      <CardBody className="space-y-3">
+        <div className="grid gap-2">
+          {canSubmit && (
+            <Button icon={<SendIcon />} disabled={disabled || record.organizationId === null} loading={transition.isPending} onClick={() => void run('submit-for-review')}>
+              {t('fnAdmin.submit')}
+            </Button>
+          )}
+          {canPublish && (
+            <Button variant="gradient" icon={<CheckCircle2Icon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('publish')}>
+              {t('fnAdmin.publish')}
+            </Button>
+          )}
+          {canReview && (
+            <Button variant="outline" icon={<UndoIcon />} disabled={disabled} onClick={() => openDialog('reject')}>
+              {t('fnAdmin.reject')}
+            </Button>
+          )}
+          {canReactivate && (
+            <Button icon={<RotateCcwIcon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('reactivate')}>
+              {t('fnAdmin.reactivate')}
+            </Button>
+          )}
+          {canDeactivate && (
+            <Button variant="danger" icon={<PowerOffIcon />} disabled={disabled} onClick={() => openDialog('deactivate')}>
+              {t('action.deactivate')}
+            </Button>
+          )}
+        </div>
+        {dirty && <InlineAlert tone="warning">{t('fnAdmin.saveFirst')}</InlineAlert>}
+        {canSubmit && record.organizationId === null && <InlineAlert tone="warning">{t('fnAdmin.assignFirst')}</InlineAlert>}
+        {Boolean(error) && dialog !== 'reject' && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
+      </CardBody>
+
+      <Modal
+        open={dialog === 'reject'}
+        onClose={() => setDialog(null)}
+        closeDisabled={running}
+        title={t('fnAdmin.reject')}
+        icon={<UndoIcon className="h-4 w-4" />}
+      >
+        <form className="space-y-4" onSubmit={submitReject}>
+          <Field label={t('fnAdmin.reason')} required>
+            {(control) => (
+              <Textarea {...control} rows={4} maxLength={REASON_MAX} value={reason} disabled={running} onChange={(event) => setReason(event.target.value)} />
+            )}
+          </Field>
+          {Boolean(error) && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
+          <div className="flex justify-end">
+            <Button type="submit" icon={<UndoIcon />} loading={running} disabled={disabled || !reason.trim()}>
+              {t('fnAdmin.reject')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmModal
+        open={dialog === 'deactivate'}
+        onClose={() => setDialog(null)}
+        onConfirm={() => void run('deactivate')}
+        loading={running}
+        title={t('action.deactivate')}
+        message={t('fnAdmin.deactivateConfirm')}
+        confirmLabel={t('action.deactivate')}
+        cancelLabel={t('action.cancel')}
+      />
+    </Card>
+  );
 }

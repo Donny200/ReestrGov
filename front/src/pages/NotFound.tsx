@@ -1,27 +1,26 @@
 import { ArrowLeftIcon, SearchXIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { buttonVariants } from '../components/ui/buttonVariants';
 import { useI18n } from '../contexts/i18n';
+import { cn } from '../lib/cn';
 
 export function NotFound() {
   const { t } = useI18n();
 
   return (
-    <div className="mx-auto flex min-h-[65vh] w-full max-w-2xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
-      <div className="relative flex h-24 w-24 items-center justify-center rounded-full border border-navy-100 bg-white shadow-card">
-        <SearchXIcon className="h-9 w-9 text-navy-400" aria-hidden="true" />
-        <span className="absolute -right-2 -top-2 rounded-full bg-navy-900 px-2.5 py-1 font-display text-xs font-bold text-white">404</span>
+    <div className="mx-auto flex min-h-[65vh] w-full max-w-2xl animate-fade-up flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
+      <div className="glass w-full rounded-overlay p-10 shadow-elevated">
+        <p className="text-gradient font-display text-7xl font-bold leading-none tracking-tight sm:text-8xl">404</p>
+        <span className="mx-auto mt-6 flex h-12 w-12 items-center justify-center rounded-surface bg-brand-gradient-soft text-link">
+          <SearchXIcon className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <h1 className="mt-5 font-display text-2xl font-bold tracking-tight text-content-strong sm:text-3xl">{t('state.notFoundTitle')}</h1>
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-content-muted">{t('state.notFoundText')}</p>
+        <Link to="/" className={cn(buttonVariants({ size: 'lg' }), 'mt-7')}>
+          <ArrowLeftIcon className="rtl:rotate-180" aria-hidden="true" />
+          {t('nav.home')}
+        </Link>
       </div>
-      <h1 className="mt-7 font-display text-2xl font-extrabold tracking-tight text-navy-950 sm:text-3xl">
-        {t('state.notFoundTitle')}
-      </h1>
-      <p className="mt-3 max-w-lg text-sm leading-6 text-navy-500">{t('state.notFoundText')}</p>
-      <Link
-        to="/"
-        className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-navy-900 px-5 text-sm font-semibold text-white transition-colors hover:bg-navy-800"
-      >
-        <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-        {t('nav.home')}
-      </Link>
     </div>
   );
 }

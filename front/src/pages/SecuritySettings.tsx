@@ -1,162 +1,130 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { KeyRoundIcon, ShieldCheckIcon } from 'lucide-react';
+import { useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { KeyRoundIcon, ShieldCheckIcon, UserRoundIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '../components/layout/AdminLayout';
-import { Panel, PanelBody, PanelHeader } from '../components/ui/Card';
+import { PageHeader } from '../components/layout/PageHeader';
+import { Avatar } from '../components/ui/Avatar';
+import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Field, TextInput } from '../components/ui/Field';
+import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Field } from '../components/ui/Field';
+import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
+import { applyServerErrors } from '../lib/forms';
+import { passwordField } from '../lib/validation';
 import { changePassword } from '../services/authService';
-import { errorMessage, fieldErrorsOf } from '../utils/errors';
-import { fullName, initials, roleLabel } from '../utils/format';
+import type { Translate } from '../utils/errors';
+import { fullName, roleLabel } from '../utils/format';
 
-/** NOTE: /api/user/profile is never called — account data comes from GET /api/auth/me. */
+const passwordSchema = (t: Translate) =>
+  z
+    .object({
+      currentPassword: z.string().min(1, t('validation.required')),
+      newPassword: passwordField(t),
+      repeatPassword: z.string(),
+    })
+    .refine((values) => values.newPassword === values.repeatPassword, {
+      message: t('security.mismatch'),
+      path: ['repeatPassword'],
+    });
+
+type PasswordValues = z.infer<ReturnType<typeof passwordSchema>>;
+
+const emptyValues: PasswordValues = { currentPassword: '', newPassword: '', repeatPassword: '' };
+
 export function SecuritySettings() {
   const { t } = useI18n();
   const { user, refreshUser } = useAuth();
+  const schema = useMemo(() => passwordSchema(t), [t]);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<PasswordValues>({ resolver: zodResolver(schema), defaultValues: emptyValues });
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [repeatPassword, setRepeatPassword] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const next: Record<string, string> = {};
-    if (!currentPassword) next.currentPassword = t('validation.required');
-    if (newPassword.length < 8 || newPassword.length > 100) next.newPassword = t('security.passwordRule');
-    if (newPassword !== repeatPassword) next.repeatPassword = t('security.mismatch');
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-
-    setSubmitting(true);
+  const submit = handleSubmit(async (values) => {
     try {
-      await changePassword({ currentPassword, newPassword });
+      await changePassword({ currentPassword: values.currentPassword, newPassword: values.newPassword });
       await refreshUser();
       toast.success(t('security.success'));
-      setCurrentPassword('');
-      setNewPassword('');
-      setRepeatPassword('');
+      reset(emptyValues);
     } catch (error) {
-      const fields = fieldErrorsOf(error);
-      setErrors(fields);
-      if (Object.keys(fields).length === 0) toast.error(errorMessage(error));
-    } finally {
-      setSubmitting(false);
+      applyServerErrors(error, setError, (message) => toast.error(message), t);
     }
-  };
+  });
 
   return (
-    <div>
+    <div className="animate-fade-up">
       <PageHeader title={t('security.title')} description={t('security.passwordRule')} />
 
       <div className="grid gap-6 xl:grid-cols-5">
-        <Panel className="overflow-hidden xl:col-span-3">
-          <PanelHeader title={t('security.changePassword')} />
-          <PanelBody>
-            <form className="max-w-lg space-y-5" onSubmit={handleSubmit} noValidate>
-              <Field label={t('security.currentPassword')} error={errors.currentPassword} required>
-                {({ id, invalid, describedBy }) =>
-                <TextInput
-                  id={id}
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  invalid={invalid}
-                  aria-describedby={describedBy}
-                  onChange={(event) => setCurrentPassword(event.target.value)} />
-
-                }
+        <Card className="xl:col-span-3">
+          <CardHeader title={t('security.changePassword')} icon={<KeyRoundIcon className="h-4 w-4" aria-hidden="true" />} />
+          <CardBody>
+            <form className="max-w-lg space-y-5" onSubmit={submit} noValidate>
+              <Field label={t('security.currentPassword')} error={errors.currentPassword?.message} required>
+                {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('currentPassword')} />}
               </Field>
-              <Field
-                label={t('security.newPassword')}
-                error={errors.newPassword}
-                hint={t('security.passwordRule')}
-                required>
-                
-                {({ id, invalid, describedBy }) =>
-                <TextInput
-                  id={id}
-                  type="password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  minLength={8}
-                  maxLength={100}
-                  invalid={invalid}
-                  aria-describedby={describedBy}
-                  onChange={(event) => setNewPassword(event.target.value)} />
-
-                }
+              <Field label={t('security.newPassword')} error={errors.newPassword?.message} hint={t('security.passwordRule')} required>
+                {(control) => <Input {...control} type="password" autoComplete="new-password" minLength={8} maxLength={100} {...register('newPassword')} />}
               </Field>
-              <Field label={t('security.repeatPassword')} error={errors.repeatPassword} required>
-                {({ id, invalid, describedBy }) =>
-                <TextInput
-                  id={id}
-                  type="password"
-                  autoComplete="new-password"
-                  value={repeatPassword}
-                  minLength={8}
-                  maxLength={100}
-                  invalid={invalid}
-                  aria-describedby={describedBy}
-                  onChange={(event) => setRepeatPassword(event.target.value)} />
-
-                }
+              <Field label={t('security.repeatPassword')} error={errors.repeatPassword?.message} required>
+                {(control) => <Input {...control} type="password" autoComplete="new-password" minLength={8} maxLength={100} {...register('repeatPassword')} />}
               </Field>
-              <div className="border-t border-navy-100 pt-5">
-                <Button type="submit" loading={submitting} icon={<KeyRoundIcon className="h-4 w-4" />}>
+              <div className="border-t border-line/80 pt-5">
+                <Button type="submit" loading={isSubmitting} icon={<KeyRoundIcon />}>
                   {t('action.save')}
                 </Button>
               </div>
             </form>
-          </PanelBody>
-        </Panel>
+          </CardBody>
+        </Card>
 
-        <Panel className="h-fit overflow-hidden xl:sticky xl:top-24 xl:col-span-2">
-          <PanelHeader title={t('admin.welcome')} />
-          <PanelBody className="text-sm">
-            {user ?
-            <>
-                <div className="mb-5 flex items-center gap-3 rounded-xl border border-navy-100 bg-navy-50/70 p-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-900 text-xs font-bold tracking-wide text-white">
-                    {initials(user)}
-                  </span>
+        <Card className="h-fit xl:sticky xl:top-24 xl:col-span-2">
+          <CardHeader title={t('admin.welcome')} icon={<UserRoundIcon className="h-4 w-4" aria-hidden="true" />} />
+          <CardBody>
+            {user && (
+              <>
+                <div className="flex items-center gap-3 rounded-surface border border-line/80 bg-surface-subtle/60 p-3">
+                  <Avatar user={user} size="lg" />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-navy-900">{fullName(user)}</span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-teal-700">
+                    <span className="block truncate text-sm font-semibold text-content-strong">{fullName(user)}</span>
+                    <Badge tone="brand" className="mt-1">
                       <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       {roleLabel(user.role, t)}
-                    </span>
+                    </Badge>
                   </span>
                 </div>
-                <dl className="divide-y divide-navy-100 text-[13px]">
+                <dl className="mt-5 divide-y divide-line/80 text-[13px]">
                   <div className="py-3 first:pt-0">
-                    <dt className="text-navy-400">{t('field.fullName')}</dt>
-                    <dd className="font-medium text-navy-900">{fullName(user)}</dd>
+                    <dt className="text-content-muted">{t('field.fullName')}</dt>
+                    <dd className="mt-0.5 font-medium text-content-strong">{fullName(user)}</dd>
                   </div>
                   <div className="py-3">
-                    <dt className="text-navy-400">{t('field.email')}</dt>
-                    <dd className="font-medium text-navy-900">{user.email}</dd>
+                    <dt className="text-content-muted">{t('field.email')}</dt>
+                    <dd className="mt-0.5 break-all font-medium text-content-strong">{user.email}</dd>
                   </div>
                   <div className="py-3">
-                    <dt className="text-navy-400">{t('field.phone')}</dt>
-                    <dd className="font-medium text-navy-900">{user.phone ?? '—'}</dd>
+                    <dt className="text-content-muted">{t('field.phone')}</dt>
+                    <dd className="mt-0.5 font-medium text-content-strong">{user.phone ?? '—'}</dd>
                   </div>
                   <div className="py-3 last:pb-0">
-                    <dt className="text-navy-400">{t('field.organizationIds')}</dt>
-                    <dd className="font-medium text-navy-900">
+                    <dt className="text-content-muted">{t('field.organizationIds')}</dt>
+                    <dd className="mt-0.5 font-medium tabular-nums text-content-strong">
                       {user.organizationIds.length > 0 ? user.organizationIds.join(', ') : '—'}
                     </dd>
                   </div>
                 </dl>
-              </> :
-            null}
-          </PanelBody>
-        </Panel>
+              </>
+            )}
+          </CardBody>
+        </Card>
       </div>
-    </div>);
-
+    </div>
+  );
 }

@@ -21,27 +21,25 @@ export function PublicLayout() {
         if (target) {
           target.scrollIntoView({
             behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-            block: 'start'
+            block: 'start',
           });
           target.focus({ preventScroll: true });
           return;
         }
       }
-
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       document.getElementById('main-content')?.focus({ preventScroll: true });
     });
-
     return () => window.cancelAnimationFrame(frame);
   }, [location.hash, location.pathname]);
 
   return (
-    <div className="flex min-h-screen min-h-dvh w-full flex-col bg-canvas text-content">
+    <div className="flex min-h-dvh w-full flex-col text-content">
       <a
         href="#main-content"
-        className="fixed left-4 top-3 z-[80] -translate-y-20 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-pop transition-transform focus:translate-y-0"
+        className="fixed left-4 top-3 z-[80] -translate-y-20 rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-brand-fg shadow-pop transition-transform focus:translate-y-0"
       >
-        {t('a11y.skipToContent', "Asosiy tarkibga o'tish")}
+        {t('a11y.skipToContent', 'Skip to main content')}
       </a>
       <PublicHeader />
       <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">

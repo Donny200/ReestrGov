@@ -1,12 +1,6 @@
-import type {
-  CreateLegacyUserRequest,
-  LegacyUser,
-  LegacyUserApi,
-  UpdateLegacyUserRequest
-} from '../types/api';
+import type { CreateLegacyUserRequest, LegacyUser, LegacyUserApi, UpdateLegacyUserRequest } from '../types/api';
 import { apiRequest } from './http';
 
-/** Maps the compatibility user DTO to the existing page model. */
 function normalize(user: LegacyUserApi): LegacyUser {
   return {
     id: user.id,
@@ -16,21 +10,16 @@ function normalize(user: LegacyUserApi): LegacyUser {
     phone: user.phone ?? null,
     role: user.role,
     enabled: user.enabled,
-    organizations: user.organizationIds ?? []
+    organizations: user.organizationIds ?? [],
   };
 }
 
-export async function getLegacyUsers(): Promise<LegacyUser[]> {
+export const getLegacyUsers = async (): Promise<LegacyUser[]> => {
   const users = await apiRequest<LegacyUserApi[]>('/api/user');
   return users.map(normalize);
-}
+};
 
-export async function getLegacyUser(id: number): Promise<LegacyUser> {
-  return normalize(await apiRequest<LegacyUserApi>(`/api/user/${id}`));
-}
-
-/** Sends the backend DTO directly; the server resolves and validates every ID. */
-export async function createLegacyUser(payload: CreateLegacyUserRequest): Promise<LegacyUser> {
+export const createLegacyUser = async (payload: CreateLegacyUserRequest): Promise<LegacyUser> => {
   const created = await apiRequest<LegacyUserApi>('/api/user', {
     method: 'POST',
     body: {
@@ -40,18 +29,13 @@ export async function createLegacyUser(payload: CreateLegacyUserRequest): Promis
       password: payload.password,
       phone: payload.phone || null,
       roleId: payload.roleId,
-      organizationIds: payload.organizationIds
-    }
+      organizationIds: payload.organizationIds,
+    },
   });
   return normalize(created);
-}
+};
 
-/** Backend updates only firstName, lastName and email for this endpoint. */
-export async function updateLegacyUser(id: number, payload: UpdateLegacyUserRequest): Promise<LegacyUser> {
-  return normalize(await apiRequest<LegacyUserApi>(`/api/user/${id}`, { method: 'PUT', body: payload }));
-}
+export const updateLegacyUser = async (id: number, payload: UpdateLegacyUserRequest): Promise<LegacyUser> =>
+  normalize(await apiRequest<LegacyUserApi>(`/api/user/${id}`, { method: 'PUT', body: payload }));
 
-/** The compatibility DELETE route performs a soft deactivation. */
-export function deactivateLegacyUser(id: number): Promise<void> {
-  return apiRequest<void>(`/api/user/${id}`, { method: 'DELETE' });
-}
+export const deactivateLegacyUser = (id: number) => apiRequest<void>(`/api/user/${id}`, { method: 'DELETE' });

@@ -1,38 +1,65 @@
 import type { ReactNode } from 'react';
-import { twMerge } from 'tailwind-merge';
+import { cn } from '../../lib/cn';
 
-export function Panel({ className, children }: {className?: string;children: ReactNode;}) {
-  return (
-    <section className={twMerge('rounded-surface border border-line bg-surface-raised shadow-surface', className)}>
-      {children}
-    </section>);
-
+interface CardProps {
+  className?: string;
+  children: ReactNode;
+  glass?: boolean;
+  hover?: boolean;
 }
 
-interface PanelHeaderProps {
+export function Card({ className, children, glass = false, hover = false }: CardProps) {
+  return (
+    <section
+      className={cn(
+        'rounded-surface border border-line bg-surface shadow-card',
+        glass && 'glass shadow-surface',
+        hover && 'lift',
+        className,
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+interface CardHeaderProps {
   title: string;
   description?: string;
   actions?: ReactNode;
+  icon?: ReactNode;
   className?: string;
 }
 
-export function PanelHeader({ title, description, actions, className }: PanelHeaderProps) {
+export function CardHeader({ title, description, actions, icon, className }: CardHeaderProps) {
   return (
-    <header
-      className={twMerge(
-        'flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5',
-        className
-      )}>
-      
-      <div className="min-w-0">
-        <h2 className="font-display text-base font-bold tracking-tight text-content-strong">{title}</h2>
-        {description && <p className="mt-1 text-sm leading-relaxed text-content-muted">{description}</p>}
+    <header className={cn('flex flex-col gap-3 border-b border-line/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between', className)}>
+      <div className="flex min-w-0 items-start gap-3">
+        {icon && (
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-gradient-soft text-link" aria-hidden="true">
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h2 className="font-display text-sm font-semibold text-content-strong">{title}</h2>
+          {description && <p className="mt-0.5 text-sm text-content-muted">{description}</p>}
+        </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </header>);
-
+    </header>
+  );
 }
 
-export function PanelBody({ className, children }: {className?: string;children: ReactNode;}) {
-  return <div className={twMerge('px-4 py-5 sm:px-6 sm:py-6', className)}>{children}</div>;
+export function CardBody({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn('px-5 py-5', className)}>{children}</div>;
 }
+
+export function CardFooter({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <footer className={cn('flex flex-wrap items-center justify-end gap-2 border-t border-line/80 bg-surface-subtle/50 px-5 py-3', className)}>
+      {children}
+    </footer>
+  );
+}
+
+export { Card as Panel, CardHeader as PanelHeader, CardBody as PanelBody };

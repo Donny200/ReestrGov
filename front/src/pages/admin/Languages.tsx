@@ -1,255 +1,207 @@
-import { useEffect, useState } from 'react';
-import { CheckIcon, GlobeIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { CheckIcon, GlobeIcon, LanguagesIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '../../components/layout/AdminLayout';
-import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { TextInput } from '../../components/ui/Field';
-import { ConfirmModal } from '../../components/ui/Modal';
-import { DataTable, type Column } from '../../components/ui/DataTable';
+import { Input } from '../../components/ui/Input';
+import { Toolbar } from '../../components/ui/Toolbar';
+import { DataTable } from '../../components/ui/DataTable';
 import { Badge } from '../../components/ui/Badge';
+import { ConfirmModal } from '../../components/ui/Modal';
 import { SkeletonText } from '../../components/ui/Skeleton';
 import { EmptyState, ErrorState } from '../../components/ui/States';
-import { useAsync } from '../../hooks/useAsync';
+import { useAddLanguage, useDeleteLanguage, useLanguages } from '../../features/languages/queries';
+import { useDebouncedValue, useLanguageSearch } from '../../features/languages/search';
 import { useI18n } from '../../contexts/i18n';
-import { addLanguage, deleteLanguage, getLanguages, searchLanguages } from '../../services/referenceService';
-import type { Language, LanguageSearchResult } from '../../types/api';
+import { cn } from '../../lib/cn';
+import type { Language } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
 
 export function Languages() {
   const { t, reloadLanguages } = useI18n();
-  const languages = useAsync(getLanguages, []);
-
+  const languages = useLanguages();
+  const add = useAddLanguage();
+  const remove = useDeleteLanguage();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<LanguageSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<unknown>(null);
   const [selectedCode, setSelectedCode] = useState('');
   const [deleting, setDeleting] = useState<Language | null>(null);
-  const [saving, setSaving] = useState(false);
+  const debouncedQuery = useDebouncedValue(query.trim());
+  const results = useLanguageSearch(debouncedQuery);
 
-  useEffect(() => {
-    if (query.trim().length < 1) {
-      setResults([]);
-      setSearchError(null);
-      setSearching(false);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const timer = setTimeout(() => {
-      searchLanguages(query.trim()).
-      then((data) => {
-        if (!cancelled) {
-          setResults(data);
-          setSearchError(null);
-        }
-      }).
-      catch((error: unknown) => {
-        if (!cancelled) setSearchError(error);
-      }).
-      finally(() => {
-        if (!cancelled) setSearching(false);
-      });
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query]);
-
-  const existingCodes = new Set((languages.data ?? []).map((item) => item.code.toLowerCase()));
-  const directCode = !searching && !searchError && results.length === 0 ? query.trim() : '';
+  const existingCodes = useMemo(() => new Set((languages.data ?? []).map((item) => item.code.toLowerCase())), [languages.data]);
+  const searching = debouncedQuery !== query.trim() || (results.isFetching && !results.data);
+  const directCode = !searching && !results.error && results.data?.length === 0 ? query.trim() : '';
   const codeToAdd = selectedCode || directCode;
   const codeAlreadyAdded = existingCodes.has(codeToAdd.toLowerCase());
 
-  const submitAdd = async () => {
+  const submitAdd = () => {
     if (!codeToAdd || codeAlreadyAdded) return;
-    setSaving(true);
-    try {
-      await addLanguage(codeToAdd);
-      toast.success(t('toast.created'));
-      setSelectedCode('');
-      setQuery('');
-      setResults([]);
-      languages.reload();
-      await reloadLanguages();
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    add.mutate(codeToAdd, {
+      onSuccess: async () => {
+        toast.success(t('toast.created'));
+        setSelectedCode('');
+        setQuery('');
+        await reloadLanguages();
+      },
+      onError: (error) => toast.error(errorMessage(error, t)),
+    });
   };
 
-  const submitDelete = async () => {
+  const submitDelete = () => {
     if (!deleting) return;
-    setSaving(true);
-    try {
-      await deleteLanguage(deleting.id);
-      toast.success(t('toast.deleted'));
-      setDeleting(null);
-      languages.reload();
-      await reloadLanguages();
-    } catch (error) {
-      toast.error(errorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    remove.mutate(deleting.id, {
+      onSuccess: async () => {
+        toast.success(t('toast.deleted'));
+        setDeleting(null);
+        await reloadLanguages();
+      },
+      onError: (error) => toast.error(errorMessage(error, t)),
+    });
   };
 
-  const columns: Column<Language>[] = [
-  {
-    key: 'id',
-    header: t('field.id'),
-    className: 'hidden lg:table-cell',
-    headerClassName: 'hidden lg:table-cell',
-    render: (row) => <span className="text-navy-400">#{row.id}</span>
-  },
-  {
-    key: 'code',
-    header: 'ISO / BCP-47',
-    render: (row) => <span className="font-mono text-[12px] font-semibold text-navy-700">{row.code}</span>
-  },
-  {
-    key: 'name',
-    header: t('field.name'),
-    className: 'hidden md:table-cell',
-    headerClassName: 'hidden md:table-cell',
-    render: (row) => <span className="text-navy-600">{row.name}</span>
-  },
-  {
-    key: 'nativeName',
-    header: t('lang.nativeName', 'Native name'),
-    render: (row) => <span className="font-medium text-navy-900">{row.nativeName}</span>
-  },
-  {
-    key: 'default',
-    header: t('lang.default'),
-    className: 'hidden sm:table-cell',
-    headerClassName: 'hidden sm:table-cell',
-    render: (row) => row.defaultLanguage ? <Badge tone="teal">{t('lang.default')}</Badge> : <span className="text-navy-400">—</span>
-  },
-  {
-    key: 'actions',
-    header: t('field.actions'),
-    className: 'text-right',
-    headerClassName: 'text-right',
-    render: (row) =>
-    row.defaultLanguage ?
-    // Deletion is not offered for the default language.
-    <span className="text-[12px] text-navy-400">{t('lang.default')}</span> :
-
-    <Button
-      size="sm"
-      variant="danger"
-      aria-label={t('action.delete')}
-      title={t('action.delete')}
-      className="px-2 xl:px-3"
-      onClick={() => setDeleting(row)}
-      icon={<Trash2Icon className="h-3.5 w-3.5" />}>
-      
-            <span className="hidden xl:inline">{t('action.delete')}</span>
-          </Button>
-
-  }];
-
+  const columns = useMemo<ColumnDef<Language>[]>(
+    () => [
+      {
+        accessorKey: 'id',
+        header: t('field.id'),
+        meta: { hideBelow: 'xl', mobileHidden: true },
+        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+      },
+      {
+        accessorKey: 'code',
+        header: 'ISO / BCP-47',
+        cell: ({ row }) => <Badge tone="neutral" className="font-mono text-[11px]">{row.original.code}</Badge>,
+      },
+      {
+        accessorKey: 'nativeName',
+        header: t('lang.nativeName', 'Native name'),
+        cell: ({ row }) => (
+          <span className="min-w-0">
+            <span className="block font-medium text-content-strong">{row.original.nativeName}</span>
+            <span className="block text-xs text-content-muted">{row.original.name}</span>
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'defaultLanguage',
+        header: t('lang.default'),
+        meta: { hideBelow: 'md' },
+        cell: ({ row }) =>
+          row.original.defaultLanguage ? <Badge tone="brand" dot glow>{t('lang.default')}</Badge> : <span className="text-content-subtle">—</span>,
+      },
+      {
+        id: 'actions',
+        header: t('field.actions'),
+        enableSorting: false,
+        meta: { align: 'right', mobileHidden: true },
+        cell: ({ row }) =>
+          row.original.defaultLanguage ? (
+            <span className="text-xs text-content-subtle">{t('lang.default')}</span>
+          ) : (
+            <Button variant="ghost" size="iconSm" aria-label={`${t('action.delete')}: ${row.original.nativeName}`} className="text-danger hover:bg-danger/10 hover:text-danger" onClick={() => setDeleting(row.original)}>
+              <Trash2Icon aria-hidden="true" />
+            </Button>
+          ),
+      },
+    ],
+    [t],
+  );
 
   return (
-    <div>
+    <div className="animate-fade-up">
       <PageHeader
+        eyebrow={t('nav.admin')}
         title={t('lang.title')}
         description={t('lang.current')}
-        badge={<Badge tone="teal">{(languages.data ?? []).length}</Badge>} />
+        badge={<Badge tone="brand">{(languages.data ?? []).length}</Badge>}
+      />
 
       <div className="grid gap-6 xl:grid-cols-5">
-        <Panel className="overflow-hidden [&_table]:!min-w-0 [&_td]:!px-3 [&_th]:!px-3 sm:[&_td]:!px-6 sm:[&_th]:!px-6 xl:col-span-3">
-          <PanelHeader title={t('lang.current')} description={`${(languages.data ?? []).length}`} />
+        <Card className="xl:col-span-3">
+          <Toolbar summary={`${(languages.data ?? []).length} ${t('home.resultsCount')}`} />
           <DataTable
             columns={columns}
-            rows={languages.data ?? []}
+            data={languages.data ?? []}
             rowKey={(row) => row.id}
-            loading={languages.loading}
+            caption={t('lang.current')}
+            loading={languages.isPending}
             error={languages.error}
-            onRetry={languages.reload}
-            emptyTitle={t('state.emptyTitle')}
-            caption={t('lang.current')} />
-          
-        </Panel>
+            onRetry={() => void languages.refetch()}
+            pageSize={25}
+            initialSorting={[{ id: 'nativeName', desc: false }]}
+            empty={{ title: t('state.emptyTitle') }}
+          />
+        </Card>
 
-        <Panel className="h-fit overflow-hidden xl:sticky xl:top-24 xl:col-span-2">
-          <PanelHeader title={t('lang.searchTitle')} />
-          <PanelBody className="space-y-4">
+        <Card glass className="h-fit xl:sticky xl:top-24 xl:col-span-2">
+          <CardHeader title={t('lang.searchTitle')} icon={<LanguagesIcon className="h-4 w-4" aria-hidden="true" />} />
+          <CardBody className="space-y-4">
             <label className="block">
-              <span className="block text-[13px] font-medium text-navy-700">{t('lang.searchPlaceholder')}</span>
+              <span className="block text-sm font-medium text-content-strong">{t('lang.searchPlaceholder')}</span>
               <span className="relative mt-2 block">
-                <SearchIcon
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300"
-                  aria-hidden="true" />
-                <TextInput
+                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
+                <Input
                   value={query}
                   onChange={(event) => {
                     setQuery(event.target.value);
                     setSelectedCode('');
                   }}
                   placeholder={t('lang.searchPlaceholder')}
-                  className="pl-9" />
+                  className="pl-9"
+                />
               </span>
             </label>
 
-            <div className="min-h-[144px]" aria-live="polite">
-              {searching ?
-              <SkeletonText lines={4} /> :
-              searchError ?
-              <ErrorState error={searchError} /> :
-              query.trim() === '' ?
-              <p className="px-1 text-[13px] text-navy-400">{t('lang.searchPlaceholder')}</p> :
-              results.length === 0 ?
-              <EmptyState title={t('state.emptyTitle')} icon={<GlobeIcon className="h-5 w-5" />} /> :
-
-              <ul className="max-h-64 space-y-1 overflow-y-auto">
-                  {results.map((item) => {
-                  const already = item.alreadyAdded || existingCodes.has(item.code.toLowerCase());
-                  const selected = selectedCode === item.code;
-                  return (
-                    <li key={item.code}>
+            <div className="min-h-36" aria-live="polite">
+              {query.trim() === '' ? (
+                <p className="px-1 text-sm text-content-muted">{t('lang.searchPlaceholder')}</p>
+              ) : searching ? (
+                <SkeletonText lines={4} />
+              ) : results.error ? (
+                <ErrorState error={results.error} onRetry={() => void results.refetch()} />
+              ) : (results.data ?? []).length === 0 ? (
+                <EmptyState title={t('state.emptyTitle')} icon={<GlobeIcon className="h-6 w-6" aria-hidden="true" />} />
+              ) : (
+                <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                  {(results.data ?? []).map((item) => {
+                    const already = item.alreadyAdded || existingCodes.has(item.code.toLowerCase());
+                    const selected = selectedCode === item.code;
+                    return (
+                      <li key={item.code}>
                         <button
-                        type="button"
-                        disabled={already}
-                        onClick={() => setSelectedCode(item.code)}
-                        className={`flex min-h-14 w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                        selected ? 'border-teal-300 bg-teal-50 ring-1 ring-inset ring-teal-100' : 'border-navy-100 hover:border-navy-200 hover:bg-navy-50/50'}`
-                        }>
-                        
+                          type="button"
+                          disabled={already}
+                          aria-pressed={selected}
+                          onClick={() => setSelectedCode(item.code)}
+                          className={cn(
+                            'press flex min-h-14 w-full items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-left transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-60',
+                            selected ? 'border-brand/40 bg-brand-subtle shadow-glow' : 'border-line bg-surface/70 hover:border-line-strong hover:bg-surface-subtle',
+                          )}
+                        >
                           <span className="min-w-0">
-                            <span className="block break-words text-[13px] font-medium text-navy-900">{item.nativeName}</span>
-                            <span className="block break-all font-mono text-[11px] text-navy-400">
-                              {item.code} · {item.name}
-                            </span>
+                            <span className="block truncate text-sm font-medium text-content-strong">{item.nativeName}</span>
+                            <span className="block truncate font-mono text-[11px] text-content-subtle">{item.code} · {item.name}</span>
                           </span>
-                          {already ?
-                        <Badge tone="gray">{t('lang.alreadyAdded', "Qo'shilgan")}</Badge> :
-                        selected ?
-                        <CheckIcon className="h-4 w-4 text-teal-600" aria-hidden="true" /> :
-                        null}
+                          {already ? (
+                            <Badge tone="neutral">{t('lang.alreadyAdded', 'Already added')}</Badge>
+                          ) : selected ? (
+                            <CheckIcon className="h-4 w-4 shrink-0 text-link" aria-hidden="true" />
+                          ) : null}
                         </button>
-                      </li>);
-
-                })}
+                      </li>
+                    );
+                  })}
                 </ul>
-              }
+              )}
             </div>
 
-            <Button
-              className="w-full"
-              onClick={submitAdd}
-              disabled={!codeToAdd || codeAlreadyAdded}
-              loading={saving}
-              icon={<PlusIcon className="h-4 w-4" />}>
-              
+            <Button className="w-full" onClick={submitAdd} disabled={!codeToAdd || codeAlreadyAdded} loading={add.isPending} icon={<PlusIcon />}>
               {t('lang.addSelected')}
             </Button>
-          </PanelBody>
-        </Panel>
+          </CardBody>
+        </Card>
       </div>
 
       <ConfirmModal
@@ -258,10 +210,10 @@ export function Languages() {
         message={`${deleting?.nativeName ?? ''} — ${t('lang.deleteConfirm')}`}
         confirmLabel={t('action.delete')}
         cancelLabel={t('action.cancel')}
-        loading={saving}
+        loading={remove.isPending}
         onConfirm={submitDelete}
-        onClose={() => setDeleting(null)} />
-      
-    </div>);
-
+        onClose={() => setDeleting(null)}
+      />
+    </div>
+  );
 }
