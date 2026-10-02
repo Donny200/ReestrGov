@@ -10,13 +10,21 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-postgres} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
 
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
     ports:
       - "8761:8761"
+    restart: unless-stopped
 
   identity-service:
     build: ./identity-service
@@ -34,8 +42,11 @@ services:
       APP_COOKIE_SAME_SITE: "${APP_COOKIE_SAME_SITE:?APP_COOKIE_SAME_SITE is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     depends_on:
-      - postgres
-      - eureka-server
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    restart: unless-stopped
 
   reference-service:
     build: ./reference-service
@@ -49,8 +60,11 @@ services:
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     depends_on:
-      - postgres
-      - eureka-server
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    restart: unless-stopped
 
   function-catalog-service:
     build: ./function-catalog-service
@@ -59,16 +73,19 @@ services:
       - "8085:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/function_catalog_db
-      AZURE_TRANSLATOR_ENDPOINT: "${AZURE_TRANSLATOR_ENDPOINT:-}"
-      AZURE_TRANSLATOR_KEY: "${AZURE_TRANSLATOR_KEY:-}"
-      AZURE_TRANSLATOR_REGION: "${AZURE_TRANSLATOR_REGION:-}"
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-postgres}"
       FUNCTION_CATALOG_DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
+      AZURE_TRANSLATOR_ENDPOINT: "${AZURE_TRANSLATOR_ENDPOINT:-}"
+      AZURE_TRANSLATOR_KEY: "${AZURE_TRANSLATOR_KEY:-}"
+      AZURE_TRANSLATOR_REGION: "${AZURE_TRANSLATOR_REGION:-}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     depends_on:
-      - postgres
-      - eureka-server
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    restart: unless-stopped
 
   api-gateway:
     build: ./api-gateway
@@ -82,6 +99,16 @@ services:
       - identity-service
       - reference-service
       - function-catalog-service
+    restart: unless-stopped
+
+  front:
+    build: ./front
+    container_name: front
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
 
 volumes:
   pgdata:

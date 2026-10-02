@@ -26,6 +26,16 @@ Vite proxies all `/api/*` calls to the gateway, so local development does not
 need cross-origin browser configuration. Authentication uses HttpOnly cookies;
 the frontend always sends `credentials: 'include'` and does not store tokens.
 
+## Docker
+
+The root `docker-compose.yml` builds this directory into the `front` service: a
+multi-stage image that runs `npm ci` and `npm run build` on Node 22 and serves
+`dist/` with nginx on `http://localhost:3000`. `nginx.conf` falls back to
+`index.html` for client-side routes and proxies `/api/*` to `api-gateway:8082`
+on the same origin, so the HttpOnly cookies work without CORS. Leave
+`VITE_API_BASE_URL` empty for that setup; pass it as a build argument only when
+the API lives on a different public origin.
+
 ## Deployment configuration
 
 When the frontend is not served through the Vite proxy, set the public gateway

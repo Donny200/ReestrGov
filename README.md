@@ -2,6 +2,35 @@
 
 Spring Boot microservices with PostgreSQL, Eureka and an API Gateway. Secrets are not stored in the repository: provide them through the deployment environment or an untracked local `.env` file.
 
+## Running the stack with Docker Compose
+
+1. Create the local environment file and fill in the required values:
+
+   ```shell
+   cp .env.example .env
+   ```
+
+   `POSTGRES_PASSWORD`, `JWT_SECRET`, `APP_COOKIE_SECURE` and `APP_COOKIE_SAME_SITE` are mandatory; Compose refuses to start without them. `BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD` are needed only for the very first start of an empty identity database.
+
+2. Build and start everything:
+
+   ```shell
+   docker compose up --build -d
+   docker compose logs -f
+   ```
+
+   Service containers wait for PostgreSQL to pass its health check before starting. The frontend is served by nginx on `http://localhost:3000` and proxies `/api/*` to the gateway on the same origin, so no CORS configuration is involved. The gateway stays reachable directly on `http://localhost:8082` and Eureka on `http://localhost:8761`.
+
+3. Rebuild after code changes, or reset the stack:
+
+   ```shell
+   docker compose up --build -d front identity-service   # rebuild selected services
+   docker compose down                                    # stop and remove containers, keep the database
+   docker compose down -v --remove-orphans                # also delete the pgdata volume
+   docker compose build --no-cache                        # ignore the Maven and npm layer caches
+   docker builder prune -f                                # free BuildKit cache
+   ```
+
 ## Local database and IntelliJ IDEA
 
 Docker PostgreSQL is published on `localhost:5433`. The three application services use
@@ -46,21 +75,19 @@ connections briefly disconnect while the container is recreated. Do not use
 | `IDENTITY_DB_PASSWORD` | identity-service outside Compose | Identity database password |
 | `REFERENCE_DB_PASSWORD` | reference-service outside Compose | Reference database password |
 | `FUNCTION_CATALOG_DB_PASSWORD` | function-catalog-service outside Compose | Function catalog database password |
-| `JWT_PRIVATE_KEY` | identity-service only | PKCS#8 RSA private key used to sign JWTs |
-| `JWT_PUBLIC_KEY` | identity-service, reference-service, function-catalog-service | X.509 RSA public key used to verify JWTs |
+| `JWT_SECRET` | identity-service, reference-service, function-catalog-service | HMAC-SHA256 secret of at least 32 bytes used to sign and verify JWTs |
 | `APP_COOKIE_SECURE` | identity-service | Use `true` for HTTPS deployments |
 | `APP_COOKIE_SAME_SITE` | identity-service | Cookie SameSite policy selected for the deployment |
 
 Standard Spring variables such as `SPRING_DATASOURCE_URL` and `SPRING_DATASOURCE_USERNAME` may override the non-secret local defaults. Docker Compose maps `POSTGRES_PASSWORD` to each service-specific database variable.
 
-Generate the RSA pair outside the repository. For example, an operator can run:
+Generate the secret outside the repository. For example, an operator can run:
 
 ```shell
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out jwt-private.pem
-openssl pkey -in jwt-private.pem -pubout -out jwt-public.pem
+openssl rand -base64 48
 ```
 
-Keep `jwt-private.pem` in a secrets manager available only to identity-service. Other services receive only `jwt-public.pem`. PEM values may contain real line breaks or escaped `\n`. Never commit either key file; `.gitignore` excludes common private-key and keystore formats.
+Provide the same value to all three services through a secrets manager or the local `.env` file. Never commit it; `.gitignore` excludes `.env` files, private keys and keystores.
 
 ## First SUPER_ADMIN
 
@@ -89,7 +116,7 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 
 ## Required manual rotation after merge
 
-Previously committed database passwords and the old shared HMAC JWT secret must be treated as compromised. DevOps must rotate the PostgreSQL password, generate a new RSA key pair, replace deployment secrets and restart the services. During that coordinated rotation, revoke every existing refresh session (for example, run `UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` against the identity database in an operator-controlled transaction). Otherwise an old opaque refresh token could obtain a newly signed RS256 access token. Every access and refresh token issued before the rotation must be treated as compromised and invalidated. Secret generation, rotation and deployment are intentionally not performed by this repository change.
+Previously committed database passwords and the old shared HMAC JWT secret must be treated as compromised. DevOps must rotate the PostgreSQL password, generate a new JWT secret, replace deployment secrets and restart the services. During that coordinated rotation, revoke every existing refresh session (for example, run `UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` against the identity database in an operator-controlled transaction). Otherwise an old opaque refresh token could obtain a newly signed access token. Every access and refresh token issued before the rotation must be treated as compromised and invalidated. Secret generation, rotation and deployment are intentionally not performed by this repository change.
 
 ## Function catalog tests
 
