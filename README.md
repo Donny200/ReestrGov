@@ -1,6 +1,6 @@
 # ReestrGov
 
-**Enterprise Government Registry & Service Gateway Platform**
+**Корпоративная платформа государственного реестра и сервисного шлюза**
 
 ![Java 17](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white)
 ![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5.4-6DB33F?logo=springboot&logoColor=white)
@@ -16,43 +16,43 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose%20v2-2496ED?logo=docker&logoColor=white)
 ![Nginx 1.27](https://img.shields.io/badge/Nginx-1.27-009639?logo=nginx&logoColor=white)
 
-## Table of contents
+## Содержание
 
-1. [Executive summary](#1-executive-summary)
-2. [System architecture](#2-system-architecture)
-3. [Prerequisites](#3-prerequisites)
-4. [Environment configuration](#4-environment-configuration)
-5. [Quick start with Docker Compose](#5-quick-start-with-docker-compose)
-6. [Local development without Docker](#6-local-development-without-docker)
-7. [Security model](#7-security-model)
-8. [Testing](#8-testing)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Clean code and contribution standards](#10-clean-code-and-contribution-standards)
-11. [Repository layout](#11-repository-layout)
+1. [Краткий обзор](#1-краткий-обзор)
+2. [Архитектура системы](#2-архитектура-системы)
+3. [Предварительные требования](#3-предварительные-требования)
+4. [Конфигурация окружения](#4-конфигурация-окружения)
+5. [Быстрый старт с Docker Compose](#5-быстрый-старт-с-docker-compose)
+6. [Локальная разработка без Docker](#6-локальная-разработка-без-docker)
+7. [Модель безопасности](#7-модель-безопасности)
+8. [Тестирование](#8-тестирование)
+9. [Устранение неполадок](#9-устранение-неполадок)
+10. [Стандарты чистого кода и участия в разработке](#10-стандарты-чистого-кода-и-участия-в-разработке)
+11. [Структура репозитория](#11-структура-репозитория)
 
 ---
 
-## 1. Executive summary
+## 1. Краткий обзор
 
-ReestrGov is a registry of public services ("functions") offered by government organizations. Citizens browse a public, multilingual catalog of organizations and services. Staff members sign in to an administrative console to manage organizations, staff accounts, roles and permissions, interface languages and translations, and to run an editorial workflow for service cards (draft, review, publish, deactivate, reactivate) with optional machine translation through Azure Translator.
+ReestrGov — это реестр государственных услуг («функций»), предоставляемых государственными организациями. Граждане просматривают публичный многоязычный каталог организаций и услуг. Сотрудники входят в административную консоль для управления организациями, учётными записями сотрудников, ролями и правами, языками интерфейса и переводами, а также для ведения редакционного процесса карточек услуг (черновик, проверка, публикация, деактивация, повторная активация) с возможностью машинного перевода через Azure Translator.
 
-The platform is a set of Spring Boot microservices behind a Spring Cloud Gateway, registered in a Netflix Eureka service registry, each owning its own PostgreSQL database and Flyway migration history. A React single-page application, built with Vite and served by Nginx, talks to the gateway through a same-origin `/api/` proxy so that HttpOnly authentication cookies work without any CORS configuration in the browser.
+Платформа представляет собой набор микросервисов Spring Boot за Spring Cloud Gateway, зарегистрированных в реестре сервисов Netflix Eureka, каждый из которых владеет собственной базой данных PostgreSQL и собственной историей миграций Flyway. Одностраничное приложение на React, собранное с помощью Vite и обслуживаемое Nginx, обращается к шлюзу через same-origin прокси `/api/`, благодаря чему HttpOnly-cookie аутентификации работают без какой-либо настройки CORS в браузере.
 
-| Layer | Technology |
+| Слой | Технология |
 | --- | --- |
-| Backend runtime | Java 17, Spring Boot 3.5.4, Spring Cloud 2025.0.0 |
-| Service discovery and routing | Netflix Eureka, Spring Cloud Gateway (WebFlux), Spring Cloud LoadBalancer |
-| Security | Spring Security 6, stateless HMAC-SHA256 JWT (jjwt 0.12.6), HttpOnly cookies, BCrypt |
-| Persistence | PostgreSQL 16, Spring Data JPA, Flyway, Caffeine cache (reference-service) |
-| API documentation | springdoc-openapi (Swagger UI at `/swagger` on each service) |
-| Frontend | React 18, Vite 8, TypeScript 5 (strict), Tailwind CSS 3.4, Radix UI, TanStack Query and Table, react-hook-form, zod, framer-motion |
-| Frontend testing | Playwright (route-mocked UI suite and a real-backend suite) |
-| Backend testing | JUnit 5, Spring Boot Test, H2 (identity tests), Testcontainers and Playwright browser IT (function catalog) |
-| Packaging | Multi-stage Dockerfiles, BuildKit cache mounts, non-root runtime users, Nginx 1.27 for the SPA |
+| Среда выполнения бэкенда | Java 17, Spring Boot 3.5.4, Spring Cloud 2025.0.0 |
+| Обнаружение сервисов и маршрутизация | Netflix Eureka, Spring Cloud Gateway (WebFlux), Spring Cloud LoadBalancer |
+| Безопасность | Spring Security 6, stateless JWT на HMAC-SHA256 (jjwt 0.12.6), HttpOnly-cookie, BCrypt |
+| Хранение данных | PostgreSQL 16, Spring Data JPA, Flyway, кэш Caffeine (reference-service) |
+| Документация API | springdoc-openapi (Swagger UI по адресу `/swagger` в каждом сервисе) |
+| Фронтенд | React 18, Vite 8, TypeScript 5 (strict), Tailwind CSS 3.4, Radix UI, TanStack Query и Table, react-hook-form, zod, framer-motion |
+| Тестирование фронтенда | Playwright (UI-набор с мокированными маршрутами и набор с реальным бэкендом) |
+| Тестирование бэкенда | JUnit 5, Spring Boot Test, H2 (тесты identity), Testcontainers и браузерные IT на Playwright (function catalog) |
+| Упаковка | Многостадийные Dockerfile, кэш-монтирования BuildKit, непривилегированные пользователи среды выполнения, Nginx 1.27 для SPA |
 
 ---
 
-## 2. System architecture
+## 2. Архитектура системы
 
 ```
                  ┌──────────────────────────────────────────────────────────┐
@@ -88,115 +88,115 @@ The platform is a set of Spring Boot microservices behind a Spring Cloud Gateway
                        PostgreSQL 16  (container 5432, host 5433, volume pgdata)
 ```
 
-### 2.1 Service catalogue
+### 2.1 Каталог сервисов
 
-| Module | Port | Role | Datastore |
+| Модуль | Порт | Роль | Хранилище данных |
 | --- | --- | --- | --- |
-| `eureka-server` | 8761 | Service registry and discovery. Does not register itself; self-preservation is disabled for fast local turnaround. | none |
-| `api-gateway` | 8082 | Single public entry point. Routes by path to `lb://` service IDs resolved through Eureka, applies global CORS for the dev origins (`localhost:3000`, `localhost:5173`) with credentials, and dedupes CORS response headers. | none |
-| `identity-service` | 8081 | Authentication (login, refresh, logout, password change), JWT issuance, user and staff management, organizations, roles, permissions and the interface-language registry. Bootstraps the first `SUPER_ADMIN`. | `adlita_project1` |
-| `reference-service` | 8084 | Reference data: regions, interface translation dictionaries per language and translation keys with coverage and gap reports. Caches lookups with Caffeine. | `reference_service_db` |
-| `function-catalog-service` | 8085 | Public and administrative catalog of services ("functions"), categories, editorial workflow with permissions, audit trail, CSV import, manual and Azure-powered translations. | `function_catalog_db` |
-| `front` | 3000 → 80 | Vite/React SPA served by Nginx with gzip, immutable asset caching, SPA fallback, `/healthz` and a same-origin `/api/` reverse proxy to `api-gateway:8082`. | none |
-| `postgres` | 5433 → 5432 | PostgreSQL 16 with an init script that creates the three databases on first start. | volume `pgdata` |
+| `eureka-server` | 8761 | Реестр сервисов и обнаружение. Не регистрирует сам себя; режим самосохранения отключён для быстрой локальной работы. | нет |
+| `api-gateway` | 8082 | Единая публичная точка входа. Маршрутизирует по пути к идентификаторам сервисов `lb://`, разрешаемым через Eureka, применяет глобальный CORS для dev-источников (`localhost:3000`, `localhost:5173`) с учётными данными и устраняет дублирование CORS-заголовков ответа. | нет |
+| `identity-service` | 8081 | Аутентификация (вход, обновление токена, выход, смена пароля), выпуск JWT, управление пользователями и сотрудниками, организации, роли, права и реестр языков интерфейса. Создаёт первого `SUPER_ADMIN`. | `adlita_project1` |
+| `reference-service` | 8084 | Справочные данные: регионы, словари переводов интерфейса для каждого языка и ключи переводов с отчётами о покрытии и пробелах. Кэширует запросы с помощью Caffeine. | `reference_service_db` |
+| `function-catalog-service` | 8085 | Публичный и административный каталог услуг («функций»), категории, редакционный процесс с правами, журнал аудита, импорт CSV, ручные переводы и переводы через Azure. | `function_catalog_db` |
+| `front` | 3000 → 80 | SPA на Vite/React, обслуживаемое Nginx с gzip, неизменяемым кэшированием ресурсов, SPA-фолбэком, `/healthz` и same-origin обратным прокси `/api/` на `api-gateway:8082`. | нет |
+| `postgres` | 5433 → 5432 | PostgreSQL 16 с init-скриптом, который создаёт три базы данных при первом запуске. | том `pgdata` |
 
-### 2.2 Gateway routing
+### 2.2 Маршрутизация шлюза
 
-Routes are declared in `api-gateway/src/main/resources/application.yml` and evaluated top to bottom. The identity route is the catch-all, so new services must be added above it.
+Маршруты объявлены в `api-gateway/src/main/resources/application.yml` и обрабатываются сверху вниз. Маршрут identity является catch-all, поэтому новые сервисы необходимо добавлять выше него.
 
-| Order | Route ID | Path predicates | Target |
+| Порядок | ID маршрута | Предикаты пути | Цель |
 | --- | --- | --- | --- |
 | 1 | `reference-service` | `/api/regions/**`, `/api/interface-translations/**`, `/api/translation-keys/**` | `lb://reference-service` |
 | 2 | `function-catalog-service` | `/api/functions/**` | `lb://function-catalog-service` |
 | 3 | `identity-service` | `/api/**` | `lb://identity-service` |
 
-The gateway is intentionally thin. JWT verification and authorization happen inside each downstream service, not at the gateway, and no request rate limiting is configured. If a gateway-level token check or a rate limiter is required for a deployment, add a `GlobalFilter` or the `RequestRateLimiter` filter in the gateway module and document the change here.
+Шлюз намеренно сделан тонким. Проверка JWT и авторизация выполняются внутри каждого нижестоящего сервиса, а не на шлюзе, и ограничение частоты запросов не настроено. Если для развёртывания требуется проверка токена на уровне шлюза или ограничитель частоты запросов, добавьте `GlobalFilter` или фильтр `RequestRateLimiter` в модуль шлюза и задокументируйте изменение здесь.
 
-### 2.3 REST surface at a glance
+### 2.3 Обзор REST-интерфейса
 
-| Service | Base paths |
+| Сервис | Базовые пути |
 | --- | --- |
-| identity-service | `/api/auth` (login, refresh, logout, me, change-password), `/api/user`, `/api/admin/moderators`, `/api/admin/org-admins`, `/api/organizations`, `/api/public/organizations`, `/api/roles` (incl. `/assign`, `/{id}/permissions`), `/api/permissions`, `/api/languages` (incl. `/catalog`) |
-| reference-service | `/api/regions`, `/api/interface-translations/{languageCode}` (plus `/exact`, `/missing`, `/coverage`), `/api/translation-keys` |
-| function-catalog-service | `/api/functions` (public list and detail, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/audit`, `/import`, `/translation-capabilities`), `/api/functions/categories` |
+| identity-service | `/api/auth` (login, refresh, logout, me, change-password), `/api/user`, `/api/admin/moderators`, `/api/admin/org-admins`, `/api/organizations`, `/api/public/organizations`, `/api/roles` (вкл. `/assign`, `/{id}/permissions`), `/api/permissions`, `/api/languages` (вкл. `/catalog`) |
+| reference-service | `/api/regions`, `/api/interface-translations/{languageCode}` (а также `/exact`, `/missing`, `/coverage`), `/api/translation-keys` |
+| function-catalog-service | `/api/functions` (публичный список и детали, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/audit`, `/import`, `/translation-capabilities`), `/api/functions/categories` |
 
-Each service exposes Swagger UI at `http://localhost:<port>/swagger` and the OpenAPI document at `/v3/api-docs`.
+Каждый сервис предоставляет Swagger UI по адресу `http://localhost:<port>/swagger` и документ OpenAPI по адресу `/v3/api-docs`.
 
-### 2.4 Frontend application
+### 2.4 Фронтенд-приложение
 
-The SPA lives in `front/` and is organized by feature:
+SPA находится в `front/` и организовано по функциональным областям:
 
-- `src/components/ui` is the design system (Button, Card, DataTable, Field, Input, Select, Modal, DropdownMenu, Tooltip, Badge, Skeleton, Toolbar, ThemeToggle) built on Tailwind tokens, Radix primitives and class-variance-authority.
-- `src/features/*` holds TanStack Query hooks, zod schemas and dialogs per domain (functions, organizations, staff, roles, legacy users, languages, reference).
-- `src/pages` contains the public pages (`/`, `/organizations/:id`, `/functions/:id`), `/login`, and the admin console (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
-- `src/contexts` provides authentication, theme (light, dark, system) and i18n. The UI dictionary is loaded from reference-service per locale and every label is resolved with `t('key', 'fallback')`.
-- `src/services/http.ts` is the single HTTP client. It always sends `credentials: 'include'`, never stores tokens, maps backend `fieldErrors` to form errors and performs a single in-flight token refresh on `401`.
+- `src/components/ui` — дизайн-система (Button, Card, DataTable, Field, Input, Select, Modal, DropdownMenu, Tooltip, Badge, Skeleton, Toolbar, ThemeToggle), построенная на токенах Tailwind, примитивах Radix и class-variance-authority.
+- `src/features/*` содержит хуки TanStack Query, схемы zod и диалоги для каждого домена (functions, organizations, staff, roles, legacy users, languages, reference).
+- `src/pages` содержит публичные страницы (`/`, `/organizations/:id`, `/functions/:id`), `/login` и административную консоль (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
+- `src/contexts` предоставляет аутентификацию, тему (светлая, тёмная, системная) и i18n. Словарь UI загружается из reference-service для каждой локали, и каждая подпись разрешается через `t('key', 'fallback')`.
+- `src/services/http.ts` — единственный HTTP-клиент. Он всегда отправляет `credentials: 'include'`, никогда не хранит токены, сопоставляет `fieldErrors` бэкенда с ошибками формы и выполняет единственное одновременное обновление токена при `401`.
 
 ---
 
-## 3. Prerequisites
+## 3. Предварительные требования
 
-| Tool | Version | Needed for |
+| Инструмент | Версия | Для чего нужен |
 | --- | --- | --- |
-| Docker Desktop (or Docker Engine) with Compose v2 | Docker 24+, Compose 2.20+ | Running the full stack; BuildKit cache mounts in the Dockerfiles |
-| Node.js | `^20.19.0 \|\| >=22.12.0` (see `front/package.json` `engines`) | Local frontend development and Playwright tests |
-| JDK | 17 (Temurin or Microsoft Build of OpenJDK) | Local backend development and Maven builds |
-| Maven | 3.9+ | Local backend builds (`mvn`) |
-| PostgreSQL client (optional) | `psql` 16 | Inspecting databases on `localhost:5433` |
+| Docker Desktop (или Docker Engine) с Compose v2 | Docker 24+, Compose 2.20+ | Запуск полного стека; кэш-монтирования BuildKit в Dockerfile |
+| Node.js | `^20.19.0 \|\| >=22.12.0` (см. `engines` в `front/package.json`) | Локальная разработка фронтенда и тесты Playwright |
+| JDK | 17 (Temurin или Microsoft Build of OpenJDK) | Локальная разработка бэкенда и сборки Maven |
+| Maven | 3.9+ | Локальные сборки бэкенда (`mvn`) |
+| Клиент PostgreSQL (опционально) | `psql` 16 | Просмотр баз данных на `localhost:5433` |
 
-Docker Engine 29 or newer requires Docker API 1.44; the function-catalog tests pin that version for the Testcontainers client (see [Testing](#8-testing)).
+Docker Engine 29 и новее требует Docker API 1.44; тесты function-catalog фиксируют эту версию для клиента Testcontainers (см. [Тестирование](#8-тестирование)).
 
 ---
 
-## 4. Environment configuration
+## 4. Конфигурация окружения
 
-All secrets are supplied through the environment. Nothing sensitive is committed; `.gitignore` excludes `.env`, `.env.*`, PEM keys and keystores while keeping `.env.example`.
+Все секреты передаются через окружение. Ничего чувствительного не коммитится; `.gitignore` исключает `.env`, `.env.*`, PEM-ключи и хранилища ключей, сохраняя при этом `.env.example`.
 
-Create the file once:
+Создайте файл один раз:
 
 ```shell
 cp .env.example .env
 ```
 
-Docker Compose reads the root `.env` automatically. Services started from an IDE or with Maven also read it because each service declares `spring.config.import: optional:file:.env[.properties],optional:file:../.env[.properties]`.
+Docker Compose читает корневой `.env` автоматически. Сервисы, запущенные из IDE или через Maven, также читают его, поскольку каждый сервис объявляет `spring.config.import: optional:file:.env[.properties],optional:file:../.env[.properties]`.
 
-### 4.1 Variables
+### 4.1 Переменные
 
-| Variable | Required | Used by | Description |
+| Переменная | Обязательна | Кем используется | Описание |
 | --- | --- | --- | --- |
-| `POSTGRES_USER` | no (default `postgres`) | postgres, all data services | PostgreSQL superuser used by the init script and the services |
-| `POSTGRES_PASSWORD` | **yes** | postgres, all data services | Password for `POSTGRES_USER`. Compose refuses to start without it |
-| `JWT_SECRET` | **yes** | identity, reference, function-catalog | Shared HMAC-SHA256 key. Must be at least 32 bytes (256 bits). Generate with `openssl rand -base64 48` |
-| `APP_COOKIE_SECURE` | **yes** | identity-service | `false` for the local HTTP stack behind the same-origin Nginx proxy, `true` for any HTTPS deployment |
-| `APP_COOKIE_SAME_SITE` | **yes** | identity-service | `Lax` for same-origin setups, `None` (with `APP_COOKIE_SECURE=true`) when the SPA is served from another origin |
-| `BOOTSTRAP_SUPER_ADMIN_EMAIL` | first start only | identity-service | E-mail of the initial `SUPER_ADMIN`. Required while the identity database has no `ROLE_SUPER_ADMIN` user |
-| `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | first start only | identity-service | Initial password, BCrypt-hashed immediately and flagged `mustChangePassword`. Remove after the first login |
-| `AZURE_TRANSLATOR_ENDPOINT` | no | function-catalog-service | Azure Translator endpoint; empty disables automatic translation |
-| `AZURE_TRANSLATOR_KEY` | no | function-catalog-service | Azure Translator key |
-| `AZURE_TRANSLATOR_REGION` | no | function-catalog-service | Azure Translator region |
-| `IDENTITY_DB_PASSWORD` | no | identity-service outside Compose | Overrides `POSTGRES_PASSWORD` for the identity database |
-| `REFERENCE_DB_PASSWORD` | no | reference-service outside Compose | Overrides `POSTGRES_PASSWORD` for the reference database |
-| `FUNCTION_CATALOG_DB_PASSWORD` | no | function-catalog-service outside Compose | Overrides `POSTGRES_PASSWORD` for the catalog database |
-| `VITE_API_BASE_URL` | no | front (build argument) | Public gateway origin when the SPA is not served behind the Nginx or Vite `/api` proxy. Leave empty for Compose |
-| `APP_DEMO_USERS_ENABLED`, `DEMO_SUPER_ADMIN_EMAIL`, `DEMO_SUPER_ADMIN_PASSWORD` | no | identity-service, dev/test only | Opt-in demo account creation. Never enable in production |
+| `POSTGRES_USER` | нет (по умолчанию `postgres`) | postgres, все сервисы с данными | Суперпользователь PostgreSQL, используемый init-скриптом и сервисами |
+| `POSTGRES_PASSWORD` | **да** | postgres, все сервисы с данными | Пароль для `POSTGRES_USER`. Compose отказывается запускаться без него |
+| `JWT_SECRET` | **да** | identity, reference, function-catalog | Общий ключ HMAC-SHA256. Должен быть не короче 32 байт (256 бит). Сгенерируйте с помощью `openssl rand -base64 48` |
+| `APP_COOKIE_SECURE` | **да** | identity-service | `false` для локального HTTP-стека за same-origin прокси Nginx, `true` для любого HTTPS-развёртывания |
+| `APP_COOKIE_SAME_SITE` | **да** | identity-service | `Lax` для same-origin конфигураций, `None` (вместе с `APP_COOKIE_SECURE=true`), когда SPA обслуживается с другого источника |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL` | только при первом запуске | identity-service | E-mail начального `SUPER_ADMIN`. Обязателен, пока в базе identity нет пользователя с `ROLE_SUPER_ADMIN` |
+| `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | только при первом запуске | identity-service | Начальный пароль, сразу хэшируется BCrypt и помечается `mustChangePassword`. Удалите после первого входа |
+| `AZURE_TRANSLATOR_ENDPOINT` | нет | function-catalog-service | Endpoint Azure Translator; пустое значение отключает автоматический перевод |
+| `AZURE_TRANSLATOR_KEY` | нет | function-catalog-service | Ключ Azure Translator |
+| `AZURE_TRANSLATOR_REGION` | нет | function-catalog-service | Регион Azure Translator |
+| `IDENTITY_DB_PASSWORD` | нет | identity-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы identity |
+| `REFERENCE_DB_PASSWORD` | нет | reference-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы reference |
+| `FUNCTION_CATALOG_DB_PASSWORD` | нет | function-catalog-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы каталога |
+| `VITE_API_BASE_URL` | нет | front (аргумент сборки) | Публичный источник шлюза, когда SPA не обслуживается за прокси `/api` Nginx или Vite. Оставьте пустым для Compose |
+| `APP_DEMO_USERS_ENABLED`, `DEMO_SUPER_ADMIN_EMAIL`, `DEMO_SUPER_ADMIN_PASSWORD` | нет | identity-service, только dev/test | Создание демо-аккаунтов по явному включению. Никогда не включайте в production |
 
-Standard Spring properties such as `SPRING_DATASOURCE_URL` and `SPRING_DATASOURCE_USERNAME` may override the non-secret defaults. Compose sets them per service as shown below.
+Стандартные свойства Spring, такие как `SPRING_DATASOURCE_URL` и `SPRING_DATASOURCE_USERNAME`, могут переопределять несекретные значения по умолчанию. Compose задаёт их для каждого сервиса, как показано ниже.
 
-### 4.2 Ports and database URIs
+### 4.2 Порты и URI баз данных
 
-| Service | Container port | Host port | Datasource inside Compose | Datasource outside Compose (default in `application.yml`) |
+| Сервис | Порт контейнера | Порт хоста | Источник данных внутри Compose | Источник данных вне Compose (по умолчанию в `application.yml`) |
 | --- | --- | --- | --- | --- |
-| postgres | 5432 | 5433 | n/a | n/a |
-| eureka-server | 8761 | 8761 | n/a | n/a |
-| api-gateway | 8082 | 8082 | n/a | n/a |
+| postgres | 5432 | 5433 | н/д | н/д |
+| eureka-server | 8761 | 8761 | н/д | н/д |
+| api-gateway | 8082 | 8082 | н/д | н/д |
 | identity-service | 8081 | 8081 | `jdbc:postgresql://postgres:5432/adlita_project1` | `jdbc:postgresql://localhost:5433/adlita_project1` |
 | reference-service | 8084 | 8084 | `jdbc:postgresql://postgres:5432/reference_service_db` | `jdbc:postgresql://localhost:5433/reference_service_db` |
 | function-catalog-service | 8085 | 8085 | `jdbc:postgresql://postgres:5432/function_catalog_db` | `jdbc:postgresql://localhost:5433/function_catalog_db` |
-| front | 80 | 3000 | n/a | Vite dev server on 5173 proxies `/api` to `localhost:8082` |
+| front | 80 | 3000 | н/д | Dev-сервер Vite на 5173 проксирует `/api` на `localhost:8082` |
 
-Inside Compose every Spring service discovers the registry through `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka`; outside Compose the default is `http://localhost:8761/eureka`.
+Внутри Compose каждый Spring-сервис обнаруживает реестр через `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka`; вне Compose значение по умолчанию — `http://localhost:8761/eureka`.
 
-### 4.3 Example `.env`
+### 4.3 Пример `.env`
 
 ```dotenv
 POSTGRES_USER=postgres
@@ -218,9 +218,9 @@ AZURE_TRANSLATOR_REGION=
 
 ---
 
-## 5. Quick start with Docker Compose
+## 5. Быстрый старт с Docker Compose
 
-### Step 1: clone and configure
+### Шаг 1: клонирование и настройка
 
 ```shell
 git clone <repository-url> ReestrGov
@@ -229,26 +229,26 @@ cp .env.example .env
 openssl rand -base64 48          # paste the output into JWT_SECRET
 ```
 
-Fill in `POSTGRES_PASSWORD`, `JWT_SECRET`, `APP_COOKIE_SECURE`, `APP_COOKIE_SAME_SITE` and, for the first start, both `BOOTSTRAP_SUPER_ADMIN_*` values.
+Заполните `POSTGRES_PASSWORD`, `JWT_SECRET`, `APP_COOKIE_SECURE`, `APP_COOKIE_SAME_SITE` и, для первого запуска, оба значения `BOOTSTRAP_SUPER_ADMIN_*`.
 
-### Step 2: clean build
+### Шаг 2: чистая сборка
 
 ```shell
 docker compose down --remove-orphans
 docker compose build --no-cache
 ```
 
-Each Java image is a two-stage build: `maven:3.9-eclipse-temurin-17` resolves plugins and dependencies into a BuildKit cache mount (`/root/.m2`), then packages the jar with `-DskipTests`; the runtime stage is `eclipse-temurin:17-jre` running as the non-root user `app`. The frontend image runs `npm ci` and `npm run build` on `node:22-alpine` and copies `dist/` into `nginx:1.27-alpine`. Subsequent builds reuse the cache unless `--no-cache` is given.
+Каждый Java-образ собирается в две стадии: `maven:3.9-eclipse-temurin-17` разрешает плагины и зависимости в кэш-монтирование BuildKit (`/root/.m2`), затем упаковывает jar с `-DskipTests`; стадия выполнения — `eclipse-temurin:17-jre`, запускаемая от непривилегированного пользователя `app`. Образ фронтенда выполняет `npm ci` и `npm run build` на `node:22-alpine` и копирует `dist/` в `nginx:1.27-alpine`. Последующие сборки переиспользуют кэш, если не указан `--no-cache`.
 
-### Step 3: launch the stack
+### Шаг 3: запуск стека
 
 ```shell
 docker compose up -d
 ```
 
-Start order is enforced by `depends_on`: the data services wait for the PostgreSQL health check (`pg_isready`), the gateway waits for the services, and the frontend waits for the gateway. Every container has `restart: unless-stopped`.
+Порядок запуска обеспечивается `depends_on`: сервисы с данными ждут проверки работоспособности PostgreSQL (`pg_isready`), шлюз ждёт сервисы, а фронтенд ждёт шлюз. У каждого контейнера задано `restart: unless-stopped`.
 
-### Step 4: verify health and logs
+### Шаг 4: проверка работоспособности и логов
 
 ```shell
 docker compose ps
@@ -258,16 +258,16 @@ curl -s http://localhost:3000/healthz        # nginx -> "ok"
 open http://localhost:8761                   # Eureka dashboard, all four services should be UP
 ```
 
-| URL | What you should see |
+| URL | Что вы должны увидеть |
 | --- | --- |
-| `http://localhost:3000` | The public catalog; `/login` opens the admin console |
-| `http://localhost:8761` | Eureka dashboard listing `API-GATEWAY`, `IDENTITY-SERVICE`, `REFERENCE-SERVICE`, `FUNCTION-CATALOG-SERVICE` |
-| `http://localhost:8082/api/public/organizations` | JSON through the gateway |
-| `http://localhost:8081/swagger`, `:8084/swagger`, `:8085/swagger` | Swagger UI per service |
+| `http://localhost:3000` | Публичный каталог; `/login` открывает административную консоль |
+| `http://localhost:8761` | Панель Eureka со списком `API-GATEWAY`, `IDENTITY-SERVICE`, `REFERENCE-SERVICE`, `FUNCTION-CATALOG-SERVICE` |
+| `http://localhost:8082/api/public/organizations` | JSON через шлюз |
+| `http://localhost:8081/swagger`, `:8084/swagger`, `:8085/swagger` | Swagger UI для каждого сервиса |
 
-Sign in with the bootstrap administrator. The account is forced to change its password before any other backend call succeeds; after that, delete `BOOTSTRAP_SUPER_ADMIN_PASSWORD` from `.env`.
+Войдите под учётной записью bootstrap-администратора. Учётная запись обязана сменить пароль, прежде чем любой другой вызов бэкенда будет выполнен; после этого удалите `BOOTSTRAP_SUPER_ADMIN_PASSWORD` из `.env`.
 
-### Everyday commands
+### Повседневные команды
 
 ```shell
 docker compose up --build -d front identity-service   # rebuild and restart selected services
@@ -280,21 +280,21 @@ docker compose config                                  # validate the merged Com
 
 ---
 
-## 6. Local development without Docker
+## 6. Локальная разработка без Docker
 
-### 6.1 Database
+### 6.1 База данных
 
-Use the Compose PostgreSQL only:
+Используйте только PostgreSQL из Compose:
 
 ```shell
 docker compose up -d postgres
 ```
 
-It is published on `localhost:5433` and contains `adlita_project1`, `reference_service_db` and `function_catalog_db`. A native PostgreSQL on 5432 is a separate instance and is not used by the default configuration.
+Она опубликована на `localhost:5433` и содержит `adlita_project1`, `reference_service_db` и `function_catalog_db`. Нативный PostgreSQL на 5432 — это отдельный экземпляр, который не используется конфигурацией по умолчанию.
 
-### 6.2 Backend services
+### 6.2 Бэкенд-сервисы
 
-Set `JAVA_HOME` to a JDK 17 and start the services from the repository root, each in its own terminal, in this order:
+Установите `JAVA_HOME` на JDK 17 и запустите сервисы из корня репозитория, каждый в своём терминале, в следующем порядке:
 
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)   # macOS example
@@ -306,11 +306,11 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)   # macOS example
 (cd api-gateway && mvn clean spring-boot:run)
 ```
 
-Each service reads the root `.env` through `spring.config.import`, connects to `localhost:5433` and registers with Eureka on `localhost:8761`. The root `pom.xml` is an aggregator, so `mvn -q -DskipTests package` from the root builds all five modules.
+Каждый сервис читает корневой `.env` через `spring.config.import`, подключается к `localhost:5433` и регистрируется в Eureka на `localhost:8761`. Корневой `pom.xml` является агрегатором, поэтому `mvn -q -DskipTests package` из корня собирает все пять модулей.
 
-IntelliJ IDEA: open the root `pom.xml` as a Maven project, set the project SDK to 17 and run the `*Application` classes. In the **Database** tool window connect to `localhost:5433` with `POSTGRES_USER` and `POSTGRES_PASSWORD`; store the password in IDEA's password safe, not in the JDBC URL.
+IntelliJ IDEA: откройте корневой `pom.xml` как Maven-проект, установите SDK проекта на 17 и запустите классы `*Application`. В окне инструмента **Database** подключитесь к `localhost:5433` с `POSTGRES_USER` и `POSTGRES_PASSWORD`; храните пароль в хранилище паролей IDEA, а не в JDBC URL.
 
-### 6.3 Frontend
+### 6.3 Фронтенд
 
 ```shell
 cd front
@@ -318,9 +318,9 @@ npm install
 npm run dev          # http://localhost:5173, /api proxied to http://localhost:8082
 ```
 
-Vite proxies `/api` to the gateway, so cookies are same-origin and no CORS setup is required. The gateway and identity-service already allow `http://localhost:5173` with credentials for direct calls.
+Vite проксирует `/api` на шлюз, поэтому cookie являются same-origin и настройка CORS не требуется. Шлюз и identity-service уже разрешают `http://localhost:5173` с учётными данными для прямых вызовов.
 
-Other scripts:
+Другие скрипты:
 
 ```shell
 npm run typecheck    # tsc for the app and for the Playwright tests
@@ -331,18 +331,18 @@ npm run preview      # serve dist/ locally
 
 ---
 
-## 7. Security model
+## 7. Модель безопасности
 
-- **Stateless JWT with HttpOnly cookies.** `POST /api/auth/login` sets `accessToken` (24 h, path `/`) and `refreshToken` (7 days, path `/api/auth`) as HttpOnly cookies. The SPA never reads or stores tokens. `POST /api/auth/refresh` rotates the refresh token; `POST /api/auth/logout` revokes it.
-- **One shared HMAC key.** identity-service signs tokens with `JWT_SECRET`; reference-service and function-catalog-service verify them locally with the same key, so no network call is needed per request.
-- **Mandatory password change.** The signed token carries `mustChangePassword`. identity-service restricts such sessions to profile, password change, logout and login; the other services reject tokens whose flag is true or missing. A successful change issues fresh cookies.
-- **Disabled users are rejected** at the JWT filter even if they hold a valid token.
-- **RBAC.** Roles own permissions; editorial endpoints use `@PreAuthorize("hasAuthority(...)")` such as `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` and `AUDIT_VIEW`. Organization administrators are scoped to their own organizations.
-- **Public endpoints.** Anonymous access is limited to `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, the public `GET /api/functions/**` reads (admin, pending-review and audit variants excluded), the auth entry points and Swagger. Everything else requires authentication.
-- **No baked-in credentials.** The first administrator comes from `BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD`; identity-service refuses to start without them while no `SUPER_ADMIN` exists. Demo accounts exist only when `APP_DEMO_USERS_ENABLED=true` under a non-production profile.
-- **Secret rotation.** When `JWT_SECRET` or the database password changes, redeploy all three data services together and revoke outstanding refresh sessions (`UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` in the identity database) so an old refresh token cannot mint a newly signed access token.
+- **Stateless JWT с HttpOnly-cookie.** `POST /api/auth/login` устанавливает `accessToken` (24 ч, путь `/`) и `refreshToken` (7 дней, путь `/api/auth`) как HttpOnly-cookie. SPA никогда не читает и не хранит токены. `POST /api/auth/refresh` ротирует refresh-токен; `POST /api/auth/logout` отзывает его.
+- **Один общий HMAC-ключ.** identity-service подписывает токены ключом `JWT_SECRET`; reference-service и function-catalog-service проверяют их локально тем же ключом, поэтому сетевой вызов на каждый запрос не требуется.
+- **Обязательная смена пароля.** Подписанный токен содержит `mustChangePassword`. identity-service ограничивает такие сессии профилем, сменой пароля, выходом и входом; остальные сервисы отклоняют токены, у которых этот флаг равен true или отсутствует. Успешная смена выдаёт новые cookie.
+- **Отключённые пользователи отклоняются** на уровне JWT-фильтра, даже если у них есть действительный токен.
+- **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями.
+- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), точками входа аутентификации и Swagger. Всё остальное требует аутентификации.
+- **Никаких встроенных учётных данных.** Первый администратор берётся из `BOOTSTRAP_SUPER_ADMIN_EMAIL` и `BOOTSTRAP_SUPER_ADMIN_PASSWORD`; identity-service отказывается запускаться без них, пока не существует ни одного `SUPER_ADMIN`. Демо-аккаунты существуют только при `APP_DEMO_USERS_ENABLED=true` в непродакшен-профиле.
+- **Ротация секретов.** При изменении `JWT_SECRET` или пароля базы данных переразверните все три сервиса с данными вместе и отзовите действующие refresh-сессии (`UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` в базе identity), чтобы старый refresh-токен не мог выпустить заново подписанный access-токен.
 
-Check before every commit that no secret file is tracked:
+Перед каждым коммитом проверяйте, что ни один файл с секретами не отслеживается:
 
 ```shell
 git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
@@ -350,15 +350,15 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 
 ---
 
-## 8. Testing
+## 8. Тестирование
 
-### Backend
+### Бэкенд
 
-| Module | What runs | Infrastructure |
+| Модуль | Что запускается | Инфраструктура |
 | --- | --- | --- |
-| identity-service | Unit and `@SpringBootTest` suites with the `test` profile (`application-test.yaml`): in-memory H2 in PostgreSQL mode, Flyway disabled, Eureka disabled | none |
-| reference-service | Unit and web-layer tests | none |
-| function-catalog-service | Unit tests, `CatalogPostgresTest` (Testcontainers PostgreSQL) and `AdminFunctionsBrowserIT` (Playwright browser flow against a real Spring context) | Docker daemon |
+| identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена | нет |
+| reference-service | Модульные тесты и тесты веб-слоя | нет |
+| function-catalog-service | Модульные тесты, `CatalogPostgresTest` (Testcontainers PostgreSQL) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
 
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
@@ -368,9 +368,9 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 (cd function-catalog-service && mvn -q test -Dtest='!CatalogPostgresTest,!AdminFunctionsBrowserIT')   # without Docker
 ```
 
-`function-catalog-service/src/test/resources/docker-java.properties` pins the Docker API version to 1.44 for the Testcontainers client because Docker Engine 29 requires it.
+`function-catalog-service/src/test/resources/docker-java.properties` фиксирует версию Docker API 1.44 для клиента Testcontainers, поскольку Docker Engine 29 требует её.
 
-### Frontend
+### Фронтенд
 
 ```shell
 cd front
@@ -379,100 +379,100 @@ npm run test                      # UI suite: tests/admin-functions.spec.ts agai
 npm run test:backend              # real-backend suite, driven by AdminFunctionsBrowserIT
 ```
 
-The UI suite starts Vite on port 5183 in-process (`tests/start-vite.mjs`) and mocks every `/api/**` call in `tests/fixtures.ts`, loading the UI dictionary from the reference-service migrations so the labels match production. The backend suite requires `CATALOG_TEST_URL` and `CATALOG_TEST_JWT`, which the Java integration test supplies.
+UI-набор запускает Vite на порту 5183 внутри процесса (`tests/start-vite.mjs`) и мокирует каждый вызов `/api/**` в `tests/fixtures.ts`, загружая словарь UI из миграций reference-service, чтобы подписи совпадали с production. Набор с реальным бэкендом требует `CATALOG_TEST_URL` и `CATALOG_TEST_JWT`, которые предоставляет Java-интеграционный тест.
 
-### Definition of done
+### Критерии готовности
 
 ```shell
 cd front && npm run typecheck && npm run lint && npm run build && npm run test
 ```
 
-together with green Maven test runs for the changed services.
+вместе с зелёными прогонами Maven-тестов для изменённых сервисов.
 
 ---
 
-## 9. Troubleshooting
+## 9. Устранение неполадок
 
-### PostgreSQL health check never passes or services fail to connect
+### Проверка работоспособности PostgreSQL никогда не проходит или сервисы не могут подключиться
 
-- Symptom: `dependency failed to start: container postgres is unhealthy` or repeated `Connection refused` in a service log.
-- The health check runs `pg_isready -h 127.0.0.1 -U $POSTGRES_USER -d postgres` every 5 s with a 10 s start period and 12 retries. On slow disks the first initialization (creating three databases) can exceed that window. Run `docker compose logs postgres`; if the init script is still running, wait and `docker compose up -d` again.
-- If the log shows `FATAL: password authentication failed`, the `pgdata` volume was initialized with a different `POSTGRES_PASSWORD`. Either restore the old value or reset the database (see below).
-- If `init-multiple-dbs.sh` fails with `/bin/bash^M: bad interpreter`, the file was checked out with CRLF line endings. Convert it to LF (`git config core.autocrlf input` and re-checkout, or `sed -i '' 's/\r$//' init-multiple-dbs.sh`).
-- Port `5433` already in use: change the host side of the `postgres` port mapping in `docker-compose.yml` and the `localhost:5433` URLs in the three `application.yml` files for local runs.
-- Connection pool exhaustion (`HikariPool ... Connection is not available`) usually means a service is restarting in a loop while PostgreSQL is still warming up. Check `docker compose ps` for restart counts and fix the underlying error in that service first.
+- Симптом: `dependency failed to start: container postgres is unhealthy` или повторяющиеся `Connection refused` в логе сервиса.
+- Проверка работоспособности выполняет `pg_isready -h 127.0.0.1 -U $POSTGRES_USER -d postgres` каждые 5 с со стартовым периодом 10 с и 12 повторами. На медленных дисках первая инициализация (создание трёх баз данных) может превысить это окно. Выполните `docker compose logs postgres`; если init-скрипт всё ещё выполняется, подождите и снова выполните `docker compose up -d`.
+- Если в логе указано `FATAL: password authentication failed`, том `pgdata` был инициализирован с другим `POSTGRES_PASSWORD`. Либо восстановите старое значение, либо сбросьте базу данных (см. ниже).
+- Если `init-multiple-dbs.sh` завершается с ошибкой `/bin/bash^M: bad interpreter`, файл был извлечён с окончаниями строк CRLF. Преобразуйте его в LF (`git config core.autocrlf input` и повторное извлечение, либо `sed -i '' 's/\r$//' init-multiple-dbs.sh`).
+- Порт `5433` уже занят: измените хостовую сторону сопоставления портов `postgres` в `docker-compose.yml` и URL `localhost:5433` в трёх файлах `application.yml` для локальных запусков.
+- Исчерпание пула соединений (`HikariPool ... Connection is not available`) обычно означает, что сервис перезапускается в цикле, пока PostgreSQL ещё прогревается. Проверьте счётчики перезапусков в `docker compose ps` и сначала исправьте исходную ошибку в этом сервисе.
 
-### Maven dependency resolution fails inside Docker (401 Unauthorized)
+### Разрешение зависимостей Maven внутри Docker завершается ошибкой (401 Unauthorized)
 
-- Symptom: `docker compose build` fails in the `mvn dependency:go-offline` step with `401 Unauthorized` from `maven.pkg.github.com` or `repo.gradle.org`.
-- Cause: the Flyway parent POM declares extra repositories for its optional modules. `dependency:go-offline` tries to resolve *every* optional and transitive artifact, including ones that only exist in those private repositories, and fails the whole build.
-- Resolution applied in all five Dockerfiles: the warm-up layer is now `mvn -B -q -Dsilent=true dependency:resolve-plugins dependency:resolve || true`. It resolves only what the project actually needs, tolerates misses, and the real `mvn clean package -DskipTests` step pulls anything missing from Maven Central. Both steps share the `/root/.m2` BuildKit cache mount, so rebuilds stay fast.
-- If a build still hangs on dependency downloads, run `docker builder prune -f` and rebuild with `--no-cache`; a corrupted cache mount can keep a half-downloaded artifact.
+- Симптом: `docker compose build` завершается ошибкой на шаге `mvn dependency:go-offline` с `401 Unauthorized` от `maven.pkg.github.com` или `repo.gradle.org`.
+- Причина: родительский POM Flyway объявляет дополнительные репозитории для своих опциональных модулей. `dependency:go-offline` пытается разрешить *каждый* опциональный и транзитивный артефакт, включая те, что существуют только в этих приватных репозиториях, и роняет всю сборку.
+- Решение, применённое во всех пяти Dockerfile: слой прогрева теперь `mvn -B -q -Dsilent=true dependency:resolve-plugins dependency:resolve || true`. Он разрешает только то, что действительно нужно проекту, терпимо относится к отсутствующим артефактам, а реальный шаг `mvn clean package -DskipTests` подтягивает всё недостающее из Maven Central. Оба шага используют общее кэш-монтирование BuildKit `/root/.m2`, поэтому пересборки остаются быстрыми.
+- Если сборка всё ещё зависает на загрузке зависимостей, выполните `docker builder prune -f` и пересоберите с `--no-cache`; повреждённое кэш-монтирование может хранить наполовину загруженный артефакт.
 
-### Resetting the databases
+### Сброс баз данных
 
 ```shell
 docker compose down -v --remove-orphans
 docker compose up -d
 ```
 
-> **Warning.** `-v` deletes the `pgdata` volume and therefore every organization, user, role, translation and service card. identity-service will again require `BOOTSTRAP_SUPER_ADMIN_EMAIL` and `BOOTSTRAP_SUPER_ADMIN_PASSWORD` on the next start. To change only a port mapping or an environment variable, use `docker compose up -d --no-deps <service>` instead.
+> **Предупреждение.** `-v` удаляет том `pgdata`, а значит, каждую организацию, пользователя, роль, перевод и карточку услуги. identity-service при следующем запуске снова потребует `BOOTSTRAP_SUPER_ADMIN_EMAIL` и `BOOTSTRAP_SUPER_ADMIN_PASSWORD`. Чтобы изменить только сопоставление портов или переменную окружения, используйте вместо этого `docker compose up -d --no-deps <service>`.
 
-### Other common issues
+### Другие распространённые проблемы
 
-| Symptom | Cause and fix |
+| Симптом | Причина и решение |
 | --- | --- |
-| `JWT_SECRET is required` or `POSTGRES_PASSWORD is required` on `docker compose up` | The root `.env` is missing or empty. Compose uses `${VAR:?message}` guards for mandatory values. |
-| identity-service exits with `No SUPER_ADMIN exists. Set environment variable BOOTSTRAP_SUPER_ADMIN_...` | Fresh identity database. Provide both bootstrap variables for the first start. |
-| Login succeeds but the next request is `401` | Cookie policy mismatch. On plain HTTP use `APP_COOKIE_SECURE=false` and `APP_COOKIE_SAME_SITE=Lax`; on HTTPS from a different origin use `true` and `None`. |
-| Gateway returns `503 Service Unavailable` right after start | Eureka registration and client cache refresh take up to 30 s. Wait until the service shows `UP` on `http://localhost:8761`. |
-| `JWT_SECRET` rejected as too short | The HMAC-SHA256 key needs at least 32 bytes. Use `openssl rand -base64 48`. |
-| Testcontainers fails with `client version 1.xx is too old` | Docker Engine 29 needs API 1.44. The property file in `function-catalog-service/src/test/resources` already pins it; make sure the tests pick it up (`-Dtest` runs still read it). |
-| `npm run dev` fails with an engine warning | Use Node `^20.19.0 \|\| >=22.12.0`. Vite 8 does not support older Node 20 releases. |
-| Playwright cannot find Chromium | Run `npx playwright install chromium` inside `front/`. |
-| Flyway `Migration checksum mismatch` | A migration file that has already been applied was edited. Never modify applied migrations; add a new `V<n>__*.sql` instead, or repair a local database with `docker compose down -v`. |
-| Automatic translation button is missing in the editor | `AZURE_TRANSLATOR_*` is empty. The capability endpoint reports `available: false` and the UI hides the action by design. |
+| `JWT_SECRET is required` или `POSTGRES_PASSWORD is required` при `docker compose up` | Корневой `.env` отсутствует или пуст. Compose использует защиту `${VAR:?message}` для обязательных значений. |
+| identity-service завершается с `No SUPER_ADMIN exists. Set environment variable BOOTSTRAP_SUPER_ADMIN_...` | Свежая база identity. Укажите обе bootstrap-переменные для первого запуска. |
+| Вход успешен, но следующий запрос возвращает `401` | Несоответствие политики cookie. На обычном HTTP используйте `APP_COOKIE_SECURE=false` и `APP_COOKIE_SAME_SITE=Lax`; на HTTPS с другого источника используйте `true` и `None`. |
+| Шлюз возвращает `503 Service Unavailable` сразу после запуска | Регистрация в Eureka и обновление клиентского кэша занимают до 30 с. Подождите, пока сервис не покажет `UP` на `http://localhost:8761`. |
+| `JWT_SECRET` отклонён как слишком короткий | Ключ HMAC-SHA256 должен быть не короче 32 байт. Используйте `openssl rand -base64 48`. |
+| Testcontainers завершается ошибкой `client version 1.xx is too old` | Docker Engine 29 требует API 1.44. Файл свойств в `function-catalog-service/src/test/resources` уже фиксирует её; убедитесь, что тесты его подхватывают (запуски с `-Dtest` тоже его читают). |
+| `npm run dev` завершается с предупреждением engine | Используйте Node `^20.19.0 \|\| >=22.12.0`. Vite 8 не поддерживает более старые выпуски Node 20. |
+| Playwright не находит Chromium | Выполните `npx playwright install chromium` внутри `front/`. |
+| Flyway `Migration checksum mismatch` | Был отредактирован уже применённый файл миграции. Никогда не изменяйте применённые миграции; вместо этого добавьте новый `V<n>__*.sql` или восстановите локальную базу с помощью `docker compose down -v`. |
+| Кнопка автоматического перевода отсутствует в редакторе | `AZURE_TRANSLATOR_*` пусто. Endpoint возможностей сообщает `available: false`, и UI скрывает действие намеренно. |
 
 ---
 
-## 10. Clean code and contribution standards
+## 10. Стандарты чистого кода и участия в разработке
 
-**General**
+**Общие**
 
-- The code is the documentation: no inline or block comments, no commented-out code, no TODO markers. Express intent through naming and small methods instead. README and `docs/` carry the narrative.
-- Zero dead code: unused classes, methods, imports, props, CSS classes and feature flags are removed in the same change that makes them unused.
-- One responsibility per class, hook or component. Shared behaviour is extracted, never copy-pasted (for example `menuStyles.ts` for popover surfaces, `utils/filters.ts` for status filters).
-- Every change ships with its tests and leaves `typecheck`, `lint`, `build`, Playwright and Maven suites green.
+- Код — это документация: никаких строчных или блочных комментариев, никакого закомментированного кода, никаких TODO-маркеров. Выражайте намерение через именование и небольшие методы. Повествование ведут README и `docs/`.
+- Ноль мёртвого кода: неиспользуемые классы, методы, импорты, props, CSS-классы и feature-флаги удаляются в том же изменении, которое делает их неиспользуемыми.
+- Одна ответственность на класс, хук или компонент. Общее поведение выносится, а не копируется (например, `menuStyles.ts` для поверхностей popover, `utils/filters.ts` для фильтров по статусу).
+- Каждое изменение поставляется со своими тестами и оставляет `typecheck`, `lint`, `build`, наборы Playwright и Maven зелёными.
 
 **Spring Boot**
 
-- Java 17 features: records for DTOs and value objects, `var` only where the type is obvious, switch expressions, text blocks for SQL in tests.
-- Constructor injection via Lombok `@RequiredArgsConstructor`; no field injection, no `@Autowired`.
-- Controllers are thin and validate input with Jakarta Bean Validation; business rules live in services; persistence stays behind Spring Data repositories.
-- Errors are translated by a single `GlobalExceptionHandler` per service into a stable JSON shape with `message` and, for validation failures, a `fieldErrors` map the frontend maps onto form fields.
-- Security is stateless: no sessions, CSRF disabled for the cookie-plus-JWT model, every protected endpoint declares its authority.
-- Flyway migrations are append-only. Applied migration files are never edited (checksums are enforced); schema changes get a new versioned script.
-- Configuration is externalized through `application.yml` placeholders bound to environment variables; secrets never have defaults.
+- Возможности Java 17: records для DTO и value-объектов, `var` только там, где тип очевиден, switch-выражения, текстовые блоки для SQL в тестах.
+- Внедрение через конструктор с помощью Lombok `@RequiredArgsConstructor`; никакого внедрения в поля, никакого `@Autowired`.
+- Контроллеры тонкие и валидируют ввод с помощью Jakarta Bean Validation; бизнес-правила живут в сервисах; персистентность остаётся за репозиториями Spring Data.
+- Ошибки преобразуются единым `GlobalExceptionHandler` в каждом сервисе в стабильную JSON-форму с `message` и, для ошибок валидации, картой `fieldErrors`, которую фронтенд сопоставляет с полями формы.
+- Безопасность stateless: никаких сессий, CSRF отключён для модели cookie + JWT, каждый защищённый endpoint объявляет свою authority.
+- Миграции Flyway только добавляются. Применённые файлы миграций никогда не редактируются (контрольные суммы проверяются); изменения схемы получают новый версионированный скрипт.
+- Конфигурация вынесена наружу через плейсхолдеры `application.yml`, привязанные к переменным окружения; у секретов никогда нет значений по умолчанию.
 
 **React / TypeScript**
 
-- `strict`, `noUnusedLocals`, `noUnusedParameters` and `noFallthroughCasesInSwitch` are on; `any` is not used.
-- ESLint (`eslint:recommended`, `@typescript-eslint/recommended`, `react-hooks`, `react-refresh`) must report zero warnings. Non-component exports live in their own modules so Fast Refresh keeps working.
-- Components are function components with explicit prop interfaces; shared UI lives in `src/components/ui` and is styled with Tailwind design tokens (`bg-surface`, `text-content-muted`, `border-line`, `rounded-control`) rather than raw palette colours.
-- Interactive overlays (selects, menus, tooltips) are built on Radix primitives for keyboard navigation, focus management and ARIA; native `<select>` is not used.
-- Server state goes through TanStack Query with keys defined in `features/queryKeys.ts`; forms use react-hook-form with zod schemas from `lib/validation.ts`; server field errors are applied with `lib/forms.ts`.
-- Every user-visible string is resolved through `t('key', 'English fallback')` and seeded in a reference-service migration for all supported languages.
-- Accessibility is part of the definition of done: labelled controls, `aria-live` summaries, focus return after dialogs, reduced-motion support.
+- Включены `strict`, `noUnusedLocals`, `noUnusedParameters` и `noFallthroughCasesInSwitch`; `any` не используется.
+- ESLint (`eslint:recommended`, `@typescript-eslint/recommended`, `react-hooks`, `react-refresh`) должен сообщать ноль предупреждений. Экспорты, не являющиеся компонентами, живут в собственных модулях, чтобы Fast Refresh продолжал работать.
+- Компоненты — функциональные компоненты с явными интерфейсами props; общий UI живёт в `src/components/ui` и стилизуется дизайн-токенами Tailwind (`bg-surface`, `text-content-muted`, `border-line`, `rounded-control`) вместо сырых цветов палитры.
+- Интерактивные оверлеи (селекты, меню, тултипы) строятся на примитивах Radix для навигации с клавиатуры, управления фокусом и ARIA; нативный `<select>` не используется.
+- Серверное состояние проходит через TanStack Query с ключами, определёнными в `features/queryKeys.ts`; формы используют react-hook-form со схемами zod из `lib/validation.ts`; серверные ошибки полей применяются с помощью `lib/forms.ts`.
+- Каждая видимая пользователю строка разрешается через `t('key', 'English fallback')` и засевается в миграции reference-service для всех поддерживаемых языков.
+- Доступность — часть критериев готовности: подписанные элементы управления, сводки `aria-live`, возврат фокуса после диалогов, поддержка reduced-motion.
 
 **Git**
 
-- Small, focused commits in imperative mood with a scope prefix when useful (`feat(admin-functions): ...`, `fix(identity): ...`, `chore: ...`).
-- Never commit `.env`, keys or build output; run the secret-tracking check from [Security model](#7-security-model) before pushing.
-- Open pull requests against `doniyor` and include the verification commands you ran.
+- Небольшие сфокусированные коммиты в повелительном наклонении с префиксом области, когда это уместно (`feat(admin-functions): ...`, `fix(identity): ...`, `chore: ...`).
+- Никогда не коммитьте `.env`, ключи или результаты сборки; запускайте проверку отслеживания секретов из раздела [Модель безопасности](#7-модель-безопасности) перед push.
+- Открывайте pull request'ы в ветку `doniyor` и включайте команды проверки, которые вы запускали.
 
 ---
 
-## 11. Repository layout
+## 11. Структура репозитория
 
 ```
 ReestrGov/
@@ -492,8 +492,8 @@ ReestrGov/
 └── README.md
 ```
 
-Further reading:
+Дополнительное чтение:
 
-- `docs/admin-functions-ui.md` describes the administrative service-card screens.
-- `docs/function-editorial-workflow.md` describes the editorial state machine and its permissions.
-- `front/README.md` covers frontend-specific deployment notes.
+- `docs/admin-functions-ui.md` описывает административные экраны карточек услуг.
+- `docs/function-editorial-workflow.md` описывает редакционный конечный автомат и его права.
+- `front/README.md` содержит заметки по развёртыванию, специфичные для фронтенда.
