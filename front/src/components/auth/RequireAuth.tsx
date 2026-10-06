@@ -13,7 +13,7 @@ export function RequireAuth({ roles, anyPermissions }: { roles?: RoleName[]; any
   if (initializing) {
     return (
       <div className="flex min-h-dvh w-full items-center justify-center" role="status" aria-label={t('state.loading')}>
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand motion-reduce:animate-none" aria-hidden="true" />
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-ink motion-reduce:animate-none" aria-hidden="true" />
       </div>
     );
   }
@@ -29,8 +29,8 @@ export function RequireAuth({ roles, anyPermissions }: { roles?: RoleName[]; any
 
   if ((roles && !roles.includes(user.role)) || (anyPermissions && !anyPermissions.some(hasPermission))) {
     return (
-      <div className="mx-auto w-full max-w-xl px-4 py-16">
-        <div className="glass rounded-surface shadow-card">
+      <div className="mx-auto w-full max-w-xl px-5 py-16">
+        <div className="rounded-card border border-line bg-background">
           <EmptyState title={t('state.forbidden')} icon={<LockIcon className="h-6 w-6" aria-hidden="true" />} />
         </div>
       </div>

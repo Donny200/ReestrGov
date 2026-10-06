@@ -39,8 +39,8 @@ function RouteLoading() {
   const { t } = useI18n();
   return (
     <div className="flex min-h-[45vh] items-center justify-center" role="status" aria-live="polite">
-      <span className="inline-flex items-center gap-3 text-sm font-medium text-content-muted">
-        <Loader2Icon className="h-5 w-5 animate-spin text-link motion-reduce:animate-none" aria-hidden="true" />
+      <span className="inline-flex items-center gap-3 text-sm font-medium text-secondary">
+        <Loader2Icon className="h-5 w-5 animate-spin text-foreground motion-reduce:animate-none" aria-hidden="true" />
         {t('state.loading')}
       </span>
     </div>
