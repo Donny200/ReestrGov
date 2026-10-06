@@ -13,7 +13,7 @@ export default defineConfig({
   },
   globalSetup: './tests/start-vite.mjs',
   projects: [
-    { name: 'ui', testMatch: 'admin-functions.spec.ts' },
+    { name: 'ui', testMatch: ['admin-functions.spec.ts', 'primitives.spec.ts'] },
     { name: 'backend', testMatch: 'backend-flow.spec.ts' },
   ],
 });
