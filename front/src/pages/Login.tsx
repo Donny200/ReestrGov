@@ -3,12 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircleIcon, ArrowLeftIcon, CheckIcon, LogInIcon, ShieldCheckIcon } from 'lucide-react';
+import { AlertCircleIcon, ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logo } from '../components/layout/Logo';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { Button } from '../components/ui/Button';
+import { Eyebrow } from '../components/ui/Eyebrow';
 import { Field } from '../components/ui/Field';
 import { Input } from '../components/ui/Input';
 import { homeRouteForRole, useAuth } from '../contexts/auth';
@@ -23,12 +24,6 @@ const loginSchema = (t: Translate) =>
   });
 
 type LoginValues = z.infer<ReturnType<typeof loginSchema>>;
-
-const highlights = [
-  { key: 'login.highlightSecure', fallback: 'HttpOnly cookie sessions, no tokens in the browser' },
-  { key: 'login.highlightWorkflow', fallback: 'Draft, review and publish services with a full audit trail' },
-  { key: 'login.highlightLanguages', fallback: 'Catalogue content in every enabled language' },
-];
 
 export function Login() {
   const { t } = useI18n();
@@ -74,100 +69,68 @@ export function Login() {
   });
 
   return (
-    <div className="flex min-h-dvh w-full animate-fade-up">
+    <div className="flex min-h-dvh w-full bg-surface text-foreground">
       <a
         href="#login-main"
-        className="fixed left-4 top-3 z-50 -translate-y-20 rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-brand-fg shadow-pop transition-transform focus:translate-y-0"
+        className="fixed start-5 top-3 z-50 -translate-y-24 rounded-pill bg-ink px-5 py-3 text-sm font-medium text-ink-fg transition-transform focus:translate-y-0"
       >
         {t('a11y.skipToContent', 'Skip to main content')}
       </a>
 
-      <aside className="relative hidden w-[46%] shrink-0 overflow-hidden bg-brand-gradient text-white lg:block">
-        <div
-          className="grid-pattern pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_80%_70%_at_50%_30%,black_30%,transparent_100%)]"
-          aria-hidden="true"
-        />
-        <div className="pointer-events-none absolute -right-28 top-20 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl" aria-hidden="true" />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 h-[26rem] w-[26rem] rounded-full bg-black/10 blur-3xl" aria-hidden="true" />
+      <aside className="ink relative hidden w-[44%] shrink-0 overflow-hidden bg-ink text-ink-fg lg:block">
+        <span className="watermark" aria-hidden="true">{t('app.name')}</span>
         <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
-          <Link to="/" className="inline-flex items-center gap-2.5" aria-label={t('app.name')}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-control border border-white/20 bg-white/10 backdrop-blur">
-              <svg viewBox="0 0 48 48" className="h-[18px] w-[18px]" fill="currentColor" aria-hidden="true">
-                <path d="M24 2c2.2 13.8 7.9 19.6 22 22-14.1 2.4-19.8 8.2-22 22-2.2-13.8-7.9-19.6-22-22C16.1 21.6 21.8 15.8 24 2Z" />
-              </svg>
-            </span>
-            <span className="font-display text-base font-bold tracking-tight">{t('app.name')}</span>
-          </Link>
-
-          <div className="max-w-lg">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur">
-              <ShieldCheckIcon className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <h2 className="mt-6 font-display text-3xl font-bold leading-tight tracking-tight xl:text-4xl">{t('home.ctaTitle')}</h2>
-            <p className="mt-4 max-w-md text-sm leading-7 text-white/80">{t('home.ctaText')}</p>
-            <ul className="mt-8 space-y-3">
-              {highlights.map((item) => (
-                <li key={item.key} className="flex items-start gap-3 text-sm text-white/90">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
-                    <CheckIcon className="h-3 w-3" aria-hidden="true" />
-                  </span>
-                  {t(item.key, item.fallback)}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-8 max-w-md border-l-2 border-white/40 pl-4 text-xs leading-5 text-white/70">{t('app.demoNotice')}</p>
+          <Logo onInk />
+          <div className="max-w-md">
+            <Eyebrow onInk>{t('nav.admin')}</Eyebrow>
+            <p className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] xl:text-4xl">{t('home.ctaText')}</p>
           </div>
+          <p className="max-w-md text-sm leading-6 text-ink-secondary">{t('app.demoNotice')}</p>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between gap-3 px-4 sm:px-8">
+        <header className="flex h-20 items-center justify-between gap-3 px-5 sm:px-8">
           <div className="min-w-0 lg:hidden">
             <Logo />
           </div>
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <div className="ms-auto flex items-center gap-2">
             <ThemeToggle />
             <LanguageSwitcher compact />
           </div>
         </header>
 
-        <main id="login-main" tabIndex={-1} className="flex flex-1 items-center justify-center px-4 py-10 focus:outline-none sm:px-8 sm:py-14">
+        <main id="login-main" tabIndex={-1} className="flex flex-1 items-center justify-center px-5 py-10 focus:outline-none sm:px-8 sm:py-14">
           <div className="w-full max-w-md">
-            <Link
-              to="/"
-              className="mb-8 inline-flex min-h-10 items-center gap-2 text-sm font-medium text-content-muted transition-colors duration-fast hover:text-content-strong"
-            >
-              <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              {t('nav.backToSite')}
-            </Link>
-
-            <div className="glass rounded-overlay p-6 shadow-elevated sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-link">{t('nav.admin')}</p>
-              <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-content-strong">{t('login.title')}</h1>
-              <p className="mt-2 text-sm leading-6 text-content-muted">{t('login.subtitle')}</p>
+            <div className="rounded-card border border-line bg-background p-6 sm:p-8">
+              <Eyebrow>{t('nav.admin')}</Eyebrow>
+              <h1 className="mt-4 text-4xl font-semibold text-foreground">{t('login.title')}</h1>
+              <p className="mt-2 text-base leading-6 text-secondary">{t('login.subtitle')}</p>
 
               {formError && (
-                <div
-                  role="alert"
-                  className="mt-6 flex items-start gap-2.5 rounded-control border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium leading-5 text-danger"
-                >
+                <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-control bg-status-danger-bg px-4 py-3 text-sm font-medium leading-5 text-status-danger">
                   <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   {formError}
                 </div>
               )}
 
-              <form className="mt-6 space-y-4" onSubmit={submit} noValidate>
+              <form className="mt-6 space-y-5" onSubmit={submit} noValidate>
                 <Field label={t('field.email')} error={errors.email?.message} required>
-                  {(control) => <Input {...control} type="email" autoComplete="email" {...register('email')} />}
+                  {(control) => <Input {...control} type="email" autoComplete="email" inputMode="email" {...register('email')} />}
                 </Field>
                 <Field label={t('field.password')} error={errors.password?.message} required>
                   {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('password')} />}
                 </Field>
-                <Button type="submit" size="lg" variant="dark" className="w-full" loading={isSubmitting} icon={<LogInIcon />}>
+                <Button type="submit" variant="dark" size="lg" className="w-full" loading={isSubmitting}>
                   {t('action.login')}
                 </Button>
               </form>
             </div>
+
+            <Link to="/" className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-pill text-sm font-medium text-secondary transition-colors duration-snap fine:hover:text-foreground">
+              <ArrowLeftIcon className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
+              {t('nav.backToSite')}
+            </Link>
           </div>
         </main>
       </div>
