@@ -10,7 +10,7 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable } from '../../components/ui/DataTable';
 import { Avatar } from '../../components/ui/Avatar';
-import { Badge, StatusBadge } from '../../components/ui/Badge';
+import { Badge, StatusBadge, StatusPill } from '../../components/ui/Badge';
 import { ConfirmModal } from '../../components/ui/Modal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/DropdownMenu';
 import { LegacyUserCreateDialog, LegacyUserEditDialog } from '../../features/legacyUsers/LegacyUserDialogs';
@@ -99,7 +99,7 @@ export function LegacyUsers() {
         accessorKey: 'role',
         header: t('field.role'),
         meta: { hideBelow: 'md' },
-        cell: ({ row }) => <Badge tone="brand">{roleLabel(row.original.role, t)}</Badge>,
+        cell: ({ row }) => <Badge tone="accent">{roleLabel(row.original.role, t)}</Badge>,
       },
       {
         id: 'organizations',
@@ -159,7 +159,7 @@ export function LegacyUsers() {
         eyebrow={t('nav.admin')}
         title={t('legacy.title')}
         description={t('legacy.notice')}
-        badge={<Badge tone="warning" dot>{t('legacy.badge')}</Badge>}
+        badge={<StatusPill tone="pending">{t('legacy.badge')}</StatusPill>}
         actions={<Button icon={<PlusIcon />} onClick={() => setDialog({ mode: 'create' })}>{t('action.create')}</Button>}
       />
 

@@ -94,7 +94,7 @@ export function SecuritySettings() {
                   <Avatar user={user} size="lg" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-content-strong">{fullName(user)}</span>
-                    <Badge tone="brand" className="mt-1">
+                    <Badge tone="accent" className="mt-1">
                       <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       {roleLabel(user.role, t)}
                     </Badge>

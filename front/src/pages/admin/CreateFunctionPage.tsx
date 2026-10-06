@@ -8,7 +8,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
-import { Badge } from '../../components/ui/Badge';
+import { StatusPill } from '../../components/ui/Badge';
 import { SkeletonText } from '../../components/ui/Skeleton';
 import { FunctionFields } from '../../components/functions/FunctionFields';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
@@ -61,7 +61,7 @@ export function CreateFunctionPage() {
         title={t('fnAdmin.create')}
         description={t('fnAdmin.originalHint')}
         breadcrumbs={[{ label: t('nav.functions'), to: '/admin/functions' }, { label: t('fnAdmin.create') }]}
-        badge={isDirty ? <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge> : undefined}
+        badge={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}
         actions={
           <Link to="/admin/functions" className={buttonVariants({ variant: 'outline' })}>
             <ArrowLeftIcon aria-hidden="true" />
@@ -85,7 +85,7 @@ export function CreateFunctionPage() {
                 {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
               </CardBody>
               <CardFooter>
-                <Button type="submit" variant="gradient" icon={<SparklesIcon />} loading={create.isPending} disabled={organizations.length === 0}>
+                <Button type="submit" variant="dark" icon={<SparklesIcon />} loading={create.isPending} disabled={organizations.length === 0}>
                   {t('fnAdmin.create')}
                 </Button>
               </CardFooter>
@@ -93,7 +93,7 @@ export function CreateFunctionPage() {
           )}
         </Card>
 
-        <Card glass className="xl:sticky xl:top-24">
+        <Card className="xl:sticky xl:top-24">
           <CardHeader title={t('fnAdmin.guide.title', 'How publishing works')} />
           <CardBody>
             <ol className="space-y-4">

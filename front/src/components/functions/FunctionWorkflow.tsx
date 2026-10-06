@@ -78,7 +78,7 @@ export function FunctionWorkflow({ record, dirty, busy }: Props) {
             </Button>
           )}
           {canPublish && (
-            <Button variant="gradient" icon={<CheckCircle2Icon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('publish')}>
+            <Button variant="dark" icon={<CheckCircle2Icon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('publish')}>
               {t('fnAdmin.publish')}
             </Button>
           )}

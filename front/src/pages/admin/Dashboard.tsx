@@ -48,7 +48,6 @@ export function Dashboard() {
       to: '/admin/organizations',
       loading: organizations.isPending,
       visible: true,
-      tone: 'brand' as const,
     },
     {
       key: 'org-admins',
@@ -59,7 +58,6 @@ export function Dashboard() {
       to: '/admin/org-admins',
       loading: orgAdmins.isPending,
       visible: canSeeOrgAdmins,
-      tone: 'info' as const,
     },
     {
       key: 'moderators',
@@ -70,7 +68,6 @@ export function Dashboard() {
       to: '/admin/moderators',
       loading: moderators.isPending,
       visible: canSeeModerators,
-      tone: 'success' as const,
     },
     {
       key: 'functions',
@@ -81,7 +78,6 @@ export function Dashboard() {
       to: '/admin/functions',
       loading: functions.isPending,
       visible: canSeeFunctions,
-      tone: 'warning' as const,
     },
   ].filter((card) => card.visible);
 
@@ -138,7 +134,7 @@ export function Dashboard() {
         header: t('field.category'),
         enableSorting: false,
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => (row.original.category ? <Badge tone="brand">{row.original.category}</Badge> : <span className="text-content-subtle">—</span>),
+        cell: ({ row }) => (row.original.category ? <Badge tone="accent">{row.original.category}</Badge> : <span className="text-content-subtle">—</span>),
       },
       {
         id: 'organization',
@@ -157,10 +153,10 @@ export function Dashboard() {
         eyebrow={t('nav.dashboard')}
         title={`${t('admin.welcome')}${user ? `, ${fullName(user)}` : ''}`}
         description={user ? `${roleLabel(user.role, t)} · ${user.email}` : undefined}
-        badge={user ? <Badge tone="brand" dot glow>{roleLabel(user.role, t)}</Badge> : undefined}
+        badge={user ? <Badge tone="accent">{roleLabel(user.role, t)}</Badge> : undefined}
         actions={
           hasPermission('FUNCTIONS_CREATE') ? (
-            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'gradient' })}>
+            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'dark' })}>
               <PlusIcon aria-hidden="true" />
               {t('fnAdmin.create')}
             </Link>
@@ -170,7 +166,7 @@ export function Dashboard() {
 
       <div className="grid gap-4 min-[420px]:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <StatCard key={card.key} label={card.label} value={card.value} hint={card.hint} icon={card.icon} to={card.to} loading={card.loading} tone={card.tone} />
+          <StatCard key={card.key} label={card.label} value={card.value} hint={card.hint} icon={card.icon} to={card.to} loading={card.loading} />
         ))}
       </div>
 
@@ -196,7 +192,7 @@ export function Dashboard() {
         </Card>
 
         {canSeeFunctions && (
-          <Card glass>
+          <Card>
             <CardHeader title={t('admin.statusBreakdown', 'Catalogue status')} icon={<ActivityIcon className="h-4 w-4" />} />
             <CardBody className="space-y-4">
               {functions.isPending ? (

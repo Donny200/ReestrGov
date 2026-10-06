@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
 import { FunctionCard } from '../components/catalog/FunctionCard';
 import { SectionHeading } from '../components/home/SectionHeading';
-import { Badge } from '../components/ui/Badge';
+import { StatusPill } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { SkeletonCards, SkeletonText } from '../components/ui/Skeleton';
 import { EmptyState, ErrorState } from '../components/ui/States';
@@ -47,7 +47,7 @@ export function OrganizationDetail() {
                   </h1>
                 </div>
               </div>
-              <Badge tone="success" dot glow className="w-fit shrink-0">{t('status.active')}</Badge>
+              <StatusPill tone="published" className="w-fit shrink-0">{t('status.active')}</StatusPill>
             </div>
             <div className="mt-7 border-t border-line/80 pt-6">
               <p className="max-w-3xl break-words text-[15px] leading-7 text-content">{organizationDescription ?? '—'}</p>

@@ -37,7 +37,7 @@ export function OrganizationCard({ organization, functionCount }: OrganizationCa
       <p className="mt-2.5 flex-1 break-words text-[13px] leading-6 text-content-muted">{truncate(description, 130)}</p>
 
       <div className="mt-5 border-t border-line/80 pt-4">
-        <Badge tone="brand" dot>{functionCount} {t('nav.functions')}</Badge>
+        <Badge tone="accent">{functionCount} {t('nav.functions')}</Badge>
       </div>
     </Link>
   );

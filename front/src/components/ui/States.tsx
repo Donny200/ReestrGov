@@ -17,11 +17,11 @@ interface StateShellProps {
 function StateShell({ icon, iconClassName, title, description, action, role = 'status' }: StateShellProps) {
   return (
     <div className="flex flex-col items-center justify-center px-5 py-14 text-center sm:px-8" role={role} aria-live={role === 'alert' ? 'assertive' : 'polite'}>
-      <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient-soft text-link shadow-xs', iconClassName)}>
+      <span className={cn('flex h-14 w-14 items-center justify-center rounded-pill bg-surface text-foreground', iconClassName)}>
         {icon}
       </span>
-      <h3 className="mt-5 font-display text-base font-semibold text-content-strong">{title}</h3>
-      {description && <p className="mt-1.5 max-w-md text-sm leading-relaxed text-content-muted">{description}</p>}
+      <h3 className="mt-5 text-lg font-semibold text-foreground">{title}</h3>
+      {description && <p className="mt-1.5 max-w-md text-sm leading-relaxed text-secondary">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
@@ -38,8 +38,8 @@ export function NoResultsState({ title, description }: { title: string; descript
 export function LoadingState({ label }: { label?: string }) {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-6 py-10 text-content-muted" role="status" aria-live="polite">
-      <Loader2Icon className="h-6 w-6 animate-spin text-link motion-reduce:animate-none" aria-hidden="true" />
+    <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-6 py-10 text-secondary" role="status" aria-live="polite">
+      <Loader2Icon className="h-6 w-6 animate-spin text-foreground motion-reduce:animate-none" aria-hidden="true" />
       <span className="text-sm font-medium">{label ?? t('state.loading')}</span>
     </div>
   );
@@ -65,7 +65,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
     <StateShell
       role="alert"
       icon={forbidden ? <LockIcon className="h-6 w-6" aria-hidden="true" /> : networkFailure ? <WifiOffIcon className="h-6 w-6" aria-hidden="true" /> : <AlertTriangleIcon className="h-6 w-6" aria-hidden="true" />}
-      iconClassName={forbidden ? 'bg-warning/10 text-warning' : networkFailure ? 'bg-info/10 text-info' : 'bg-danger/10 text-danger'}
+      iconClassName={forbidden ? 'bg-status-pending-bg text-status-pending' : networkFailure ? 'bg-status-draft-bg text-status-draft' : 'bg-status-danger-bg text-status-danger'}
       title={title}
       description={detail === title ? undefined : detail}
       action={onRetry && !forbidden ? <Button variant="outline" size="sm" onClick={onRetry}>{t('action.retry')}</Button> : undefined}

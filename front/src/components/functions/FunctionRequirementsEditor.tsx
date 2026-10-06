@@ -7,7 +7,7 @@ import { REQUIREMENTS_MAX } from '../../features/functions/schema';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { errorMessage } from '../../utils/errors';
-import { Badge } from '../ui/Badge';
+import { StatusPill } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Field } from '../ui/Field';
@@ -64,7 +64,7 @@ export function FunctionRequirementsEditor({ record, busy, onDirty }: Props) {
           </Field>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs tabular-nums text-content-muted">{text.length} / {REQUIREMENTS_MAX}</span>
-            {dirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+            {dirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
           </div>
           {Boolean(error) && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
           <div className="flex justify-end">

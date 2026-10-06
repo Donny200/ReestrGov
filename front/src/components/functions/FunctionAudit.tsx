@@ -3,21 +3,19 @@ import { useI18n } from '../../contexts/i18n';
 import { useFunctionAudit } from '../../features/functions/queries';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { Badge, type BadgeTone } from '../ui/Badge';
+import { StatusPill, type StatusTone } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonText } from '../ui/Skeleton';
 import { EmptyState } from '../ui/States';
 
-const tones: Record<string, BadgeTone> = {
-  PUBLISH: 'success',
+const tones: Record<string, StatusTone> = {
+  PUBLISH: 'published',
   REJECT: 'danger',
   DEACTIVATE: 'danger',
   DELETE: 'danger',
-  SUBMIT_REVIEW: 'warning',
-  SUBMIT_FOR_REVIEW: 'warning',
-  REACTIVATE: 'warning',
-  CREATE: 'brand',
-  TRANSLATION_EDIT: 'info',
+  SUBMIT_REVIEW: 'pending',
+  SUBMIT_FOR_REVIEW: 'pending',
+  REACTIVATE: 'pending',
 };
 
 function normalizeAction(action: string): string {
@@ -69,7 +67,7 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
                 <li key={entry.id} className="relative">
                   <span className="absolute -left-[1.95rem] top-1 h-3 w-3 rounded-full bg-brand-gradient ring-4 ring-surface" aria-hidden="true" />
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Badge tone={tones[action] ?? 'neutral'}>{t(`fnAdmin.action.${action}`, humanize(action))}</Badge>
+                    <StatusPill tone={tones[action] ?? 'draft'}>{t(`fnAdmin.action.${action}`, humanize(action))}</StatusPill>
                     <time className="text-xs tabular-nums text-content-muted" dateTime={entry.performedAt}>{formatTimestamp(entry.performedAt, locale)}</time>
                   </div>
                   <p className="mt-1.5 text-sm text-content-strong">{t('fnAdmin.actor')}: {entry.performedBy}</p>

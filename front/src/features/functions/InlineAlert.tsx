@@ -5,10 +5,10 @@ import { cn } from '../../lib/cn';
 type Tone = 'danger' | 'warning' | 'info' | 'success';
 
 const tones: Record<Tone, string> = {
-  danger: 'border-danger/30 bg-danger/10 [&>svg]:text-danger',
-  warning: 'border-warning/30 bg-warning/10 [&>svg]:text-warning',
-  info: 'border-info/30 bg-info/10 [&>svg]:text-info',
-  success: 'border-positive/30 bg-positive/10 [&>svg]:text-positive',
+  danger: 'bg-status-danger-bg text-status-danger',
+  warning: 'bg-status-pending-bg text-status-pending',
+  info: 'bg-surface text-foreground',
+  success: 'bg-status-published-bg text-status-published',
 };
 
 const icons = { danger: AlertTriangleIcon, warning: AlertTriangleIcon, info: InfoIcon, success: CheckCircle2Icon };
@@ -25,10 +25,10 @@ export function InlineAlert({ tone = 'info', children, action, className }: Inli
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cn('flex flex-col gap-3 rounded-control border px-3.5 py-3 text-sm text-content sm:flex-row sm:items-start', tones[tone], className)}
+      className={cn('flex flex-col gap-3 rounded-control px-4 py-3 text-sm sm:flex-row sm:items-start', tones[tone], className)}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      <div className="min-w-0 flex-1 leading-relaxed">{children}</div>
+      <div className="min-w-0 flex-1 leading-relaxed wrap-anywhere">{children}</div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
   );

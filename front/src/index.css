@@ -150,6 +150,9 @@
     --accent: #b15f2c;
     --accent-from: #cf8047;
     --accent-to: #97501f;
+    --accent-text: #97501f;
+    --danger-solid: #b3261e;
+    --on-danger: #ffffff;
     --secondary: rgba(17, 17, 17, 0.7);
     --subtle: #b6b6b6;
     --ink-10: rgba(17, 17, 17, 0.1);
@@ -185,6 +188,9 @@
     --accent: #cf8047;
     --accent-from: #e09a63;
     --accent-to: #b15f2c;
+    --accent-text: #e09a63;
+    --danger-solid: #b3261e;
+    --on-danger: #ffffff;
     --secondary: rgba(255, 255, 255, 0.72);
     --subtle: #5a5a5a;
     --ink-10: rgba(255, 255, 255, 0.1);

@@ -39,7 +39,7 @@ export function FunctionDetail() {
             <div className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" aria-hidden="true" />
             <article className="p-6 sm:p-9">
               <div className="flex flex-wrap items-center gap-2">
-                {item.data.category && <Badge tone="brand">{item.data.category}</Badge>}
+                {item.data.category && <Badge tone="accent">{item.data.category}</Badge>}
                 <Badge tone="neutral">ID {item.data.id}</Badge>
               </div>
 

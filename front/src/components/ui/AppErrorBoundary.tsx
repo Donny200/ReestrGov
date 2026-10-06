@@ -37,13 +37,13 @@ export function AppErrorBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   const fallback = (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12">
-      <section role="alert" className="glass w-full max-w-lg rounded-overlay p-8 text-center shadow-elevated">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-danger/10 text-danger">
+    <main className="flex min-h-dvh items-center justify-center bg-surface px-5 py-12">
+      <section role="alert" className="w-full max-w-lg rounded-card border border-line bg-background p-8 text-center">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-pill bg-status-danger-bg text-status-danger">
           <AlertTriangleIcon className="h-6 w-6" aria-hidden="true" />
         </span>
-        <h1 className="mt-5 font-display text-xl font-semibold text-content-strong">{t('state.errorTitle')}</h1>
-        <p className="mt-2 text-sm leading-6 text-content-muted">
+        <h1 className="mt-5 text-2xl font-semibold text-foreground">{t('state.errorTitle')}</h1>
+        <p className="mt-2 text-sm leading-6 text-secondary">
           {t('state.errorText', 'Something went wrong while loading this page. Please try again.')}
         </p>
         <Button className="mt-6" variant="outline" icon={<RotateCcwIcon />} onClick={() => window.location.reload()}>

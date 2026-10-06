@@ -109,7 +109,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         accessorKey: 'role',
         header: t('field.role'),
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => <Badge tone="brand">{roleLabel(row.original.role, t)}</Badge>,
+        cell: ({ row }) => <Badge tone="accent">{roleLabel(row.original.role, t)}</Badge>,
       },
       {
         id: 'organizations',
@@ -169,7 +169,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         eyebrow={t('nav.admin')}
         title={t(config.titleKey)}
         description={config.descriptionKey ? t(config.descriptionKey) : undefined}
-        badge={<Badge tone="brand" dot glow>{activeCount} {t('status.active').toLowerCase()}</Badge>}
+        badge={<Badge tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
         actions={
           <>
             <Button variant="outline" icon={<ArrowUpCircleIcon />} onClick={() => setDialog({ mode: 'promote' })}>{t('action.promote')}</Button>

@@ -2,10 +2,8 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Loader2Icon } from 'lucide-react';
-import { Toaster } from 'sonner';
 import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { useTheme } from './contexts/theme';
 import { I18nProvider } from './contexts/I18nContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -13,6 +11,7 @@ import { AdminLayout } from './components/layout/AdminLayout';
 import { RequireAuth } from './components/auth/RequireAuth';
 import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { TooltipProvider } from './components/ui/Tooltip';
+import { Toaster } from './components/ui/Toaster';
 import { useI18n } from './contexts/i18n';
 import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
 
@@ -50,11 +49,6 @@ function RouteLoading() {
 
 function PageBoundary({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
-}
-
-function AppToaster() {
-  const { resolved } = useTheme();
-  return <Toaster position="top-right" theme={resolved} richColors closeButton expand visibleToasts={4} />;
 }
 
 export function App() {
@@ -105,7 +99,7 @@ export function App() {
                       </Route>
                     </Route>
                   </Routes>
-                  <AppToaster />
+                  <Toaster />
                 </AppErrorBoundary>
               </AuthProvider>
             </I18nProvider>

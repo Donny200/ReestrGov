@@ -90,7 +90,7 @@ export function Hero({ query, onQueryChange, onSubmit, stats }: HeroProps) {
                 className="h-12 border-0 bg-transparent pl-12 shadow-none focus-visible:ring-0"
               />
             </label>
-            <Button type="submit" size="lg" variant="gradient" className="sm:min-w-36">
+            <Button type="submit" size="lg" variant="dark" className="sm:min-w-36">
               {t('action.search')}
             </Button>
           </motion.form>

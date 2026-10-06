@@ -18,21 +18,21 @@ export function SearchInput({ value, onChange, label, placeholder, className }: 
   return (
     <div className={cn('relative', className)}>
       <label htmlFor={id} className="sr-only">{label}</label>
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
+      <SearchIcon className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" aria-hidden="true" />
       <Input
         id={id}
         type="search"
         value={value}
         placeholder={placeholder ?? label}
         onChange={(event) => onChange(event.target.value)}
-        className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
+        className="min-h-11 ps-10 pe-10 py-2 text-sm [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange('')}
           aria-label={t('action.reset')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-content-subtle transition-colors hover:bg-surface-subtle hover:text-content-strong"
+          className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-pill text-secondary transition-colors fine:hover:bg-surface-2 fine:hover:text-foreground"
         >
           <XIcon className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

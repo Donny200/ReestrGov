@@ -87,7 +87,7 @@ export function FunctionAutoTranslate({ record, language, blocked, busy }: Props
       </div>
       <div className="flex flex-wrap gap-2">
         {missing.length > 0 && (
-          <Button variant="gradient" size="sm" icon={<SparklesIcon />} loading={translate.isPending} disabled={blocked || busy} onClick={() => void generate(missing)}>
+          <Button variant="dark" size="sm" icon={<SparklesIcon />} loading={translate.isPending} disabled={blocked || busy} onClick={() => void generate(missing)}>
             {t('fnAdmin.translate')}
           </Button>
         )}

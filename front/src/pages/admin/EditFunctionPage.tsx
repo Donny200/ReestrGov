@@ -9,7 +9,7 @@ import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
-import { Badge, FunctionStatusBadge } from '../../components/ui/Badge';
+import { FunctionStatusBadge, StatusPill } from '../../components/ui/Badge';
 import { Skeleton, SkeletonText } from '../../components/ui/Skeleton';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
@@ -136,7 +136,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
         badge={
           <span className="flex flex-wrap items-center gap-2">
             <FunctionStatusBadge status={record.status} />
-            {isDirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+            {isDirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
           </span>
         }
         actions={

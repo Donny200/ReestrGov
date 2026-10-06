@@ -130,7 +130,7 @@ export function PublicHeader() {
                 <LayoutDashboardIcon aria-hidden="true" />
               </Link>
             ) : (
-              <Link to="/login" className={cn(buttonVariants({ variant: 'primary' }), 'hidden sm:inline-flex')}>
+              <Link to="/login" className={cn(buttonVariants({ variant: 'dark' }), 'hidden sm:inline-flex')}>
                 <LogInIcon aria-hidden="true" />
                 {t('action.login')}
               </Link>
@@ -230,7 +230,7 @@ export function PublicHeader() {
                     <Link
                       to="/login"
                       onClick={closeAfterNavigation}
-                      className={cn(buttonVariants({ variant: 'gradient', size: 'lg' }), 'w-full')}
+                      className={cn(buttonVariants({ variant: 'dark', size: 'lg' }), 'w-full')}
                     >
                       <LogInIcon aria-hidden="true" />
                       {t('action.login')}

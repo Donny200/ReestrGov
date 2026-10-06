@@ -159,7 +159,7 @@ export function Organizations() {
         eyebrow={t('nav.admin')}
         title={t('orgs.title')}
         description={t('home.orgsSubtitle')}
-        badge={<Badge tone="brand" dot glow>{activeCount} {t('status.active').toLowerCase()}</Badge>}
+        badge={<Badge tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
         actions={createButton('md')}
       />
       <Card>

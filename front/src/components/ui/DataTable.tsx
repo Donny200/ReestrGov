@@ -122,6 +122,8 @@ interface TableViewProps<T> extends SharedProps<T> {
   initialSorting: SortingState;
 }
 
+const STACK_LIMIT = 4;
+
 function TableView<T>({ columns, data, rowKey, caption, loading = false, error, onRetry, empty, pageSize, initialSorting }: TableViewProps<T>) {
   const { t } = useI18n();
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
@@ -147,13 +149,14 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
   const { pageIndex, pageSize: size } = table.getState().pagination;
   const from = pageIndex * size + 1;
   const to = Math.min(total, (pageIndex + 1) * size);
+  const stacked = columns.filter((column) => !column.meta?.mobileHidden).length <= STACK_LIMIT;
 
   return (
     <div>
-      <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full border-collapse text-left text-sm">
+      <div className={cn(!stacked && 'max-lg:overflow-x-auto')}>
+        <table className={cn('w-full border-collapse text-start text-sm', stacked ? 'data-table-stack' : 'data-table-scroll')}>
           {caption && <caption className="sr-only">{caption}</caption>}
-          <thead className="bg-surface-subtle/60">
+          <thead className="bg-background md:sticky md:top-[var(--sticky-top,0px)] md:z-10">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id} className="border-b border-line">
                 {group.headers.map((header) => {
@@ -166,9 +169,9 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
                       scope="col"
                       aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
                       className={cn(
-                        'h-11 px-4 text-xs font-semibold uppercase tracking-wide text-content-muted first:pl-5 last:pr-5',
+                        'micro h-12 px-4 text-start text-secondary first:ps-5 last:pe-5',
                         meta?.hideBelow && hiddenBelow[meta.hideBelow],
-                        meta?.align === 'right' && 'text-right',
+                        meta?.align === 'right' && 'text-end',
                         meta?.headerClassName,
                       )}
                     >
@@ -176,15 +179,15 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className={cn('inline-flex items-center gap-1.5 rounded transition-colors hover:text-content-strong', meta?.align === 'right' && 'flex-row-reverse')}
+                          className={cn('micro inline-flex min-h-9 items-center gap-1.5 rounded-sm transition-colors fine:hover:text-foreground', meta?.align === 'right' && 'flex-row-reverse')}
                         >
                           {label}
                           {sorted === 'asc' ? (
-                            <ArrowUpIcon className="h-3.5 w-3.5 text-link" aria-hidden="true" />
+                            <ArrowUpIcon className="h-3.5 w-3.5 text-accent-text" aria-hidden="true" />
                           ) : sorted === 'desc' ? (
-                            <ArrowDownIcon className="h-3.5 w-3.5 text-link" aria-hidden="true" />
+                            <ArrowDownIcon className="h-3.5 w-3.5 text-accent-text" aria-hidden="true" />
                           ) : (
-                            <ArrowUpDownIcon className="h-3.5 w-3.5 opacity-40" aria-hidden="true" />
+                            <ArrowUpDownIcon className="h-3.5 w-3.5 text-subtle" aria-hidden="true" />
                           )}
                         </button>
                       ) : label}
@@ -194,18 +197,21 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-line/80">
+          <tbody>
             {rows.map((row) => (
-              <tr key={row.id} className="transition-colors duration-fast hover:bg-brand-subtle/40">
+              <tr key={row.id} className="border-b border-line transition-colors duration-snap last:border-b-0 fine:hover:bg-surface">
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta;
+                  const header = cell.column.columnDef.header;
                   return (
                     <td
                       key={cell.id}
+                      data-label={typeof header === 'string' ? header : cell.column.id}
                       className={cn(
-                        'px-4 py-3 align-middle text-content first:pl-5 last:pr-5',
+                        'px-4 py-3.5 align-middle text-foreground first:ps-5 last:pe-5',
                         meta?.hideBelow && hiddenBelow[meta.hideBelow],
-                        meta?.align === 'right' && 'text-right',
+                        meta?.align === 'right' && 'text-end',
+                        meta?.mobileHidden && 'max-md:hidden',
                         meta?.className,
                       )}
                     >
@@ -219,28 +225,8 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
         </table>
       </div>
 
-      <div className="divide-y divide-line/80 lg:hidden" role="region" aria-label={caption}>
-        {rows.map((row) => (
-          <dl key={row.id} className="grid gap-2.5 px-4 py-4">
-            {row.getVisibleCells()
-              .filter((cell) => !cell.column.columnDef.meta?.mobileHidden)
-              .map((cell) => {
-                const header = cell.column.columnDef.header;
-                return (
-                  <div key={cell.id} className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-start gap-3">
-                    <dt className="pt-0.5 text-xs font-semibold uppercase tracking-wide text-content-muted">
-                      {typeof header === 'string' ? header : cell.column.id}
-                    </dt>
-                    <dd className="min-w-0 break-words text-sm text-content">{flexRender(cell.column.columnDef.cell, cell.getContext())}</dd>
-                  </div>
-                );
-              })}
-          </dl>
-        ))}
-      </div>
-
       {paginate && total > size && (
-        <div className="flex flex-col gap-3 border-t border-line/80 px-5 py-3 text-sm text-content-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-line px-5 py-3 text-sm text-secondary sm:flex-row sm:items-center sm:justify-between">
           <p aria-live="polite" className="tabular-nums">{from}–{to} / {total}</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()} icon={<ChevronLeftIcon />}>
@@ -249,7 +235,7 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
             <span className="tabular-nums">{pageIndex + 1} / {table.getPageCount()}</span>
             <Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()}>
               {t('fnAdmin.next', 'Next')}
-              <ChevronRightIcon aria-hidden="true" />
+              <ChevronRightIcon className="rtl:-scale-x-100" aria-hidden="true" />
             </Button>
           </div>
         </div>

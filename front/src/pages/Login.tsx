@@ -9,7 +9,8 @@ import { Logo } from '../components/layout/Logo';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { Button } from '../components/ui/Button';
-import { FloatingInput } from '../components/ui/Input';
+import { Field } from '../components/ui/Field';
+import { Input } from '../components/ui/Input';
 import { homeRouteForRole, useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
 import { emailPattern } from '../lib/validation';
@@ -156,25 +157,13 @@ export function Login() {
               )}
 
               <form className="mt-6 space-y-4" onSubmit={submit} noValidate>
-                <FloatingInput
-                  label={t('field.email')}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  aria-required="true"
-                  error={errors.email?.message}
-                  {...register('email')}
-                />
-                <FloatingInput
-                  label={t('field.password')}
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  aria-required="true"
-                  error={errors.password?.message}
-                  {...register('password')}
-                />
-                <Button type="submit" size="lg" variant="gradient" className="w-full" loading={isSubmitting} icon={<LogInIcon />}>
+                <Field label={t('field.email')} error={errors.email?.message} required>
+                  {(control) => <Input {...control} type="email" autoComplete="email" {...register('email')} />}
+                </Field>
+                <Field label={t('field.password')} error={errors.password?.message} required>
+                  {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('password')} />}
+                </Field>
+                <Button type="submit" size="lg" variant="dark" className="w-full" loading={isSubmitting} icon={<LogInIcon />}>
                   {t('action.login')}
                 </Button>
               </form>

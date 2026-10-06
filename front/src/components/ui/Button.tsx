@@ -1,33 +1,51 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { VariantProps } from 'class-variance-authority';
-import { buttonVariants } from './buttonVariants';
-import { Loader2Icon } from 'lucide-react';
+import { ArrowRightIcon, ArrowUpRightIcon, Loader2Icon } from 'lucide-react';
+import { arrowBadgeVariants, buttonVariants } from './buttonVariants';
 import { cn } from '../../lib/cn';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+export type ButtonArrow = 'right' | 'up-right';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, Omit<VariantProps<typeof buttonVariants>, 'arrow'> {
   loading?: boolean;
   icon?: ReactNode;
+  arrow?: ButtonArrow;
+}
+
+export function ArrowBadge({ arrow, variant }: { arrow: ButtonArrow; variant: VariantProps<typeof arrowBadgeVariants>['variant'] }) {
+  const Icon = arrow === 'right' ? ArrowRightIcon : ArrowUpRightIcon;
+  return (
+    <span className={arrowBadgeVariants({ variant })} aria-hidden="true">
+      <Icon strokeWidth={2} />
+    </span>
+  );
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, size, loading = false, icon, disabled, type = 'button', children, ...rest },
+  { className, variant, size, loading = false, icon, arrow, disabled, type = 'button', children, ...rest },
   ref,
 ) {
+  const inactive = Boolean(disabled) || loading;
   return (
     <button
       ref={ref}
       type={type}
-      disabled={disabled || loading}
+      disabled={inactive}
+      aria-disabled={inactive || undefined}
       aria-busy={loading || undefined}
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={cn(buttonVariants({ variant, size, arrow: arrow ? true : undefined }), className)}
       {...rest}
     >
-      {loading ? (
-        <Loader2Icon className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-      ) : icon ? (
-        <span className="inline-flex shrink-0" aria-hidden="true">{icon}</span>
-      ) : null}
-      {children}
+      {loading && (
+        <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+          <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+        </span>
+      )}
+      <span className={cn('inline-flex items-center justify-center gap-2', loading && 'invisible')}>
+        {icon && <span className="inline-flex shrink-0 [&_svg]:rtl:-scale-x-100" aria-hidden="true">{icon}</span>}
+        {children}
+      </span>
+      {arrow && <span className={cn(loading && 'invisible')}><ArrowBadge arrow={arrow} variant={variant ?? 'dark'} /></span>}
     </button>
   );
 });

@@ -9,7 +9,7 @@ import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { cn } from '../../lib/cn';
 import { errorMessage, fieldErrorsOf } from '../../utils/errors';
-import { Badge } from '../ui/Badge';
+import { Badge, StatusPill } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Field } from '../ui/Field';
@@ -100,7 +100,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
     const source = record[field]?.[language]?.source;
     if (!source) return null;
     return (
-      <Badge tone={source === 'human' ? 'brand' : 'neutral'} dot>
+      <Badge tone={source === 'human' ? 'accent' : 'neutral'}>
         {source === 'human' && <CheckIcon className="h-3 w-3" aria-hidden="true" />}
         {t(`fnAdmin.${source}`)}
       </Badge>
@@ -125,7 +125,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
                 <Button
                   key={item.code}
                   type="button"
-                  variant={active ? 'primary' : 'outline'}
+                  variant={active ? 'dark' : 'outline'}
                   size="sm"
                   className={cn('rounded-full', !active && !complete && 'border-dashed text-content-muted')}
                   aria-pressed={active}
@@ -168,8 +168,8 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
         ) : (
           <form onSubmit={submit} className="space-y-5">
             <div className="flex flex-wrap gap-2">
-              {dirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
-              {missing && <Badge tone="warning">{t('fnAdmin.translationGaps')}</Badge>}
+              {dirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
+              {missing && <StatusPill tone="pending">{t('fnAdmin.translationGaps')}</StatusPill>}
             </div>
             <fieldset disabled={!editable || busy || blocked} className="space-y-5">
               <Field label={t('field.name')} required error={errors.name}>

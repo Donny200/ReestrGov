@@ -8,13 +8,7 @@ export const DropdownMenuTrigger = Menu.Trigger;
 export function DropdownMenuContent({ className, align = 'end', ...props }: Menu.DropdownMenuContentProps) {
   return (
     <Menu.Portal>
-      <Menu.Content
-        align={align}
-        sideOffset={6}
-        collisionPadding={12}
-        className={cn(menuSurfaceClass, 'min-w-[11rem] origin-[var(--radix-dropdown-menu-content-transform-origin)]', className)}
-        {...props}
-      />
+      <Menu.Content align={align} sideOffset={6} collisionPadding={12} className={cn(menuSurfaceClass, 'min-w-[11rem]', className)} {...props} />
     </Menu.Portal>
   );
 }
@@ -24,8 +18,8 @@ export function DropdownMenuItem({ className, destructive = false, ...props }: M
     <Menu.Item
       className={cn(
         menuItemClass,
-        '[&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-content-muted data-[highlighted]:[&>svg]:text-link',
-        destructive && 'text-danger data-[highlighted]:bg-danger/10 data-[highlighted]:text-danger [&>svg]:text-danger data-[highlighted]:[&>svg]:text-danger',
+        '[&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-secondary data-[highlighted]:[&>svg]:text-foreground',
+        destructive && 'text-danger data-[highlighted]:bg-status-danger-bg data-[highlighted]:text-danger [&>svg]:text-danger data-[highlighted]:[&>svg]:text-danger',
         className,
       )}
       {...props}
@@ -34,7 +28,7 @@ export function DropdownMenuItem({ className, destructive = false, ...props }: M
 }
 
 export function DropdownMenuLabel(props: Menu.DropdownMenuLabelProps) {
-  return <Menu.Label className="px-2.5 py-1.5 text-xs font-medium text-content-muted" {...props} />;
+  return <Menu.Label className="px-3 py-2 text-xs font-medium text-secondary" {...props} />;
 }
 
 export function DropdownMenuSeparator(props: Menu.DropdownMenuSeparatorProps) {

@@ -93,7 +93,7 @@ export function AdminFunctionsPage() {
         cell: ({ row }) => {
           const value = options.data?.categories.find((item) => item.id === row.original.categoryId);
           const label = value ? localizedText(value.name, value.nameTranslations, language) : row.original.category;
-          return label ? <Badge tone="brand">{label}</Badge> : <span className="text-content-subtle">—</span>;
+          return label ? <Badge tone="accent">{label}</Badge> : <span className="text-content-subtle">—</span>;
         },
       },
       {
@@ -142,7 +142,7 @@ export function AdminFunctionsPage() {
         description={t('fnAdmin.subtitle', 'Drafts, review queue and published services.')}
         actions={
           hasPermission('FUNCTIONS_CREATE') ? (
-            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'gradient' })}>
+            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'dark' })}>
               <PlusIcon aria-hidden="true" />
               {t('fnAdmin.create')}
             </Link>

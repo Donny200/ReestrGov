@@ -89,7 +89,7 @@ export function Languages() {
         header: t('lang.default'),
         meta: { hideBelow: 'md' },
         cell: ({ row }) =>
-          row.original.defaultLanguage ? <Badge tone="brand" dot glow>{t('lang.default')}</Badge> : <span className="text-content-subtle">—</span>,
+          row.original.defaultLanguage ? <Badge tone="accent">{t('lang.default')}</Badge> : <span className="text-content-subtle">—</span>,
       },
       {
         id: 'actions',
@@ -115,7 +115,7 @@ export function Languages() {
         eyebrow={t('nav.admin')}
         title={t('lang.title')}
         description={t('lang.current')}
-        badge={<Badge tone="brand">{(languages.data ?? []).length}</Badge>}
+        badge={<Badge tone="accent">{(languages.data ?? []).length}</Badge>}
       />
 
       <div className="grid gap-6 xl:grid-cols-5">
@@ -135,7 +135,7 @@ export function Languages() {
           />
         </Card>
 
-        <Card glass className="h-fit xl:sticky xl:top-24 xl:col-span-2">
+        <Card className="h-fit xl:sticky xl:top-24 xl:col-span-2">
           <CardHeader title={t('lang.searchTitle')} icon={<LanguagesIcon className="h-4 w-4" aria-hidden="true" />} />
           <CardBody className="space-y-4">
             <label className="block">

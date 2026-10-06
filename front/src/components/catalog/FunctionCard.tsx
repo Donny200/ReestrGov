@@ -26,7 +26,7 @@ export function FunctionCard({ item, organizationName }: FunctionCardProps) {
         aria-hidden="true"
       />
       <div className="flex min-h-7 items-start justify-between gap-3">
-        {item.category ? <Badge tone="brand" className="max-w-[80%] truncate">{item.category}</Badge> : <span />}
+        {item.category ? <Badge tone="accent" className="max-w-[80%] truncate">{item.category}</Badge> : <span />}
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line text-content-muted transition-colors duration-base group-hover:border-brand/40 group-hover:bg-brand-subtle group-hover:text-link">
           <ArrowUpRightIcon
             className="h-4 w-4 transition-transform duration-base group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transform-none"

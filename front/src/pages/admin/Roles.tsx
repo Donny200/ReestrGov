@@ -179,7 +179,7 @@ export function Roles() {
               {row.original.permissions.slice(0, 4).map((permission) => (
                 <Badge key={permission.id} tone="neutral" className="font-mono text-[11px]">{permission.code}</Badge>
               ))}
-              {row.original.permissions.length > 4 && <Badge tone="brand">+{row.original.permissions.length - 4}</Badge>}
+              {row.original.permissions.length > 4 && <Badge tone="accent">+{row.original.permissions.length - 4}</Badge>}
             </div>
           ),
       },
@@ -219,7 +219,7 @@ export function Roles() {
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('roles.title')}
-        badge={<Badge tone="brand">{(roles.data ?? []).length}</Badge>}
+        badge={<Badge tone="accent">{(roles.data ?? []).length}</Badge>}
         actions={<Button icon={<PlusIcon />} onClick={() => setCreateOpen(true)}>{t('roles.createRole')}</Button>}
       />
 
@@ -245,7 +245,7 @@ export function Roles() {
           <AssignRoleCard roles={roles.data ?? []} />
         </div>
 
-        <Card glass className="h-fit xl:sticky xl:top-24">
+        <Card className="h-fit xl:sticky xl:top-24">
           <CardHeader
             title={t('roles.permissionsPanel')}
             description={`${(permissions.data ?? []).length}`}
