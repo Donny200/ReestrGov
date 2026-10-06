@@ -1,8 +1,10 @@
-import { Building2Icon, CheckIcon, FileTextIcon, InfoIcon } from 'lucide-react';
+import { CheckIcon, InfoIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Eyebrow } from '../components/ui/Eyebrow';
+import { Reveal } from '../components/ui/Reveal';
 import { SkeletonText } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
@@ -26,70 +28,78 @@ export function FunctionDetail() {
   const organizationName = localizedText(organization?.name, organization?.nameTranslations, locale);
 
   return (
-    <div className="mx-auto w-full max-w-6xl animate-fade-up px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <div className="shell py-8 sm:py-12 lg:py-16">
       <BackLink to="/#functions" label={t('nav.functions')} />
 
       {item.isPending ? (
-        <Card className="mt-5 p-7 sm:p-9"><SkeletonText lines={6} /></Card>
+        <Card size="lg" className="mt-6 p-8 sm:p-10"><SkeletonText lines={6} /></Card>
       ) : item.error ? (
-        <Card className="mt-5"><ErrorState error={item.error} onRetry={() => void item.refetch()} /></Card>
+        <Card size="lg" className="mt-6"><ErrorState error={item.error} onRetry={() => void item.refetch()} /></Card>
       ) : item.data ? (
-        <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start">
-          <Card className="relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" aria-hidden="true" />
-            <article className="p-6 sm:p-9">
-              <div className="flex flex-wrap items-center gap-2">
-                {item.data.category && <Badge tone="accent">{item.data.category}</Badge>}
-                <Badge tone="neutral">ID {item.data.id}</Badge>
-              </div>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start">
+          <Reveal as="article" className="min-w-0">
+            <Eyebrow>{t('nav.functions')}</Eyebrow>
+            <h1 lang={locale} className="mt-4 text-4xl font-semibold text-foreground wrap-anywhere sm:text-5xl">{functionName}</h1>
 
-              <h1 className="mt-5 break-words font-display text-2xl font-bold leading-tight tracking-tight text-content-strong sm:text-3xl">
-                {functionName}
-              </h1>
+            <section className="mt-10 border-t border-line pt-8" aria-labelledby="function-about">
+              <h2 id="function-about" className="micro text-secondary">{t('fn.aboutTitle')}</h2>
+              <p lang={locale} className="mt-4 max-w-3xl text-lg leading-8 text-foreground wrap-anywhere">{functionDescription ?? '—'}</p>
+            </section>
 
-              {organization && (
-                <Link
-                  to={`/organizations/${organization.id}`}
-                  className="press mt-4 inline-flex min-h-10 max-w-full items-center gap-2 rounded-control border border-line bg-surface-subtle/70 px-3 text-sm font-medium text-content transition-colors duration-fast hover:border-brand/40 hover:bg-brand-subtle hover:text-link"
-                >
-                  <Building2Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{organizationName}</span>
-                </Link>
+            <section className="mt-10 border-t border-line pt-8" aria-labelledby="function-requirements">
+              <h2 id="function-requirements" className="micro text-secondary">{t('field.requirements')}</h2>
+              {requirements.length === 0 ? (
+                <p className="mt-4 flex items-start gap-2.5 text-base leading-7 text-secondary">
+                  <InfoIcon className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {t('fn.requirementsEmpty')}
+                </p>
+              ) : (
+                <ol className="mt-4 space-y-3">
+                  {requirements.map((line, index) => (
+                    <li key={index} className="flex items-start gap-3 text-base leading-7 text-foreground">
+                      <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-pill bg-status-published-bg text-status-published">
+                        <CheckIcon className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 wrap-anywhere">{line}</span>
+                    </li>
+                  ))}
+                </ol>
               )}
+            </section>
+          </Reveal>
 
-              <div className="mt-8 border-t border-line/80 pt-7">
-                <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-content-muted">{t('fn.aboutTitle')}</h2>
-                <p className="mt-3 break-words text-[15px] leading-7 text-content">{functionDescription ?? '—'}</p>
-              </div>
-            </article>
-          </Card>
-
-          <aside className="space-y-4">
+          <Reveal as="aside" index={1} className="lg:sticky lg:top-28">
             <Card>
-              <CardHeader title={t('field.requirements')} icon={<FileTextIcon className="h-4 w-4" aria-hidden="true" />} />
+              <CardHeader title={t('field.organization')} />
               <CardBody>
-                {requirements.length === 0 ? (
-                  <p className="flex items-start gap-2.5 text-[13px] leading-6 text-content-muted">
-                    <InfoIcon className="mt-1 h-4 w-4 shrink-0 text-content-subtle" aria-hidden="true" />
-                    {t('fn.requirementsEmpty')}
-                  </p>
-                ) : (
-                  <ol className="space-y-3.5">
-                    {requirements.map((line, index) => (
-                      <li key={index} className="flex items-start gap-3 text-[13px] leading-6 text-content">
-                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-positive/10 text-positive">
-                          <CheckIcon className="h-3 w-3" aria-hidden="true" />
-                        </span>
-                        <span className="min-w-0 break-words">{line}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+                <dl className="space-y-5">
+                  <div>
+                    <dt className="micro text-secondary">{t('field.organization')}</dt>
+                    <dd className="mt-1.5 text-base font-medium text-foreground wrap-anywhere">
+                      {organization ? (
+                        <Link lang={locale} to={`/organizations/${organization.id}`} className="rounded-sm underline-offset-4 fine:hover:underline">
+                          {organizationName}
+                        </Link>
+                      ) : (
+                        t('fn.organizationUnknown', 'Organization unknown')
+                      )}
+                    </dd>
+                  </div>
+                  {item.data.category && (
+                    <div>
+                      <dt className="micro text-secondary">{t('field.category')}</dt>
+                      <dd className="mt-1.5"><Badge tone="accent" size="sm">{item.data.category}</Badge></dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="micro text-secondary">{t('field.id')}</dt>
+                    <dd className="mt-1.5 text-base font-medium tabular-nums text-foreground">{item.data.id}</dd>
+                  </div>
+                </dl>
               </CardBody>
             </Card>
-
-            <p className="border-l-2 border-line-strong px-4 py-2 text-xs leading-5 text-content-muted">{t('app.demoNotice')}</p>
-          </aside>
+            <p className="mt-4 border-s-2 border-line ps-4 text-sm leading-6 text-secondary">{t('app.demoNotice')}</p>
+          </Reveal>
         </div>
       ) : null}
     </div>
