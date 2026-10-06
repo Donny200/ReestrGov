@@ -137,7 +137,7 @@ export function AdminLayout() {
       >
         <div className={cn('sticky top-0 flex h-dvh flex-col', collapsed ? 'w-[4.5rem]' : 'w-64')}>
           <div className={cn('flex h-16 items-center border-b border-line/80 px-4', collapsed && 'justify-center px-0')}>
-            <Logo to="/admin" compact={collapsed} />
+            <Logo to="/admin" />
           </div>
           <SidebarNav items={items} collapsed={collapsed} />
           <div className="border-t border-line/80 p-2.5">

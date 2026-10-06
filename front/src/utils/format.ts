@@ -32,6 +32,11 @@ export function initials(user: {firstName: string;lastName: string;}): string {
   return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
 }
 
+export function organizationInitials(name: string): string {
+  const words = name.split(/\s+/).filter(Boolean);
+  return words.slice(0, 2).map((word) => word.charAt(0)).join('').toUpperCase() || name.charAt(0).toUpperCase();
+}
+
 export function truncate(value: string | null | undefined, length = 120): string {
   if (!value) return '—';
   return value.length > length ? `${value.slice(0, length).trimEnd()}…` : value;

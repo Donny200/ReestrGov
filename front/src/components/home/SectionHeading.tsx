@@ -1,19 +1,21 @@
 import type { ReactNode } from 'react';
+import { Eyebrow } from '../ui/Eyebrow';
 
 interface SectionHeadingProps {
   eyebrow: string;
   title: string;
   description?: string;
   aside?: ReactNode;
+  onInk?: boolean;
 }
 
-export function SectionHeading({ eyebrow, title, description, aside }: SectionHeadingProps) {
+export function SectionHeading({ eyebrow, title, description, aside, onInk = false }: SectionHeadingProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-link">{eyebrow}</p>
-        <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-content-strong sm:text-4xl">{title}</h2>
-        {description && <p className="mt-2 text-sm leading-6 text-content-muted">{description}</p>}
+        <Eyebrow onInk={onInk}>{eyebrow}</Eyebrow>
+        <h2 className="mt-3 text-4xl font-semibold wrap-anywhere sm:text-5xl">{title}</h2>
+        {description && <p className={onInk ? 'mt-3 text-base leading-7 text-ink-secondary' : 'mt-3 text-base leading-7 text-secondary'}>{description}</p>}
       </div>
       {aside}
     </div>

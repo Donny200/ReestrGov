@@ -1,15 +1,17 @@
-import { Building2Icon } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
-import { FunctionCard } from '../components/catalog/FunctionCard';
+import { FunctionListRow } from '../components/catalog/FunctionListRow';
 import { SectionHeading } from '../components/home/SectionHeading';
 import { StatusPill } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
-import { SkeletonCards, SkeletonText } from '../components/ui/Skeleton';
+import { Eyebrow } from '../components/ui/Eyebrow';
+import { Reveal } from '../components/ui/Reveal';
+import { SkeletonList, SkeletonText } from '../components/ui/Skeleton';
 import { EmptyState, ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicOrganization } from '../features/organizations/queries';
 import { usePublicFunctions } from '../features/functions/queries';
+import { organizationInitials } from '../utils/format';
 import { localizedText } from '../utils/translations';
 
 export function OrganizationDetail() {
@@ -24,63 +26,64 @@ export function OrganizationDetail() {
   const functionList = functions.data ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-6xl animate-fade-up px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <div className="shell py-8 sm:py-12 lg:py-16">
       <BackLink to="/#organizations" label={t('nav.organizations')} />
 
-      <Card className="relative mt-5 overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" aria-hidden="true" />
-        {organization.isPending ? (
-          <div className="p-6 sm:p-9"><SkeletonText lines={4} /></div>
-        ) : organization.error ? (
-          <ErrorState error={organization.error} onRetry={() => void organization.refetch()} />
-        ) : organization.data ? (
-          <div className="p-6 sm:p-9">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 items-start gap-4 sm:gap-5">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-control bg-brand-gradient-soft text-link sm:h-14 sm:w-14">
-                  <Building2Icon className="h-6 w-6" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 pt-0.5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-link">{t('field.organization')}</p>
-                  <h1 className="mt-2 break-words font-display text-3xl font-bold leading-tight tracking-tight text-content-strong sm:text-4xl">
-                    {organizationName}
-                  </h1>
+      <Reveal className="mt-6">
+        <Card size="lg" className="p-6 sm:p-10">
+          {organization.isPending ? (
+            <SkeletonText lines={4} />
+          ) : organization.error ? (
+            <ErrorState error={organization.error} onRetry={() => void organization.refetch()} />
+          ) : organization.data ? (
+            <div>
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-5">
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-pill bg-ink text-base font-semibold uppercase tracking-wide text-ink-fg" aria-hidden="true">
+                    {organizationInitials(organizationName ?? organization.data.name)}
+                  </span>
+                  <div className="min-w-0 pt-1">
+                    <Eyebrow>{t('field.organization')}</Eyebrow>
+                    <h1 lang={locale} className="mt-3 text-4xl font-semibold text-foreground wrap-anywhere sm:text-5xl">{organizationName}</h1>
+                  </div>
                 </div>
+                <StatusPill tone="published" className="w-fit shrink-0">{t('status.active')}</StatusPill>
               </div>
-              <StatusPill tone="published" className="w-fit shrink-0">{t('status.active')}</StatusPill>
+              <div className="mt-8 border-t border-line pt-7">
+                <p lang={locale} className="max-w-3xl text-lg leading-8 text-foreground wrap-anywhere">{organizationDescription ?? '—'}</p>
+              </div>
             </div>
-            <div className="mt-7 border-t border-line/80 pt-6">
-              <p className="max-w-3xl break-words text-[15px] leading-7 text-content">{organizationDescription ?? '—'}</p>
-            </div>
-          </div>
-        ) : null}
-      </Card>
+          ) : null}
+        </Card>
+      </Reveal>
 
-      <section className="mt-12">
-        <SectionHeading
-          eyebrow={t('nav.functions')}
-          title={t('org.functionsTitle')}
-          aside={
-            !functions.isPending && !functions.error ? (
-              <p className="text-sm font-medium tabular-nums text-content-muted" aria-live="polite">
-                {functionList.length} {t('home.resultsCount')}
-              </p>
-            ) : undefined
-          }
-        />
-        <div className="mt-6">
+      <section className="mt-14">
+        <Reveal>
+          <SectionHeading
+            eyebrow={t('nav.functions')}
+            title={t('org.functionsTitle')}
+            aside={
+              !functions.isPending && !functions.error ? (
+                <p className="inline-flex min-h-10 w-fit items-center rounded-pill border border-line px-4 text-sm font-medium tabular-nums text-secondary" aria-live="polite">
+                  {functionList.length} {t('home.resultsCount')}
+                </p>
+              ) : undefined
+            }
+          />
+        </Reveal>
+        <div className="mt-8">
           {functions.isPending ? (
-            <SkeletonCards count={3} />
+            <SkeletonList count={3} />
           ) : functions.error ? (
             <Card><ErrorState error={functions.error} onRetry={() => void functions.refetch()} /></Card>
           ) : functionList.length === 0 ? (
             <Card><EmptyState title={t('state.emptyTitle')} description={t('org.emptyFunctions')} /></Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {functionList.map((item) => (
-                <FunctionCard key={item.id} item={item} organizationName={organizationName ?? undefined} />
+            <ol className="border-b border-line">
+              {functionList.map((item, index) => (
+                <FunctionListRow key={item.id} item={item} index={index + 1} organizationName={organizationName ?? undefined} />
               ))}
-            </div>
+            </ol>
           )}
         </div>
       </section>

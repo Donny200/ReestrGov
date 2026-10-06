@@ -1,14 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowRightIcon, LayoutDashboardIcon, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { ArrowUpRightIcon, MenuIcon, XIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Logo } from './Logo';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Button } from '../ui/Button';
 import { buttonVariants } from '../ui/buttonVariants';
-import { Avatar } from '../ui/Avatar';
+import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 
@@ -18,17 +17,16 @@ const links = [
   { to: '/#functions', key: 'nav.functions' },
 ] as const;
 
-const FOCUSABLE = 'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const STAGGER_MS = 45;
 
-export function PublicHeader() {
+export function PublicHeader({ transparent = false }: { transparent?: boolean }) {
   const { t } = useI18n();
   const { user, initializing } = useAuth();
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const drawerTitleId = useId();
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const overlayTitleId = useId();
 
   useEffect(() => {
     setOpen(false);
@@ -43,12 +41,12 @@ export function PublicHeader() {
     return () => desktop.removeEventListener('change', closeOnDesktop);
   }, []);
 
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const frame = window.requestAnimationFrame(() => {
-      drawerRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      overlayRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     });
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -56,23 +54,11 @@ export function PublicHeader() {
         window.requestAnimationFrame(() => menuButtonRef.current?.focus());
         return;
       }
-      if (event.key !== 'Tab' || !drawerRef.current) return;
-      const focusable = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      if (event.key === 'Tab' && overlayRef.current) trapTab(event, overlayRef.current);
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [open]);
@@ -83,7 +69,7 @@ export function PublicHeader() {
     return location.hash === new URL(to, window.location.origin).hash;
   };
 
-  const closeDrawer = () => {
+  const closeOverlay = () => {
     setOpen(false);
     window.requestAnimationFrame(() => menuButtonRef.current?.focus());
   };
@@ -93,10 +79,29 @@ export function PublicHeader() {
     window.requestAnimationFrame(() => document.getElementById('main-content')?.focus({ preventScroll: true }));
   };
 
+  const accountLink = (className: string, onClick?: () => void) =>
+    initializing ? (
+      <span className={cn('h-10 w-28 animate-pulse rounded-pill bg-surface-2 motion-reduce:animate-none', className)} aria-hidden="true" />
+    ) : user ? (
+      <Link to="/admin" onClick={onClick} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), className)}>
+        {t('nav.admin')}
+        <ArrowUpRightIcon className="rtl:-scale-x-100" aria-hidden="true" />
+      </Link>
+    ) : (
+      <Link to="/login" onClick={onClick} className={cn(buttonVariants({ variant: 'dark', size: 'sm' }), className)}>
+        {t('action.login')}
+      </Link>
+    );
+
   return (
     <>
-      <header className="glass sticky top-0 z-50 border-x-0 border-t-0">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <header
+        className={cn(
+          'z-40 w-full',
+          transparent ? 'absolute inset-x-0 top-0 bg-transparent' : 'sticky top-0 border-b border-line bg-background',
+        )}
+      >
+        <div className="shell flex h-20 items-center justify-between gap-4">
           <Logo />
 
           <nav aria-label={t('nav.catalog')} className="hidden items-center gap-1 lg:flex">
@@ -108,8 +113,8 @@ export function PublicHeader() {
                   to={link.to}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'press inline-flex h-9 items-center rounded-control px-3.5 text-sm font-medium transition-colors duration-fast',
-                    active ? 'bg-brand-subtle text-link' : 'text-content-muted hover:bg-surface-subtle hover:text-content-strong',
+                    'inline-flex min-h-10 items-center rounded-pill px-4 text-sm font-medium transition-colors duration-snap ease-snap',
+                    active ? 'bg-ink text-ink-fg' : 'text-secondary fine:hover:bg-surface fine:hover:text-foreground',
                   )}
                 >
                   {t(link.key)}
@@ -118,23 +123,10 @@ export function PublicHeader() {
             })}
           </nav>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
-            <LanguageSwitcher compact className="hidden md:inline-flex" />
-            {initializing ? (
-              <span className="hidden h-10 w-28 animate-pulse rounded-control bg-surface-subtle sm:block" aria-hidden="true" />
-            ) : user ? (
-              <Link to="/admin" className={cn(buttonVariants({ variant: 'outline' }), 'hidden pl-1.5 sm:inline-flex')}>
-                <Avatar user={user} size="sm" />
-                {t('nav.admin')}
-                <LayoutDashboardIcon aria-hidden="true" />
-              </Link>
-            ) : (
-              <Link to="/login" className={cn(buttonVariants({ variant: 'dark' }), 'hidden sm:inline-flex')}>
-                <LogInIcon aria-hidden="true" />
-                {t('action.login')}
-              </Link>
-            )}
+            <LanguageSwitcher compact className="hidden md:block" />
+            {accountLink('hidden sm:inline-flex')}
             <Button
               ref={menuButtonRef}
               variant="outline"
@@ -151,96 +143,67 @@ export function PublicHeader() {
         </div>
       </header>
 
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-[70] lg:hidden">
-            <motion.button
-              type="button"
-              tabIndex={-1}
-              aria-label={t('action.close')}
-              onClick={closeDrawer}
-              className="absolute inset-0 h-full w-full cursor-default bg-black/50 backdrop-blur-sm"
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.18 }}
-            />
-            <motion.div
-              ref={drawerRef}
-              id="public-mobile-menu"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={drawerTitleId}
-              className="glass-strong absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-1rem))] flex-col shadow-overlay"
-              initial={reduceMotion ? false : { x: 40, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={reduceMotion ? undefined : { x: 40, opacity: 0 }}
-              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="flex h-16 items-center justify-between border-b border-line/80 px-4">
-                <div id={drawerTitleId} className="min-w-0">
-                  <Logo />
-                </div>
-                <Button variant="ghost" size="iconSm" onClick={closeDrawer} aria-label={t('action.close')}>
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </div>
-
-              <nav aria-label={t('nav.catalog')} className="flex-1 overflow-y-auto px-3 py-4">
-                <ul className="space-y-1">
-                  {links.map((link) => {
-                    const active = isActive(link.to);
-                    return (
-                      <li key={link.to}>
-                        <Link
-                          to={link.to}
-                          onClick={closeAfterNavigation}
-                          aria-current={active ? 'page' : undefined}
-                          className={cn(
-                            'flex min-h-12 items-center justify-between rounded-control px-3.5 text-[15px] font-medium transition-colors duration-fast',
-                            active ? 'bg-brand-subtle text-link' : 'text-content hover:bg-surface-subtle hover:text-content-strong',
-                          )}
-                        >
-                          {t(link.key)}
-                          <ArrowRightIcon className="h-4 w-4 opacity-60 rtl:rotate-180" aria-hidden="true" />
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </nav>
-
-              <div className="space-y-3 border-t border-line/80 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">{t('field.language')}</p>
-                <LanguageSwitcher className="w-full" />
-                {!initializing &&
-                  (user ? (
-                    <Link
-                      to="/admin"
-                      onClick={closeAfterNavigation}
-                      className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full justify-between')}
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <Avatar user={user} size="sm" />
-                        {t('nav.admin')}
-                      </span>
-                      <LayoutDashboardIcon aria-hidden="true" />
-                    </Link>
-                  ) : (
-                    <Link
-                      to="/login"
-                      onClick={closeAfterNavigation}
-                      className={cn(buttonVariants({ variant: 'dark', size: 'lg' }), 'w-full')}
-                    >
-                      <LogInIcon aria-hidden="true" />
-                      {t('action.login')}
-                    </Link>
-                  ))}
-              </div>
-            </motion.div>
+      {open && (
+        <div
+          ref={overlayRef}
+          id="public-mobile-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={overlayTitleId}
+          className="ink fixed inset-0 z-[70] flex flex-col bg-ink text-ink-fg animate-fade-in lg:hidden"
+        >
+          <div className="shell flex h-20 shrink-0 items-center justify-between">
+            <div id={overlayTitleId} className="min-w-0">
+              <Logo onInk />
+            </div>
+            <Button variant="ghost" size="icon" className="text-ink-fg fine:hover:bg-ink-hover fine:hover:text-ink-fg" onClick={closeOverlay} aria-label={t('action.close')}>
+              <XIcon aria-hidden="true" />
+            </Button>
           </div>
-        )}
-      </AnimatePresence>
+
+          <nav aria-label={t('nav.catalog')} className="shell flex-1 overflow-y-auto py-6">
+            <ul className="space-y-1">
+              {links.map((link, index) => {
+                const active = isActive(link.to);
+                return (
+                  <li key={link.to} className="animate-rise-in" style={{ animationDelay: `${index * STAGGER_MS}ms` } as CSSProperties}>
+                    <Link
+                      to={link.to}
+                      onClick={closeAfterNavigation}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex min-h-14 items-center justify-between gap-4 rounded-card-sm px-4 text-2xl font-medium transition-colors duration-snap',
+                        active ? 'bg-ink-hover' : 'fine:hover:bg-ink-hover',
+                      )}
+                    >
+                      {t(link.key)}
+                      <ArrowUpRightIcon className="h-5 w-5 shrink-0 text-ink-secondary rtl:-scale-x-100" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div
+            className="shell flex shrink-0 flex-col gap-3 border-t border-ink-line py-6 animate-rise-in"
+            style={{ animationDelay: `${links.length * STAGGER_MS}ms` } as CSSProperties}
+          >
+            <LanguageSwitcher onInk />
+            {!initializing &&
+              (user ? (
+                <Link to="/admin" onClick={closeAfterNavigation} className={cn(buttonVariants({ variant: 'light', size: 'lg' }), 'w-full')}>
+                  {t('nav.admin')}
+                  <ArrowUpRightIcon className="rtl:-scale-x-100" aria-hidden="true" />
+                </Link>
+              ) : (
+                <Link to="/login" onClick={closeAfterNavigation} className={cn(buttonVariants({ variant: 'light', size: 'lg' }), 'w-full')}>
+                  {t('action.login')}
+                </Link>
+              ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }

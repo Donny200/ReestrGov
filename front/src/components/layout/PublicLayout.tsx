@@ -7,6 +7,7 @@ import { PublicFooter } from './PublicFooter';
 export function PublicLayout() {
   const location = useLocation();
   const { t } = useI18n();
+  const home = location.pathname === '/';
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -34,14 +35,14 @@ export function PublicLayout() {
   }, [location.hash, location.pathname]);
 
   return (
-    <div className="flex min-h-dvh w-full flex-col text-content">
+    <div className="flex min-h-dvh w-full flex-col bg-background text-foreground">
       <a
         href="#main-content"
-        className="fixed left-4 top-3 z-[80] -translate-y-20 rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-brand-fg shadow-pop transition-transform focus:translate-y-0"
+        className="fixed start-5 top-3 z-[90] -translate-y-24 rounded-pill bg-ink px-5 py-3 text-sm font-medium text-ink-fg transition-transform focus:translate-y-0"
       >
         {t('a11y.skipToContent', 'Skip to main content')}
       </a>
-      <PublicHeader />
+      <PublicHeader transparent={home} />
       <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
         <Outlet />
       </main>
