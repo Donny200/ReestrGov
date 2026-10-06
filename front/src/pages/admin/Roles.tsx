@@ -148,19 +148,19 @@ export function Roles() {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         accessorKey: 'name',
         header: t('field.name'),
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-gradient-soft text-link" aria-hidden="true">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-surface text-foreground" aria-hidden="true">
               {SYSTEM_ROLES.has(row.original.name) ? <ShieldCheckIcon className="h-4 w-4" /> : <ShieldIcon className="h-4 w-4" />}
             </span>
             <span className="min-w-0">
-              <span className="block truncate font-medium text-content-strong">{row.original.name}</span>
-              <span className="block text-xs text-content-muted">
+              <span className="block truncate font-medium text-foreground">{row.original.name}</span>
+              <span className="block text-xs text-secondary">
                 {SYSTEM_ROLES.has(row.original.name) ? t('roles.system', 'System role') : t('roles.custom', 'Custom role')}
               </span>
             </span>
@@ -173,13 +173,13 @@ export function Roles() {
         accessorFn: (row) => row.permissions.length,
         cell: ({ row }) =>
           row.original.permissions.length === 0 ? (
-            <span className="text-content-subtle">—</span>
+            <span className="text-secondary">—</span>
           ) : (
             <div className="flex flex-wrap gap-1">
               {row.original.permissions.slice(0, 4).map((permission) => (
-                <Badge key={permission.id} tone="neutral" className="font-mono text-[11px]">{permission.code}</Badge>
+                <Badge key={permission.id} size="sm">{permission.code}</Badge>
               ))}
-              {row.original.permissions.length > 4 && <Badge tone="accent">+{row.original.permissions.length - 4}</Badge>}
+              {row.original.permissions.length > 4 && <Badge size="sm" tone="accent">+{row.original.permissions.length - 4}</Badge>}
             </div>
           ),
       },
@@ -215,11 +215,11 @@ export function Roles() {
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('roles.title')}
-        badge={<Badge tone="accent">{(roles.data ?? []).length}</Badge>}
+        badge={<Badge size="sm" tone="accent">{(roles.data ?? []).length}</Badge>}
         actions={<Button icon={<PlusIcon />} onClick={() => setCreateOpen(true)}>{t('roles.createRole')}</Button>}
       />
 
@@ -262,12 +262,12 @@ export function Roles() {
               <div className="space-y-5">
                 {groups.map(([category, items]) => (
                   <div key={category}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">{category}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary">{category}</p>
                     <ul className="mt-2 space-y-1.5">
                       {items.map((permission) => (
-                        <li key={permission.id} className="rounded-control border border-line bg-surface/70 px-3 py-2">
-                          <p className="text-sm font-medium text-content-strong">{permission.name}</p>
-                          <p className="font-mono text-[11px] text-content-subtle">{permission.code}</p>
+                        <li key={permission.id} className="rounded-control border border-line bg-background px-3 py-2">
+                          <p className="text-sm font-medium text-foreground">{permission.name}</p>
+                          <p className="text-xs text-secondary">{permission.code}</p>
                         </li>
                       ))}
                     </ul>

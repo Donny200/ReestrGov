@@ -135,15 +135,15 @@ export function RolePermissionsDialog({ role, groups, onClose }: RolePermissions
         {groups.map(([category, permissions]) => {
           const groupSelected = permissions.filter((permission) => selected.includes(permission.id)).length;
           return (
-            <fieldset key={category} className="rounded-surface border border-line bg-surface-subtle/40 p-3">
+            <fieldset key={category} className="rounded-card-sm border border-line bg-surface p-3">
               <legend className="px-1">
                 <button
                   type="button"
                   onClick={() => toggleGroup(permissions)}
-                  className="inline-flex items-center gap-2 rounded px-1 text-xs font-semibold uppercase tracking-wide text-content-muted transition-colors hover:text-link"
+                  className="inline-flex items-center gap-2 rounded px-1 text-xs font-semibold uppercase tracking-wide text-secondary transition-colors hover:text-accent-text"
                 >
                   {category}
-                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] tabular-nums text-content-subtle ring-1 ring-line">
+                  <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] tabular-nums text-secondary ring-1 ring-line">
                     {groupSelected}/{permissions.length}
                   </span>
                 </button>
@@ -152,12 +152,12 @@ export function RolePermissionsDialog({ role, groups, onClose }: RolePermissions
                 {permissions.map((permission) => (
                   <label
                     key={permission.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 text-sm text-content transition-colors duration-fast hover:bg-brand-subtle/60"
+                    className="flex cursor-pointer items-start gap-3 rounded-control px-2.5 py-2 text-sm text-foreground transition-colors duration-snap fine:hover:bg-surface"
                   >
                     <Checkbox className="mt-0.5" checked={selected.includes(permission.id)} onChange={() => toggle(permission.id)} />
                     <span className="min-w-0">
-                      <span className="block leading-tight text-content-strong">{permission.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-content-subtle">{permission.code}</span>
+                      <span className="block leading-tight text-foreground">{permission.name}</span>
+                      <span className="block truncate text-xs text-secondary">{permission.code}</span>
                     </span>
                   </label>
                 ))}

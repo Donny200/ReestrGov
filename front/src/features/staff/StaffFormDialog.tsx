@@ -217,7 +217,7 @@ export function StaffEditDialog({ config, open, organizations, user, onClose }: 
           control={control}
           name="enabled"
           render={({ field }) => (
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-line bg-surface-subtle/60 px-3 text-sm font-medium text-content sm:col-span-2">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-line bg-surface px-3 text-sm font-medium text-foreground sm:col-span-2">
               <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
               {t('field.enabled')}
             </label>

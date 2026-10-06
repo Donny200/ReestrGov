@@ -74,19 +74,19 @@ export function Organizations() {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         accessorKey: 'name',
         header: t('field.name'),
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-brand-gradient-soft text-link" aria-hidden="true">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-surface text-foreground" aria-hidden="true">
               <Building2Icon className="h-4 w-4" />
             </span>
             <span className="min-w-0">
-              <span className="block truncate font-medium text-content-strong">{row.original.name}</span>
-              <span className="block truncate text-xs text-content-muted md:hidden">{truncate(row.original.description, 60)}</span>
+              <span className="block truncate font-medium text-foreground">{row.original.name}</span>
+              <span className="block truncate text-xs text-secondary md:hidden">{truncate(row.original.description, 60)}</span>
             </span>
           </div>
         ),
@@ -96,7 +96,7 @@ export function Organizations() {
         header: t('field.description'),
         enableSorting: false,
         meta: { hideBelow: 'md', mobileHidden: true },
-        cell: ({ row }) => <span className="text-content-muted">{truncate(row.original.description, 90)}</span>,
+        cell: ({ row }) => <span className="text-secondary">{truncate(row.original.description, 90)}</span>,
       },
       {
         accessorKey: 'enabled',
@@ -107,7 +107,7 @@ export function Organizations() {
         accessorKey: 'createdAt',
         header: t('field.createdAt'),
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => <span className="tabular-nums text-content-muted">{formatDate(row.original.createdAt, locale)}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">{formatDate(row.original.createdAt, locale)}</span>,
       },
     ];
     if (!isSuperAdmin) return base;
@@ -154,12 +154,12 @@ export function Organizations() {
     ) : undefined;
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('orgs.title')}
         description={t('home.orgsSubtitle')}
-        badge={<Badge tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
+        badge={<Badge size="sm" tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
         actions={createButton('md')}
       />
       <Card>

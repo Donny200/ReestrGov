@@ -83,7 +83,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         id: 'name',
@@ -93,8 +93,8 @@ export function StaffPage({ config }: { config: StaffConfig }) {
           <div className="flex min-w-0 items-center gap-3">
             <Avatar user={row.original} size="sm" />
             <span className="min-w-0">
-              <span className="block truncate font-medium text-content-strong">{fullName(row.original)}</span>
-              <span className="block truncate text-xs text-content-muted">{row.original.email}</span>
+              <span className="block truncate font-medium text-foreground">{fullName(row.original)}</span>
+              <span className="block truncate text-xs text-secondary">{row.original.email}</span>
             </span>
           </div>
         ),
@@ -103,13 +103,13 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         accessorKey: 'phone',
         header: t('field.phone'),
         meta: { hideBelow: 'xl' },
-        cell: ({ row }) => <span className="tabular-nums text-content-muted">{row.original.phone ?? '—'}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">{row.original.phone ?? '—'}</span>,
       },
       {
         accessorKey: 'role',
         header: t('field.role'),
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => <Badge tone="accent">{roleLabel(row.original.role, t)}</Badge>,
+        cell: ({ row }) => <Badge size="sm" tone="accent">{roleLabel(row.original.role, t)}</Badge>,
       },
       {
         id: 'organizations',
@@ -118,11 +118,11 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         meta: { hideBelow: 'md' },
         cell: ({ row }) =>
           row.original.organizationIds.length === 0 ? (
-            <span className="text-content-subtle">—</span>
+            <span className="text-secondary">—</span>
           ) : (
             <div className="flex flex-wrap gap-1">
               {row.original.organizationIds.map((id) => (
-                <Badge key={id} tone="neutral">#{id} {organizationNames.get(id) ?? ''}</Badge>
+                <Badge key={id} size="sm">#{id} {organizationNames.get(id) ?? ''}</Badge>
               ))}
             </div>
           ),
@@ -164,12 +164,12 @@ export function StaffPage({ config }: { config: StaffConfig }) {
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t(config.titleKey)}
         description={config.descriptionKey ? t(config.descriptionKey) : undefined}
-        badge={<Badge tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
+        badge={<Badge size="sm" tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
         actions={
           <>
             <Button variant="outline" icon={<ArrowUpCircleIcon />} onClick={() => setDialog({ mode: 'promote' })}>{t('action.promote')}</Button>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertTriangleIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
+import { MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -13,6 +13,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Badge, StatusBadge, StatusPill } from '../../components/ui/Badge';
 import { ConfirmModal } from '../../components/ui/Modal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/DropdownMenu';
+import { InlineAlert } from '../../features/functions/InlineAlert';
 import { LegacyUserCreateDialog, LegacyUserEditDialog } from '../../features/legacyUsers/LegacyUserDialogs';
 import { useDeactivateLegacyUser, useLegacyUsers } from '../../features/legacyUsers/queries';
 import { useOrganizations } from '../../features/organizations/queries';
@@ -73,7 +74,7 @@ export function LegacyUsers() {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         id: 'name',
@@ -83,8 +84,8 @@ export function LegacyUsers() {
           <div className="flex min-w-0 items-center gap-3">
             <Avatar user={row.original} size="sm" />
             <span className="min-w-0">
-              <span className="block truncate font-medium text-content-strong">{fullName(row.original)}</span>
-              <span className="block truncate text-xs text-content-muted">{row.original.email}</span>
+              <span className="block truncate font-medium text-foreground">{fullName(row.original)}</span>
+              <span className="block truncate text-xs text-secondary">{row.original.email}</span>
             </span>
           </div>
         ),
@@ -93,13 +94,13 @@ export function LegacyUsers() {
         accessorKey: 'phone',
         header: t('field.phone'),
         meta: { hideBelow: 'xl' },
-        cell: ({ row }) => <span className="tabular-nums text-content-muted">{row.original.phone ?? '—'}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">{row.original.phone ?? '—'}</span>,
       },
       {
         accessorKey: 'role',
         header: t('field.role'),
         meta: { hideBelow: 'md' },
-        cell: ({ row }) => <Badge tone="accent">{roleLabel(row.original.role, t)}</Badge>,
+        cell: ({ row }) => <Badge size="sm" tone="accent">{roleLabel(row.original.role, t)}</Badge>,
       },
       {
         id: 'organizations',
@@ -108,11 +109,11 @@ export function LegacyUsers() {
         meta: { hideBelow: 'lg' },
         cell: ({ row }) =>
           row.original.organizations.length === 0 ? (
-            <span className="text-content-subtle">—</span>
+            <span className="text-secondary">—</span>
           ) : (
             <div className="flex flex-wrap gap-1">
               {row.original.organizations.map((id) => (
-                <Badge key={id} tone="neutral">#{id} {organizationNames.get(id) ?? ''}</Badge>
+                <Badge key={id} size="sm">#{id} {organizationNames.get(id) ?? ''}</Badge>
               ))}
             </div>
           ),
@@ -154,7 +155,7 @@ export function LegacyUsers() {
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('legacy.title')}
@@ -163,14 +164,9 @@ export function LegacyUsers() {
         actions={<Button icon={<PlusIcon />} onClick={() => setDialog({ mode: 'create' })}>{t('action.create')}</Button>}
       />
 
-      <div className="mb-6 flex items-start gap-3 rounded-surface border border-warning/25 bg-warning/10 px-4 py-4 text-sm leading-relaxed text-content sm:px-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-warning/15 text-warning" aria-hidden="true">
-          <AlertTriangleIcon className="h-4 w-4" />
-        </span>
-        <span>
-          {t('legacy.notice')} <span className="font-semibold">{t('legacy.updateNotice')}</span>
-        </span>
-      </div>
+      <InlineAlert tone="warning" className="mb-6">
+        {t('legacy.notice')} <span className="font-semibold">{t('legacy.updateNotice')}</span>
+      </InlineAlert>
 
       <Card>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
