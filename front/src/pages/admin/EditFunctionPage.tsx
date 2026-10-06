@@ -4,9 +4,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeftIcon, FileTextIcon, SaveIcon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
+import { ActionBar } from '../../components/ui/ActionBar';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { FunctionStatusBadge, StatusPill } from '../../components/ui/Badge';
@@ -35,13 +36,13 @@ export function LegacyFunctionEditorRedirect() {
 
 function EditorSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="animate-fade-in">
+    <div role="status" aria-busy="true">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-8 w-80" />
+        <Skeleton className="h-9 w-80 max-w-full" />
         <Skeleton className="h-4 w-56" />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <Card><CardBody><SkeletonText lines={9} /></CardBody></Card>
         <div className="space-y-6">
           <Card><CardBody><SkeletonText lines={3} /></CardBody></Card>
@@ -60,7 +61,7 @@ export function EditFunctionPage() {
   if (record.isPending) return <EditorSkeleton />;
   if (record.error || !record.data) {
     return (
-      <Card className="animate-fade-up">
+      <Card>
         <FunctionErrorState error={record.error} onRetry={() => void record.refetch()} />
       </Card>
     );
@@ -127,7 +128,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
       );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.functions')}
         title={title}
@@ -140,7 +141,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
           </span>
         }
         actions={
-          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline' })}>
+          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <ArrowLeftIcon aria-hidden="true" />
             {t('action.back')}
           </Link>
@@ -149,10 +150,10 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
 
       {statusHint && <InlineAlert tone="info" className="mb-6">{statusHint}</InlineAlert>}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
-        <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} icon={<FileTextIcon className="h-4 w-4" />} />
+            <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
             {options.isPending ? (
               <CardBody><SkeletonText lines={8} /></CardBody>
             ) : options.error ? (
@@ -166,15 +167,15 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
                     categories={options.data?.categories ?? []}
                     disabled={!editable || busy || secondaryDirty}
                   />
-                  {editable && <p className="text-xs leading-5 text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
+                  {editable && <p className="text-sm leading-5 text-secondary">{t('fnAdmin.sourceChanged')}</p>}
                   {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
                 </CardBody>
                 {editable && (
-                  <CardFooter>
-                    <Button type="submit" icon={<SaveIcon />} loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
+                  <ActionBar status={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}>
+                    <Button type="submit" variant="dark" loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
                       {t('action.save')}
                     </Button>
-                  </CardFooter>
+                  </ActionBar>
                 )}
               </form>
             )}
@@ -185,7 +186,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
           {hasPermission('AUDIT_VIEW') && <FunctionAudit functionId={record.id} />}
         </div>
 
-        <aside className="space-y-6 xl:sticky xl:top-24">
+        <aside className="space-y-6 lg:sticky lg:top-24">
           <FunctionWorkflow record={record} dirty={isDirty || secondaryDirty} busy={busy} />
           <FunctionPreview record={record} />
         </aside>

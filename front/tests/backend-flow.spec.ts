@@ -17,12 +17,12 @@ test('React → actual Spring controller → PostgreSQL: create, translate, publ
   await expect(page).toHaveURL(/\/admin\/functions\/\d+$/);
   const id = Number(page.url().split('/').at(-1));
   const translations = page.getByRole('heading', { name: 'Translations', exact: true }).locator('xpath=ancestor::section');
-  await translations.getByRole('button', { name: 'Русский', exact: true }).click();
+  await translations.getByRole('tab', { name: 'Русский', exact: true }).click();
   await translations.getByLabel('Name', { exact: false }).fill('Услуга браузера');
   await translations.getByLabel('Description', { exact: false }).fill('Сохранено через реальный сервер');
   await translations.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(translations.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-  await translations.getByRole('button', { name: 'O‘zbek', exact: true }).click();
+  await translations.getByRole('tab', { name: 'O‘zbek', exact: true }).click();
   await translations.getByLabel('Name', { exact: false }).fill('Brauzer xizmati');
   await translations.getByLabel('Description', { exact: false }).fill('Haqiqiy serverda saqlandi');
   await translations.getByRole('button', { name: 'Save', exact: true }).click();

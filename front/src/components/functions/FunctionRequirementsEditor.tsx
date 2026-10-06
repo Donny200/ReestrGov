@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { ClipboardListIcon, SaveIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/i18n';
 import { useUpdateFunctionRequirements } from '../../features/functions/queries';
 import { REQUIREMENTS_MAX } from '../../features/functions/schema';
@@ -54,7 +53,7 @@ export function FunctionRequirementsEditor({ record, busy, onDirty }: Props) {
 
   return (
     <Card>
-      <CardHeader title={t('fnEdit.title')} description={t('fnAdmin.requirementsHint')} icon={<ClipboardListIcon className="h-4 w-4" />} />
+      <CardHeader title={t('fnEdit.title')} description={t('fnAdmin.requirementsHint')} />
       <CardBody>
         <form className="space-y-4" onSubmit={save}>
           <Field label={t('field.requirements')} required hint={t('fnEdit.hint')}>
@@ -63,12 +62,12 @@ export function FunctionRequirementsEditor({ record, busy, onDirty }: Props) {
             )}
           </Field>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs tabular-nums text-content-muted">{text.length} / {REQUIREMENTS_MAX}</span>
+            <span className="text-xs tabular-nums text-secondary">{text.length} / {REQUIREMENTS_MAX}</span>
             {dirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
           </div>
           {Boolean(error) && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
           <div className="flex justify-end">
-            <Button type="submit" icon={<SaveIcon />} loading={update.isPending} disabled={busy || !dirty || !text.trim()}>
+            <Button type="submit" variant="dark" loading={update.isPending} disabled={busy || !dirty || !text.trim()}>
               {t('action.save')}
             </Button>
           </div>

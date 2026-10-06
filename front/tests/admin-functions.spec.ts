@@ -73,7 +73,7 @@ test('manual translation retry preserves input and other language sources', asyn
   const fixture = await setup(page, { records: [card()] });
   await page.goto('/admin/functions/1');
   const translations = page.getByRole('heading', { name: 'Translations', exact: true }).locator('xpath=ancestor::section');
-  await translations.getByRole('button', { name: 'Русский', exact: true }).click();
+  await translations.getByRole('tab', { name: 'Русский', exact: true }).click();
   await translations.getByLabel('Name', { exact: false }).fill('Ручной перевод');
   fixture.failures.set('PUT /api/functions/1/translations/ru', 409);
   await translations.getByRole('button', { name: 'Save', exact: true }).click();

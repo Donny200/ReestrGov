@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { ArrowLeftIcon, CheckCircle2Icon, FilePlus2Icon, LanguagesIcon, SendIcon, SparklesIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckCircle2Icon, FilePlus2Icon, LanguagesIcon, SendIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
+import { ActionBar } from '../../components/ui/ActionBar';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { StatusPill } from '../../components/ui/Badge';
@@ -55,7 +56,7 @@ export function CreateFunctionPage() {
   ];
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.functions')}
         title={t('fnAdmin.create')}
@@ -63,16 +64,16 @@ export function CreateFunctionPage() {
         breadcrumbs={[{ label: t('nav.functions'), to: '/admin/functions' }, { label: t('fnAdmin.create') }]}
         badge={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}
         actions={
-          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline' })}>
+          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <ArrowLeftIcon aria-hidden="true" />
             {t('action.back')}
           </Link>
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <Card>
-          <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.requirementsHint')} icon={<FilePlus2Icon className="h-4 w-4" />} />
+          <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.requirementsHint')} />
           {options.isPending ? (
             <CardBody><SkeletonText lines={8} /></CardBody>
           ) : options.error ? (
@@ -84,25 +85,25 @@ export function CreateFunctionPage() {
                 {organizations.length === 0 && <InlineAlert tone="warning">{t('fnAdmin.noOrganizations')}</InlineAlert>}
                 {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
               </CardBody>
-              <CardFooter>
-                <Button type="submit" variant="dark" icon={<SparklesIcon />} loading={create.isPending} disabled={organizations.length === 0}>
+              <ActionBar status={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}>
+                <Button type="submit" variant="dark" loading={create.isPending} disabled={organizations.length === 0}>
                   {t('fnAdmin.create')}
                 </Button>
-              </CardFooter>
+              </ActionBar>
             </form>
           )}
         </Card>
 
-        <Card className="xl:sticky xl:top-24">
+        <Card className="lg:sticky lg:top-24">
           <CardHeader title={t('fnAdmin.guide.title', 'How publishing works')} />
           <CardBody>
             <ol className="space-y-4">
               {steps.map((step, index) => (
                 <li key={index} className="flex items-start gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-brand-gradient-soft text-link" aria-hidden="true">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-surface text-foreground" aria-hidden="true">
                     <step.icon className="h-4 w-4" />
                   </span>
-                  <p className="text-sm leading-6 text-content-muted">{step.text}</p>
+                  <p className="text-sm leading-6 text-secondary">{step.text}</p>
                 </li>
               ))}
             </ol>

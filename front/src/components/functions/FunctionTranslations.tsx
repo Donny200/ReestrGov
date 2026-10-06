@@ -1,20 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { CheckIcon, LanguagesIcon, SaveIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { FunctionAutoTranslate } from './FunctionAutoTranslate';
 import { useI18n } from '../../contexts/i18n';
 import { useSaveFunctionTranslation } from '../../features/functions/queries';
 import { DESCRIPTION_MAX, NAME_MAX } from '../../features/functions/schema';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
-import { cn } from '../../lib/cn';
 import { errorMessage, fieldErrorsOf } from '../../utils/errors';
 import { Badge, StatusPill } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Field } from '../ui/Field';
 import { Input, Textarea } from '../ui/Input';
-import { Select } from '../ui/Select';
+import { Tabs } from '../ui/Tabs';
 import type { AdminFunction } from '../../types/adminFunctions';
 
 interface Props {
@@ -100,8 +99,8 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
     const source = record[field]?.[language]?.source;
     if (!source) return null;
     return (
-      <Badge tone={source === 'human' ? 'accent' : 'neutral'}>
-        {source === 'human' && <CheckIcon className="h-3 w-3" aria-hidden="true" />}
+      <Badge size="sm" tone={source === 'human' ? 'accent' : 'neutral'}>
+        {source === 'human' && <CheckIcon aria-hidden="true" />}
         {t(`fnAdmin.${source}`)}
       </Badge>
     );
@@ -111,41 +110,23 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
 
   return (
     <Card>
-      <CardHeader title={t('fnAdmin.translations')} description={t('fnAdmin.translationsHint', 'Localized name and description for every active language.')} icon={<LanguagesIcon className="h-4 w-4" />} />
+      <CardHeader title={t('fnAdmin.translations')} description={t('fnAdmin.translationsHint', 'Localized name and description for every active language.')} />
       <CardBody className="space-y-5">
         <FunctionAutoTranslate record={record} language={language} blocked={blocked || dirty} busy={busy} />
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-content-strong">{t('field.language')}</p>
-          <div className="hidden flex-wrap gap-2 sm:flex" role="group" aria-label={t('fnAdmin.languages')}>
-            {available.map((item) => {
-              const active = item.code === language;
-              const complete = item.code === record.sourceLanguage || Boolean(record.nameTranslations?.[item.code]?.text);
-              return (
-                <Button
-                  key={item.code}
-                  type="button"
-                  variant={active ? 'dark' : 'outline'}
-                  size="sm"
-                  className={cn('rounded-full', !active && !complete && 'border-dashed text-content-muted')}
-                  aria-pressed={active}
-                  disabled={busy}
-                  onClick={() => changeLanguage(item.code)}
-                >
-                  {item.label}
-                </Button>
-              );
-            })}
-          </div>
-          <Select
-            className="sm:hidden"
-            aria-label={t('fnAdmin.languages')}
-            value={language}
-            disabled={busy}
-            onValueChange={changeLanguage}
-            options={available.map((item) => ({ value: item.code, label: item.label }))}
-          />
-        </div>
+        <Tabs
+          label={t('fnAdmin.languages')}
+          value={language}
+          onChange={changeLanguage}
+          disabled={busy}
+          items={available.map((item) => ({
+            id: item.code,
+            label: item.label,
+            lang: item.code,
+            complete: item.code === record.sourceLanguage || Boolean(record.nameTranslations?.[item.code]?.text),
+            incompleteLabel: t('fnAdmin.translationGaps'),
+          }))}
+        />
 
         {pendingLanguage && (
           <InlineAlert
@@ -166,7 +147,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
         {original ? (
           <InlineAlert tone="info">{t('fnAdmin.originalLanguageHint')}</InlineAlert>
         ) : (
-          <form onSubmit={submit} className="space-y-5">
+          <form onSubmit={submit} className="space-y-5" lang={language}>
             <div className="flex flex-wrap gap-2">
               {dirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
               {missing && <StatusPill tone="pending">{t('fnAdmin.translationGaps')}</StatusPill>}
@@ -188,7 +169,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
             {Boolean(error) && Object.keys(errors).length === 0 && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
             {editable && (
               <div className="flex justify-end">
-                <Button type="submit" icon={<SaveIcon />} loading={save.isPending} disabled={saveDisabled}>
+                <Button type="submit" variant="dark" loading={save.isPending} disabled={saveDisabled}>
                   {t('action.save')}
                 </Button>
               </div>

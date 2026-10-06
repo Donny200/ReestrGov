@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { CheckCircle2Icon, PowerOffIcon, RotateCcwIcon, SendIcon, UndoIcon, WorkflowIcon } from 'lucide-react';
+import { CheckCircle2Icon, PowerOffIcon, RotateCcwIcon, SendIcon, UndoIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { Button } from '../ui/Button';
@@ -69,11 +69,11 @@ export function FunctionWorkflow({ record, dirty, busy }: Props) {
 
   return (
     <Card>
-      <CardHeader title={t('fnAdmin.workflow', 'Workflow')} icon={<WorkflowIcon className="h-4 w-4" />} />
+      <CardHeader title={t('fnAdmin.workflow', 'Workflow')} />
       <CardBody className="space-y-3">
         <div className="grid gap-2">
           {canSubmit && (
-            <Button icon={<SendIcon />} disabled={disabled || record.organizationId === null} loading={transition.isPending} onClick={() => void run('submit-for-review')}>
+            <Button variant="dark" icon={<SendIcon />} disabled={disabled || record.organizationId === null} loading={transition.isPending} onClick={() => void run('submit-for-review')}>
               {t('fnAdmin.submit')}
             </Button>
           )}
@@ -88,7 +88,7 @@ export function FunctionWorkflow({ record, dirty, busy }: Props) {
             </Button>
           )}
           {canReactivate && (
-            <Button icon={<RotateCcwIcon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('reactivate')}>
+            <Button variant="dark" icon={<RotateCcwIcon />} disabled={disabled} loading={transition.isPending} onClick={() => void run('reactivate')}>
               {t('fnAdmin.reactivate')}
             </Button>
           )}
@@ -108,17 +108,18 @@ export function FunctionWorkflow({ record, dirty, busy }: Props) {
         onClose={() => setDialog(null)}
         closeDisabled={running}
         title={t('fnAdmin.reject')}
-        icon={<UndoIcon className="h-4 w-4" />}
+        icon={<UndoIcon aria-hidden="true" />}
       >
-        <form className="space-y-4" onSubmit={submitReject}>
+        <form className="space-y-5" onSubmit={submitReject}>
           <Field label={t('fnAdmin.reason')} required>
             {(control) => (
               <Textarea {...control} rows={4} maxLength={REASON_MAX} value={reason} disabled={running} onChange={(event) => setReason(event.target.value)} />
             )}
           </Field>
           {Boolean(error) && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
-          <div className="flex justify-end">
-            <Button type="submit" icon={<UndoIcon />} loading={running} disabled={disabled || !reason.trim()}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setDialog(null)} disabled={running}>{t('action.cancel')}</Button>
+            <Button type="submit" variant="dark" icon={<UndoIcon />} loading={running} disabled={disabled || !reason.trim()}>
               {t('fnAdmin.reject')}
             </Button>
           </div>

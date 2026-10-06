@@ -69,19 +69,19 @@ export function FunctionAutoTranslate({ record, language, blocked, busy }: Props
   if (!isDraft) return null;
 
   return (
-    <div className="space-y-3 rounded-control border border-dashed border-brand/30 bg-brand-gradient-soft p-4">
+    <div className="space-y-3 rounded-card-sm bg-surface p-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-surface text-link shadow-xs" aria-hidden="true">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-background text-foreground" aria-hidden="true">
           <SparklesIcon className="h-4 w-4" />
         </span>
         <div className="min-w-0 text-sm">
-          <p className="font-medium text-content-strong">{t('fnAdmin.autoTitle', 'Automatic translation')}</p>
+          <p className="font-medium text-foreground">{t('fnAdmin.autoTitle', 'Automatic translation')}</p>
           {missing.length > 0 ? (
-            <p className="mt-0.5 text-content-muted">
-              {t('fnAdmin.translationGaps')} <span className="font-mono text-xs uppercase">{missing.join(', ')}</span>
+            <p className="mt-0.5 text-secondary">
+              {t('fnAdmin.translationGaps')} <span className="micro">{missing.join(', ')}</span>
             </p>
           ) : (
-            <p className="mt-0.5 text-content-muted">{t('fnAdmin.allTranslated', 'Every active language is covered.')}</p>
+            <p className="mt-0.5 text-secondary">{t('fnAdmin.allTranslated', 'Every active language is covered.')}</p>
           )}
         </div>
       </div>

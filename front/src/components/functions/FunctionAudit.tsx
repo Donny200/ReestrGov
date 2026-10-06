@@ -1,4 +1,4 @@
-import { HistoryIcon, RefreshCwIcon } from 'lucide-react';
+import { RefreshCwIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/i18n';
 import { useFunctionAudit } from '../../features/functions/queries';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
@@ -45,7 +45,6 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
     <Card>
       <CardHeader
         title={t('fnAdmin.audit')}
-        icon={<HistoryIcon className="h-4 w-4" />}
         actions={
           <Button variant="ghost" size="sm" icon={<RefreshCwIcon />} disabled={history.isFetching} onClick={() => void history.refetch()}>
             {t('fnAdmin.refresh')}
@@ -60,18 +59,18 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
         ) : !history.data?.length ? (
           <EmptyState title={t('state.emptyTitle')} />
         ) : (
-          <ol className="relative space-y-6 border-l border-line pl-6">
+          <ol className="relative space-y-6 border-s border-line ps-6">
             {history.data.map((entry) => {
               const action = normalizeAction(entry.action);
               return (
                 <li key={entry.id} className="relative">
-                  <span className="absolute -left-[1.95rem] top-1 h-3 w-3 rounded-full bg-brand-gradient ring-4 ring-surface" aria-hidden="true" />
+                  <span className="absolute -start-[1.95rem] top-1.5 h-3 w-3 rounded-pill bg-ink ring-4 ring-background" aria-hidden="true" />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone={tones[action] ?? 'draft'}>{t(`fnAdmin.action.${action}`, humanize(action))}</StatusPill>
-                    <time className="text-xs tabular-nums text-content-muted" dateTime={entry.performedAt}>{formatTimestamp(entry.performedAt, locale)}</time>
+                    <time className="text-xs tabular-nums text-secondary" dateTime={entry.performedAt}>{formatTimestamp(entry.performedAt, locale)}</time>
                   </div>
-                  <p className="mt-1.5 text-sm text-content-strong">{t('fnAdmin.actor')}: {entry.performedBy}</p>
-                  {entry.details && <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-content-muted">{entry.details}</p>}
+                  <p className="mt-1.5 text-sm text-foreground wrap-anywhere">{t('fnAdmin.actor')}: {entry.performedBy}</p>
+                  {entry.details && <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-secondary wrap-anywhere">{entry.details}</p>}
                 </li>
               );
             })}
