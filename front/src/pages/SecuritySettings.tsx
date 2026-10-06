@@ -2,13 +2,12 @@ import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { KeyRoundIcon, ShieldCheckIcon, UserRoundIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Card, CardBody, CardFooter, CardHeader } from '../components/ui/Card';
 import { Field } from '../components/ui/Field';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../contexts/auth';
@@ -59,14 +58,14 @@ export function SecuritySettings() {
   });
 
   return (
-    <div className="animate-fade-up">
-      <PageHeader title={t('security.title')} description={t('security.passwordRule')} />
+    <div>
+      <PageHeader eyebrow={t('nav.admin')} title={t('security.title')} description={t('security.passwordRule')} />
 
-      <div className="grid gap-6 xl:grid-cols-5">
-        <Card className="xl:col-span-3">
-          <CardHeader title={t('security.changePassword')} icon={<KeyRoundIcon className="h-4 w-4" aria-hidden="true" />} />
-          <CardBody>
-            <form className="max-w-lg space-y-5" onSubmit={submit} noValidate>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)] lg:items-start">
+        <Card>
+          <CardHeader title={t('security.changePassword')} />
+          <form onSubmit={submit} noValidate>
+            <CardBody className="max-w-lg space-y-5">
               <Field label={t('security.currentPassword')} error={errors.currentPassword?.message} required>
                 {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('currentPassword')} />}
               </Field>
@@ -76,46 +75,41 @@ export function SecuritySettings() {
               <Field label={t('security.repeatPassword')} error={errors.repeatPassword?.message} required>
                 {(control) => <Input {...control} type="password" autoComplete="new-password" minLength={8} maxLength={100} {...register('repeatPassword')} />}
               </Field>
-              <div className="border-t border-line/80 pt-5">
-                <Button type="submit" loading={isSubmitting} icon={<KeyRoundIcon />}>
-                  {t('action.save')}
-                </Button>
-              </div>
-            </form>
-          </CardBody>
+            </CardBody>
+            <CardFooter>
+              <Button type="submit" variant="dark" loading={isSubmitting}>{t('action.save')}</Button>
+            </CardFooter>
+          </form>
         </Card>
 
-        <Card className="h-fit xl:sticky xl:top-24 xl:col-span-2">
-          <CardHeader title={t('admin.welcome')} icon={<UserRoundIcon className="h-4 w-4" aria-hidden="true" />} />
+        <Card className="lg:sticky lg:top-24">
+          <CardHeader title={t('admin.welcome')} />
           <CardBody>
             {user && (
               <>
-                <div className="flex items-center gap-3 rounded-surface border border-line/80 bg-surface-subtle/60 p-3">
+                <div className="flex items-center gap-3 rounded-card-sm bg-surface p-3">
                   <Avatar user={user} size="lg" />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-content-strong">{fullName(user)}</span>
-                    <Badge tone="accent" className="mt-1">
-                      <ShieldCheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      {roleLabel(user.role, t)}
-                    </Badge>
+                    <span className="block truncate text-base font-semibold text-foreground">{fullName(user)}</span>
+                    <Badge size="sm" tone="accent" className="mt-1">{roleLabel(user.role, t)}</Badge>
                   </span>
                 </div>
-                <dl className="mt-5 divide-y divide-line/80 text-[13px]">
+                <dl className="mt-5 divide-y divide-line text-sm">
                   <div className="py-3 first:pt-0">
-                    <dt className="text-content-muted">{t('field.fullName')}</dt>
-                    <dd className="mt-0.5 font-medium text-content-strong">{fullName(user)}</dd>
+                    <dt className="micro text-secondary">{t('field.fullName')}</dt>
+                    <dd className="mt-1 font-medium text-foreground wrap-anywhere">{fullName(user)}</dd>
                   </div>
                   <div className="py-3">
-                    <dt className="text-content-muted">{t('field.email')}</dt>
-                    <dd className="mt-0.5 break-all font-medium text-content-strong">{user.email}</dd>
+                    <dt className="micro text-secondary">{t('field.email')}</dt>
+                    <dd className="mt-1 font-medium text-foreground wrap-anywhere">{user.email}</dd>
                   </div>
                   <div className="py-3">
-                    <dt className="text-content-muted">{t('field.phone')}</dt>
-                    <dd className="mt-0.5 font-medium text-content-strong">{user.phone ?? '—'}</dd>
+                    <dt className="micro text-secondary">{t('field.phone')}</dt>
+                    <dd className="mt-1 font-medium text-foreground">{user.phone ?? '—'}</dd>
                   </div>
                   <div className="py-3 last:pb-0">
-                    <dt className="text-content-muted">{t('field.organizationIds')}</dt>
-                    <dd className="mt-0.5 font-medium tabular-nums text-content-strong">
+                    <dt className="micro text-secondary">{t('field.organizationIds')}</dt>
+                    <dd className="mt-1 font-medium tabular-nums text-foreground">
                       {user.organizationIds.length > 0 ? user.organizationIds.join(', ') : '—'}
                     </dd>
                   </div>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { FilterIcon, LanguagesIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
+import { LanguagesIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
@@ -64,13 +64,13 @@ export function AdminFunctionsPage() {
         header: t('field.name'),
         accessorFn: (row) => functionText(row, 'name', language),
         cell: ({ row }) => (
-          <div className="min-w-0 max-w-md">
-            <Link to={`/admin/functions/${row.original.id}`} className="font-medium text-content-strong transition-colors hover:text-link">
+          <div className="min-w-0 max-w-md" lang={language}>
+            <Link to={`/admin/functions/${row.original.id}`} className="rounded-sm font-medium text-foreground underline-offset-4 wrap-anywhere fine:hover:underline">
               {functionText(row.original, 'name', language)}
             </Link>
-            <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-content-muted">{functionText(row.original, 'description', language)}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-secondary wrap-anywhere">{functionText(row.original, 'description', language)}</p>
             {!hasFunctionTranslation(row.original, language) && (
-              <p className="mt-1 inline-flex items-center gap-1 text-xs text-warning">
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-status-pending" lang={locale}>
                 <TriangleAlertIcon className="h-3 w-3" aria-hidden="true" />
                 {t('fnAdmin.missingTranslation', 'Translation missing; showing original')}
               </p>
@@ -83,7 +83,7 @@ export function AdminFunctionsPage() {
         header: t('field.organization'),
         accessorFn: (row) => organizationName(row.organizationId),
         meta: { hideBelow: 'md' },
-        cell: ({ row }) => <span className="text-content-muted">{organizationName(row.original.organizationId)}</span>,
+        cell: ({ row }) => <span className="text-secondary wrap-anywhere">{organizationName(row.original.organizationId)}</span>,
       },
       {
         id: 'category',
@@ -93,7 +93,7 @@ export function AdminFunctionsPage() {
         cell: ({ row }) => {
           const value = options.data?.categories.find((item) => item.id === row.original.categoryId);
           const label = value ? localizedText(value.name, value.nameTranslations, language) : row.original.category;
-          return label ? <Badge tone="accent">{label}</Badge> : <span className="text-content-subtle">—</span>;
+          return label ? <Badge size="sm" tone="accent">{label}</Badge> : <span className="text-secondary">—</span>;
         },
       },
       {
@@ -111,9 +111,9 @@ export function AdminFunctionsPage() {
           const complete = filled.length === available.length;
           return (
             <Tooltip content={filled.map((item) => item.label).join(', ') || '—'}>
-              <span tabIndex={0} className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-line bg-surface-subtle px-2 py-0.5 text-xs font-medium tabular-nums text-content-muted">
+              <span tabIndex={0} className="inline-flex cursor-default items-center gap-1.5 rounded-pill border border-line px-2.5 py-1 text-xs font-medium tabular-nums text-secondary">
                 <LanguagesIcon className="h-3 w-3" aria-hidden="true" />
-                <span className={complete ? 'text-positive' : undefined}>{filled.length}/{available.length}</span>
+                <span className={complete ? 'text-status-published' : undefined}>{filled.length}/{available.length}</span>
               </span>
             </Tooltip>
           );
@@ -125,24 +125,24 @@ export function AdminFunctionsPage() {
         enableSorting: false,
         meta: { align: 'right', mobileHidden: true },
         cell: ({ row }) => (
-          <Link to={`/admin/functions/${row.original.id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <Link to={`/admin/functions/${row.original.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             {hasPermission('FUNCTIONS_EDIT') && row.original.status === 'DRAFT' ? t('action.edit') : t('action.details')}
           </Link>
         ),
       },
     ],
-    [t, language, available, options.data, hasPermission, organizationName],
+    [t, language, locale, available, options.data, hasPermission, organizationName],
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('nav.functions')}
         description={t('fnAdmin.subtitle', 'Drafts, review queue and published services.')}
         actions={
           hasPermission('FUNCTIONS_CREATE') ? (
-            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'dark' })}>
+            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'dark', size: 'sm' })}>
               <PlusIcon aria-hidden="true" />
               {t('fnAdmin.create')}
             </Link>
@@ -150,17 +150,15 @@ export function AdminFunctionsPage() {
         }
       />
 
-      <Card>
-        <CardBody className="border-b border-line/80">
-          <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-content-muted">
-            <FilterIcon className="h-4 w-4" aria-hidden="true" />
-            {t('fnAdmin.filters', 'Filters')}
-          </div>
+      <Card className="mb-6">
+        <CardBody>
+          <p className="micro mb-4 text-secondary">{t('fnAdmin.filters', 'Filters')}</p>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <Field label={t('field.status')}>
               {(control) => (
                 <Select
                   {...control}
+                  size="sm"
                   value={status}
                   onValueChange={setStatus}
                   options={[
@@ -174,6 +172,7 @@ export function AdminFunctionsPage() {
               {(control) => (
                 <Select
                   {...control}
+                  size="sm"
                   value={organization}
                   onValueChange={setOrganization}
                   options={[
@@ -188,6 +187,7 @@ export function AdminFunctionsPage() {
               {(control) => (
                 <Select
                   {...control}
+                  size="sm"
                   value={category}
                   onValueChange={setCategory}
                   options={[
@@ -204,6 +204,7 @@ export function AdminFunctionsPage() {
               {(control) => (
                 <Select
                   {...control}
+                  size="sm"
                   value={language}
                   onValueChange={setLanguage}
                   options={available.map((item) => ({ value: item.code, label: item.label }))}
@@ -211,11 +212,14 @@ export function AdminFunctionsPage() {
               )}
             </Field>
             <Field label={t('action.search')}>
-              {(control) => <Input {...control} type="search" value={search} onChange={(event) => setSearch(event.target.value)} />}
+              {(control) => <Input {...control} type="search" className="min-h-10 py-2 text-sm" value={search} onChange={(event) => setSearch(event.target.value)} />}
             </Field>
           </div>
           {Boolean(options.error) && <div className="mt-4"><FunctionErrorState error={options.error} onRetry={() => void options.refetch()} /></div>}
         </CardBody>
+      </Card>
+
+      <Card>
         {canView ? (
           <>
             <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`} />
