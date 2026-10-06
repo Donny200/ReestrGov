@@ -1,98 +1,201 @@
-import { CheckIcon } from 'lucide-react';
-import { FunctionAutoTranslate } from './FunctionAutoTranslate';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { CheckIcon, LanguagesIcon, SaveIcon } from 'lucide-react';
+import { FunctionAutoTranslate } from './FunctionAutoTranslate';
 import { useI18n } from '../../contexts/i18n';
-import { Panel, PanelHeader, PanelBody } from '../ui/Card';
-import { Field, TextInput, TextArea, Select } from '../ui/Field';
-import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
-import { ErrorState } from '../ui/States';
+import { useSaveFunctionTranslation } from '../../features/functions/queries';
+import { DESCRIPTION_MAX, NAME_MAX } from '../../features/functions/schema';
+import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
-import { saveFunctionTranslation } from '../../services/adminFunctionService';
-import { fieldErrorsOf } from '../../utils/errors';
+import { cn } from '../../lib/cn';
+import { errorMessage, fieldErrorsOf } from '../../utils/errors';
+import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { Card, CardBody, CardHeader } from '../ui/Card';
+import { Field } from '../ui/Field';
+import { Input, Textarea } from '../ui/Input';
+import { Select } from '../ui/Select';
 import type { AdminFunction } from '../../types/adminFunctions';
 
 interface Props {
   record: AdminFunction;
   busy: boolean;
   blocked: boolean;
-  onBusy: (value: boolean) => void;
-  onDirty: (value: boolean) => void;
-  onUpdate: (record: AdminFunction) => void;
+  onDirty: (dirty: boolean) => void;
 }
-function values(record: AdminFunction, language: string) {
+
+interface TranslationForm {
+  name: string;
+  description: string;
+}
+
+function baselineOf(record: AdminFunction, language: string): TranslationForm {
   return {
     name: record.nameTranslations?.[language]?.text || record.name,
     description: record.descriptionTranslations?.[language]?.text || record.description || '',
   };
 }
-export function FunctionTranslations({ record, busy, blocked, onBusy, onDirty, onUpdate }: Props) {
+
+export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) {
   const { t, locale, available } = useI18n();
+  const save = useSaveFunctionTranslation(record.id);
   const [language, setLanguage] = useState(locale);
-  const [form, setForm] = useState(() => values(record, locale));
+  const [pendingLanguage, setPendingLanguage] = useState<string | null>(null);
+  const baselineKey = JSON.stringify(baselineOf(record, language));
+  const [form, setForm] = useState<TranslationForm>(() => baselineOf(record, language));
   const [error, setError] = useState<unknown>(null);
-  const [saving, setSaving] = useState(false);
+
   const original = language === record.sourceLanguage;
   const editable = record.status === 'DRAFT' && !original;
-  const missing = !record.nameTranslations?.[language]?.text || Boolean(record.description && !record.descriptionTranslations?.[language]?.text);
-  const dirty = JSON.stringify(form) !== JSON.stringify(values(record, language));
-  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
-  useEffect(() => { setForm(values(record, language)); setError(null); }, [record, language]);
+  const missing =
+    !record.nameTranslations?.[language]?.text || Boolean(record.description && !record.descriptionTranslations?.[language]?.text);
+  const dirty = JSON.stringify(form) !== baselineKey;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
   useEffect(() => {
-    // Global language changes never discard an unsaved translation.
-    if (!dirty) setLanguage(locale);
-    // Only changes of the application's language should select another editor language.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setForm(JSON.parse(baselineKey) as TranslationForm);
+    setError(null);
+  }, [baselineKey]);
+
+  useEffect(() => {
+    onDirty(dirty);
+    return () => onDirty(false);
+  }, [dirty, onDirty]);
+
+  useEffect(() => {
+    if (!dirtyRef.current) setLanguage(locale);
   }, [locale]);
+
   useUnsavedChanges(dirty, t('fnAdmin.discard'));
+
   const changeLanguage = (next: string) => {
-    if (!dirty || window.confirm(t('fnAdmin.discard'))) setLanguage(next);
+    if (next === language) return;
+    if (dirty) {
+      setPendingLanguage(next);
+      return;
+    }
+    setLanguage(next);
   };
-  async function save(event: React.FormEvent) {
+
+  const discardAndSwitch = () => {
+    if (pendingLanguage) setLanguage(pendingLanguage);
+    setPendingLanguage(null);
+  };
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy || blocked || !editable) return;
-    onBusy(true); setSaving(true); setError(null);
+    setError(null);
     try {
-      const saved = await saveFunctionTranslation(record.id, language, { name: form.name.trim(), description: form.description.trim() });
-      onUpdate(saved); toast.success(t('fnAdmin.translationSuccess'));
-    } catch (failure) { setError(failure); } finally { onBusy(false); setSaving(false); }
+      await save.mutateAsync({ language, name: form.name.trim(), description: form.description.trim() });
+      toast.success(t('fnAdmin.translationSuccess'));
+    } catch (failure) {
+      setError(failure);
+    }
   }
+
   const errors = fieldErrorsOf(error);
   const sourceBadge = (field: 'nameTranslations' | 'descriptionTranslations') => {
     const source = record[field]?.[language]?.source;
-    return source ? <Badge tone={source === 'human' ? 'teal' : 'gray'}>{source === 'human' && <CheckIcon className="mr-1 h-3 w-3" aria-hidden="true" />}{t('fnAdmin.' + source)}</Badge> : null;
+    if (!source) return null;
+    return (
+      <Badge tone={source === 'human' ? 'brand' : 'neutral'} dot>
+        {source === 'human' && <CheckIcon className="h-3 w-3" aria-hidden="true" />}
+        {t(`fnAdmin.${source}`)}
+      </Badge>
+    );
   };
-  return <Panel className="mt-5">
-    <PanelHeader title={t('fnAdmin.translations')} />
-    <PanelBody>
-      <div className="max-w-3xl space-y-5">
-        <FunctionAutoTranslate record={record} language={language} blocked={blocked || dirty} busy={busy} onBusy={onBusy} onUpdate={onUpdate} />
-        <Field label={t('field.language')}>{() =>
-          <Select value={language} disabled={busy} onChange={e => changeLanguage(e.target.value)}>
-            {available.map(lang => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
-          </Select>}</Field>
-        <div className="flex flex-wrap gap-2" aria-label={t('fnAdmin.languages')}>
-          {available.map(lang => <Button key={lang.code} variant={lang.code === language ? 'primary' : 'outline'}
-            aria-pressed={lang.code === language} disabled={busy} onClick={() => changeLanguage(lang.code)}>{lang.label}</Button>)}
+  const saveDisabled =
+    busy || blocked || (!dirty && !missing) || !form.name.trim() || (Boolean(record.description) && !form.description.trim());
+
+  return (
+    <Card>
+      <CardHeader title={t('fnAdmin.translations')} description={t('fnAdmin.translationsHint', 'Localized name and description for every active language.')} icon={<LanguagesIcon className="h-4 w-4" />} />
+      <CardBody className="space-y-5">
+        <FunctionAutoTranslate record={record} language={language} blocked={blocked || dirty} busy={busy} />
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-content-strong">{t('field.language')}</p>
+          <div className="hidden flex-wrap gap-2 sm:flex" role="group" aria-label={t('fnAdmin.languages')}>
+            {available.map((item) => {
+              const active = item.code === language;
+              const complete = item.code === record.sourceLanguage || Boolean(record.nameTranslations?.[item.code]?.text);
+              return (
+                <Button
+                  key={item.code}
+                  type="button"
+                  variant={active ? 'primary' : 'outline'}
+                  size="sm"
+                  className={cn('rounded-full', !active && !complete && 'border-dashed text-content-muted')}
+                  aria-pressed={active}
+                  disabled={busy}
+                  onClick={() => changeLanguage(item.code)}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
+          </div>
+          <Select
+            className="sm:hidden"
+            aria-label={t('fnAdmin.languages')}
+            value={language}
+            disabled={busy}
+            onValueChange={changeLanguage}
+            options={available.map((item) => ({ value: item.code, label: item.label }))}
+          />
         </div>
-        {original ? <p className="text-sm text-content-muted">{t('fnAdmin.originalLanguageHint')}</p> :
-          <form onSubmit={save} className="space-y-5">
-            {dirty && <p role="status" className="text-sm text-amber-700">{t('fnAdmin.unsaved')}</p>}
-            {missing && <p className="text-sm text-amber-700">{t('fnAdmin.translationGaps')}</p>}
+
+        {pendingLanguage && (
+          <InlineAlert
+            tone="warning"
+            action={
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setPendingLanguage(null)}>{t('fnAdmin.keepEditing', 'Keep editing')}</Button>
+                <Button variant="danger" size="sm" onClick={discardAndSwitch}>{t('fnAdmin.discardChanges', 'Discard')}</Button>
+              </div>
+            }
+          >
+            {t('fnAdmin.discard')}
+          </InlineAlert>
+        )}
+
+        {blocked && <InlineAlert tone="warning">{t('fnAdmin.saveFirst')}</InlineAlert>}
+
+        {original ? (
+          <InlineAlert tone="info">{t('fnAdmin.originalLanguageHint')}</InlineAlert>
+        ) : (
+          <form onSubmit={submit} className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              {dirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+              {missing && <Badge tone="warning">{t('fnAdmin.translationGaps')}</Badge>}
+            </div>
             <fieldset disabled={!editable || busy || blocked} className="space-y-5">
-              <Field label={t('field.name')} required error={errors.name}>{() =>
-                <TextInput value={form.name} maxLength={150} onChange={e => setForm({ ...form, name: e.target.value })} />}</Field>
+              <Field label={t('field.name')} required error={errors.name}>
+                {(control) => (
+                  <Input {...control} value={form.name} maxLength={NAME_MAX} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+                )}
+              </Field>
               {sourceBadge('nameTranslations')}
-              <Field label={t('field.description')} required={Boolean(record.description)} error={errors.description}>{() =>
-                <TextArea rows={4} value={form.description} maxLength={500} onChange={e => setForm({ ...form, description: e.target.value })} />}</Field>
+              <Field label={t('field.description')} required={Boolean(record.description)} error={errors.description}>
+                {(control) => (
+                  <Textarea {...control} rows={4} value={form.description} maxLength={DESCRIPTION_MAX} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+                )}
+              </Field>
               {sourceBadge('descriptionTranslations')}
             </fieldset>
-            {Boolean(error) && <ErrorState error={error} />}
-            {editable && <Button type="submit" loading={saving} disabled={busy || blocked || (!dirty && !missing) || !form.name.trim() ||
-              (Boolean(record.description) && !form.description.trim())}>{t('action.save')}</Button>}
-          </form>}
-      </div>
-    </PanelBody>
-  </Panel>;
+            {Boolean(error) && Object.keys(errors).length === 0 && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
+            {editable && (
+              <div className="flex justify-end">
+                <Button type="submit" icon={<SaveIcon />} loading={save.isPending} disabled={saveDisabled}>
+                  {t('action.save')}
+                </Button>
+              </div>
+            )}
+          </form>
+        )}
+      </CardBody>
+    </Card>
+  );
 }

@@ -15,6 +15,9 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
 
 eureka:
   client:
@@ -25,6 +28,12 @@ eureka:
 
 jwt:
   secret: ${JWT_SECRET}
+
+azure:
+  translator:
+    endpoint: ${AZURE_TRANSLATOR_ENDPOINT:}
+    key: ${AZURE_TRANSLATOR_KEY:}
+    region: ${AZURE_TRANSLATOR_REGION:}
 
 springdoc:
   swagger-ui:

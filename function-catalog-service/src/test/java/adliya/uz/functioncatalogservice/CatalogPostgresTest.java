@@ -44,7 +44,6 @@ import static adliya.uz.functioncatalogservice.entity.FunctionStatus.*;
 })
 @AutoConfigureMockMvc
 class CatalogPostgresTest {
-    // A disposable test container, never the project's postgres container or pgdata volume.
     @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);

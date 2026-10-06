@@ -1,101 +1,195 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { PageHeader } from '../../components/layout/AdminLayout';
-import { Panel, PanelBody, PanelHeader } from '../../components/ui/Card';
+import { ArrowLeftIcon, FileTextIcon, SaveIcon } from 'lucide-react';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { ErrorState, LoadingState } from '../../components/ui/States';
-import { FunctionRequirementsEditor } from '../../components/functions/FunctionRequirementsEditor';
-import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
-import { FunctionPreview } from '../../components/functions/FunctionPreview';
-import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
+import { buttonVariants } from '../../components/ui/buttonVariants';
+import { Badge, FunctionStatusBadge } from '../../components/ui/Badge';
+import { Skeleton, SkeletonText } from '../../components/ui/Skeleton';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
-import { FunctionStatusBadge } from '../../components/functions/FunctionStatusBadge';
-import { useFunctionOptions } from '../../hooks/useFunctionOptions';
+import { FunctionPreview } from '../../components/functions/FunctionPreview';
+import { FunctionRequirementsEditor } from '../../components/functions/FunctionRequirementsEditor';
+import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
+import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
+import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
+import { InlineAlert } from '../../features/functions/InlineAlert';
+import { useAdminFunction, useFunctionOptions, useUpdateFunction } from '../../features/functions/queries';
+import { formOf, functionFormSchema, toUpdateRequest } from '../../features/functions/schema';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
-import { useAsync } from '../../hooks/useAsync';
-import { useI18n } from '../../contexts/i18n';
 import { useAuth } from '../../contexts/auth';
-import { getAdminFunction, updateFunction } from '../../services/adminFunctionService';
-import { fieldErrorsOf } from '../../utils/errors';
-import { localizedText } from '../../utils/translations';
+import { useI18n } from '../../contexts/i18n';
+import { applyServerErrors } from '../../lib/forms';
+import { functionText } from '../../utils/functionLocalization';
 import type { AdminFunction, FunctionFormValues } from '../../types/adminFunctions';
 
-function formOf(value: AdminFunction): FunctionFormValues {
-  return { name: value.name, description: value.description ?? '', requirements: value.requirements ?? '',
-    organizationId: value.organizationId?.toString() ?? '', categoryId: value.categoryId?.toString() ?? '',
-    sourceLanguage: value.sourceLanguage };
-}
 export function LegacyFunctionEditorRedirect() {
   const { id } = useParams();
   return <Navigate to={`/admin/functions/${id}`} replace />;
 }
+
+function EditorSkeleton() {
+  return (
+    <div role="status" aria-busy="true" className="animate-fade-in">
+      <div className="mb-8 space-y-3">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-8 w-80" />
+        <Skeleton className="h-4 w-56" />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Card><CardBody><SkeletonText lines={9} /></CardBody></Card>
+        <div className="space-y-6">
+          <Card><CardBody><SkeletonText lines={3} /></CardBody></Card>
+          <Card><CardBody><SkeletonText lines={4} /></CardBody></Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EditFunctionPage() {
   const { id } = useParams();
-  const result = useAsync(() => getAdminFunction(Number(id)), [id]);
-  if (result.loading) return <LoadingState />;
-  if (result.error || !result.data) return <ErrorState error={result.error} onRetry={result.reload} />;
-  return <FunctionEditor key={id} record={result.data} onUpdate={result.setData} />;
+  const functionId = Number(id);
+  const record = useAdminFunction(functionId);
+  if (!Number.isFinite(functionId)) return <Navigate to="/admin/functions" replace />;
+  if (record.isPending) return <EditorSkeleton />;
+  if (record.error || !record.data) {
+    return (
+      <Card className="animate-fade-up">
+        <FunctionErrorState error={record.error} onRetry={() => void record.refetch()} />
+      </Card>
+    );
+  }
+  return <FunctionEditor key={functionId} record={record.data} />;
 }
-function FunctionEditor({ record, onUpdate }: { record: AdminFunction; onUpdate: (value: AdminFunction) => void }) {
+
+function FunctionEditor({ record }: { record: AdminFunction }) {
   const { t, locale } = useI18n();
   const { hasPermission } = useAuth();
   const options = useFunctionOptions();
-  const [form, setForm] = useState(() => formOf(record));
-  const [busy, setBusy] = useState(false);
+  const update = useUpdateFunction(record.id);
+  const busy = useIsMutating() > 0;
+  const schema = useMemo(() => functionFormSchema(t), [t]);
+  const form = useForm<FunctionFormValues>({ resolver: zodResolver(schema), defaultValues: formOf(record) });
+  const { handleSubmit, reset, setError, formState: { isDirty } } = form;
   const [secondaryDirty, setSecondaryDirty] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  useEffect(() => { setForm(formOf(record)); }, [record]);
-  const dirty = JSON.stringify(form) !== JSON.stringify(formOf(record));
+  const [formError, setFormError] = useState<string | null>(null);
+  const baselineKey = JSON.stringify(formOf(record));
+
+  useEffect(() => {
+    reset(JSON.parse(baselineKey) as FunctionFormValues);
+  }, [baselineKey, reset]);
+
   const editable = record.status === 'DRAFT' && hasPermission('FUNCTIONS_EDIT');
   const requirementsOnly = record.status === 'DRAFT' && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
-  useUnsavedChanges(dirty, t('fnAdmin.discard'));
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!editable || busy) return;
-    setBusy(true); setError(null);
+  const canTranslate = hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT');
+
+  useUnsavedChanges(isDirty, t('fnAdmin.discard'));
+
+  const save = handleSubmit(async (values) => {
+    if (!editable) return;
+    setFormError(null);
     try {
-      const saved = await updateFunction(record.id, {
-        name: form.name.trim(), description: form.description.trim(), requirements: form.requirements,
-        organizationId: Number(form.organizationId), categoryId: form.categoryId ? Number(form.categoryId) : undefined,
-        category: form.categoryId ? undefined : '', sourceLanguage: form.sourceLanguage,
-      });
-      onUpdate(saved); toast.success(t('fnAdmin.saved'));
-    } catch (failure) { setError(failure); } finally { setBusy(false); }
-  }
-  const organizations = [...(options.data?.organizations ?? [])];
-  if (record.organizationId && !organizations.some(org => org.id === record.organizationId)) {
-    organizations.push({ id: record.organizationId, name: '#' + record.organizationId });
-  }
-  return <div>
-    <PageHeader title={localizedText(record.name, record.nameTranslations, locale) ?? record.name}
-      badge={<FunctionStatusBadge status={record.status} />}
-      actions={<Link to="/admin/functions" className="text-brand hover:underline">{t('action.back')}</Link>} />
-    {dirty && <p role="status" className="mb-4 rounded-control bg-amber-50 p-3 text-sm text-amber-800">{t('fnAdmin.unsaved')}</p>}
-    {!editable && !requirementsOnly && <p className="mb-4 rounded-control bg-navy-50 p-4 text-sm">
-      {t(record.status === 'PENDING_REVIEW' ? 'fnAdmin.reviewHint' : record.status === 'PUBLISHED' ? 'fnAdmin.publishedHint' :
-        record.status === 'DEACTIVATED' ? 'fnAdmin.deactivatedHint' : 'fnAdmin.readOnly')}
-    </p>}
-    <FunctionWorkflow record={record} dirty={dirty || secondaryDirty} busy={busy} onBusy={setBusy} onUpdate={onUpdate} />
-    <FunctionPreview record={record} />
-    <Panel>
-      <PanelHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
-      <PanelBody>
-        {options.loading ? <LoadingState /> : options.error ? <ErrorState error={options.error} onRetry={options.reload} /> :
-          <form onSubmit={save} className="max-w-3xl space-y-6">
-            <FunctionFields value={form} onChange={setForm} organizations={organizations}
-              categories={options.data?.categories ?? []} disabled={!editable || busy || secondaryDirty} errors={fieldErrorsOf(error)} />
-            {editable && <p className="text-xs text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
-            {Boolean(error) && <ErrorState error={error} />}
-            {editable && <Button type="submit" loading={busy}
-              disabled={secondaryDirty || !dirty || !form.name.trim() || !form.description.trim() || !form.organizationId}>{t('action.save')}</Button>}
-          </form>}
-      </PanelBody>
-    </Panel>
-    {requirementsOnly && <FunctionRequirementsEditor record={record} busy={busy} onBusy={setBusy} onDirty={setSecondaryDirty} onUpdate={onUpdate} />}
-    {hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT') &&
-      <FunctionTranslations record={record} busy={busy} blocked={dirty} onBusy={setBusy} onDirty={setSecondaryDirty} onUpdate={onUpdate} />}
-    {hasPermission('AUDIT_VIEW') && <FunctionAudit record={record} />}
-  </div>;
+      const saved = await update.mutateAsync(toUpdateRequest(values));
+      reset(formOf(saved));
+      toast.success(t('fnAdmin.saved'));
+    } catch (error) {
+      applyServerErrors(error, setError, setFormError, t);
+    }
+  });
+
+  const organizations = useMemo(() => {
+    const list = [...(options.data?.organizations ?? [])];
+    if (record.organizationId !== null && !list.some((organization) => organization.id === record.organizationId)) {
+      list.push({ id: record.organizationId, name: `#${record.organizationId}` });
+    }
+    return list;
+  }, [options.data, record.organizationId]);
+
+  const organizationName =
+    organizations.find((organization) => organization.id === record.organizationId)?.name ?? t('fnAdmin.unassigned');
+  const title = functionText(record, 'name', locale) || record.name;
+  const statusHint = editable || requirementsOnly
+    ? null
+    : t(
+        record.status === 'PENDING_REVIEW'
+          ? 'fnAdmin.reviewHint'
+          : record.status === 'PUBLISHED'
+            ? 'fnAdmin.publishedHint'
+            : record.status === 'DEACTIVATED'
+              ? 'fnAdmin.deactivatedHint'
+              : 'fnAdmin.readOnly',
+      );
+
+  return (
+    <div className="animate-fade-up">
+      <PageHeader
+        eyebrow={t('nav.functions')}
+        title={title}
+        description={`#${record.id} · ${organizationName}`}
+        breadcrumbs={[{ label: t('nav.functions'), to: '/admin/functions' }, { label: title }]}
+        badge={
+          <span className="flex flex-wrap items-center gap-2">
+            <FunctionStatusBadge status={record.status} />
+            {isDirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+          </span>
+        }
+        actions={
+          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline' })}>
+            <ArrowLeftIcon aria-hidden="true" />
+            {t('action.back')}
+          </Link>
+        }
+      />
+
+      {statusHint && <InlineAlert tone="info" className="mb-6">{statusHint}</InlineAlert>}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} icon={<FileTextIcon className="h-4 w-4" />} />
+            {options.isPending ? (
+              <CardBody><SkeletonText lines={8} /></CardBody>
+            ) : options.error ? (
+              <FunctionErrorState error={options.error} onRetry={() => void options.refetch()} />
+            ) : (
+              <form onSubmit={save} noValidate>
+                <CardBody className="space-y-5">
+                  <FunctionFields
+                    form={form}
+                    organizations={organizations}
+                    categories={options.data?.categories ?? []}
+                    disabled={!editable || busy || secondaryDirty}
+                  />
+                  {editable && <p className="text-xs leading-5 text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
+                  {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
+                </CardBody>
+                {editable && (
+                  <CardFooter>
+                    <Button type="submit" icon={<SaveIcon />} loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
+                      {t('action.save')}
+                    </Button>
+                  </CardFooter>
+                )}
+              </form>
+            )}
+          </Card>
+
+          {requirementsOnly && <FunctionRequirementsEditor record={record} busy={busy} onDirty={setSecondaryDirty} />}
+          {canTranslate && <FunctionTranslations record={record} busy={busy} blocked={isDirty} onDirty={setSecondaryDirty} />}
+          {hasPermission('AUDIT_VIEW') && <FunctionAudit functionId={record.id} />}
+        </div>
+
+        <aside className="space-y-6 xl:sticky xl:top-24">
+          <FunctionWorkflow record={record} dirty={isDirty || secondaryDirty} busy={busy} />
+          <FunctionPreview record={record} />
+        </aside>
+      </div>
+    </div>
+  );
 }

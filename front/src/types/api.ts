@@ -1,7 +1,3 @@
-/**
- * Shared API domain types. These mirror the backend contract exactly
- * (see services/* for the endpoint mapping).
- */
 
 export type RoleName =
 'ROLE_SUPER_ADMIN' |
@@ -9,7 +5,6 @@ export type RoleName =
 'ROLE_MODERATOR' |
 'ROLE_USER';
 
-/** POST /api/auth/login, GET /api/auth/me */
 export interface AuthUser {
   id: number;
   firstName: string;
@@ -30,8 +25,7 @@ export interface LoginRequest {
 }
 
 export interface ChangePasswordRequest {
-  /** 8–100 characters */
-  currentPassword: string;
+    currentPassword: string;
   newPassword: string;
 }
 
@@ -45,7 +39,6 @@ export interface Organization {
   createdAt: string;
 }
 
-/** Public organization responses intentionally omit enabled and createdAt. */
 export interface PublicOrganization {
   id: number;
   name: string;
@@ -54,7 +47,6 @@ export interface PublicOrganization {
   descriptionTranslations?: Record<string, TranslatedText>;
 }
 
-/** A stored machine or human translation returned by the backend. */
 export interface TranslatedText {
   text: string;
   source: 'human' | 'machine';
@@ -70,7 +62,6 @@ export interface UpdateOrganizationRequest {
   description?: string | null;
 }
 
-/** Staff user (org admins + moderators) */
 export interface StaffUser {
   id: number;
   firstName: string;
@@ -122,8 +113,7 @@ export interface UpdateModeratorRequest {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  /** Mandatory — replaces the full assigned organization list */
-  organizationIds: number[];
+    organizationIds: number[];
   enabled?: boolean;
 }
 
@@ -173,7 +163,6 @@ export interface Language {
   defaultLanguage: boolean;
 }
 
-/** GET /api/languages/search?q=... */
 export interface LanguageSearchResult {
   code: string;
   name: string;
@@ -201,11 +190,6 @@ export interface FunctionQuery {
   category?: string;
 }
 
-/**
- * Legacy /api/user endpoints.
- * NOTE: /api/user/profile is intentionally excluded everywhere — it is broken.
- * Passwords returned by this legacy API are never rendered in the UI.
- */
 export interface LegacyUser {
   id: number;
   firstName: string;
@@ -217,7 +201,6 @@ export interface LegacyUser {
   organizations: number[];
 }
 
-/** Safe DTO returned by the compatibility /api/user endpoints. */
 export interface LegacyUserApi {
   id: number;
   firstName: string;
@@ -239,7 +222,6 @@ export interface CreateLegacyUserRequest {
   organizationIds: number[];
 }
 
-/** Legacy update only changes these three fields. */
 export interface UpdateLegacyUserRequest {
   firstName: string;
   lastName: string;

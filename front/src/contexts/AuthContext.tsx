@@ -3,19 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import type { AuthUser, RoleName } from '../types/api';
 import * as authService from '../services/authService';
 import { onUnauthorized } from '../services/http';
+import { queryClient } from '../lib/queryClient';
 import { AuthContext, type AuthValue } from './auth';
 
-export function AuthProvider({ children }: {children: ReactNode;}) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   const loadUser = useCallback(async () => {
     try {
-      const current = await authService.getCurrentUser();
-      setUser(current);
+      setUser(await authService.getCurrentUser());
     } catch {
-      // 401 on boot simply means "not signed in" — no redirect from here.
       setUser(null);
     }
   }, []);
@@ -25,9 +24,9 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
   }, [loadUser]);
 
   useEffect(() => {
-    // Refresh already failed at this point (see services/http.ts) — bounce to login.
     onUnauthorized(() => {
       setUser(null);
+      queryClient.clear();
       navigate('/login', { replace: true });
     });
     return () => onUnauthorized(null);
@@ -35,6 +34,7 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const authenticated = await authService.login({ email, password });
+    queryClient.clear();
     setUser(authenticated);
     return authenticated;
   }, []);
@@ -44,12 +44,12 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
       await authService.logout();
     } finally {
       setUser(null);
+      queryClient.clear();
       navigate('/login', { replace: true });
     }
   }, [navigate]);
 
-  const hasRole = useCallback((...roles: RoleName[]) => user ? roles.includes(user.role) : false, [user]);
-
+  const hasRole = useCallback((...roles: RoleName[]) => (user ? roles.includes(user.role) : false), [user]);
   const hasPermission = useCallback((permission: string) => user?.permissions?.includes(permission) ?? false, [user]);
 
   const value = useMemo<AuthValue>(
@@ -63,9 +63,9 @@ export function AuthProvider({ children }: {children: ReactNode;}) {
       hasPermission,
       isSuperAdmin: user?.role === 'ROLE_SUPER_ADMIN',
       isOrgAdmin: user?.role === 'ROLE_ORG_ADMIN',
-      isModerator: user?.role === 'ROLE_MODERATOR'
+      isModerator: user?.role === 'ROLE_MODERATOR',
     }),
-    [user, initializing, signIn, signOut, loadUser, hasRole, hasPermission]
+    [user, initializing, signIn, signOut, loadUser, hasRole, hasPermission],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -17,8 +17,6 @@ import java.util.Set;
 @Builder
 public class AssignPermissionsToRoleRequest {
 
-    // Full replacement set for the role's permissions.
-    // Send an empty set to clear all permissions from the role.
     @NotNull(message = "permissionIds is required (can be empty to clear)")
     private Set<@NotNull(message = "Permission ID is required")
             @Positive(message = "Permission ID must be positive") Long> permissionIds;

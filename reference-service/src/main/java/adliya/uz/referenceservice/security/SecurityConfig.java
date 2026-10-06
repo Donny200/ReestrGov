@@ -22,40 +22,15 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
-        http.csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/regions/**"
-                        ).permitAll()
-
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/interface-translations/*"
-                        ).permitAll()
-
-                        .requestMatchers(
-                                "/api/interface-translations/**",
-                                "/api/translation-keys/**"
-                        ).authenticated()
-
-                        .requestMatchers(
-                                "/swagger",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll().anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/regions/**", "/api/interface-translations/*").permitAll()
+                        .requestMatchers("/swagger", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .anyRequest().authenticated()
                 );
-
         return http.build();
     }
 }

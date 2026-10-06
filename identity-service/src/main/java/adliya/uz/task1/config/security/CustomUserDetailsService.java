@@ -29,10 +29,8 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         Set<GrantedAuthority> authorities = new HashSet<>();
 
-        // Coarse-grained: ROLE_SUPER_ADMIN — powers hasRole(...)
         authorities.add(new SimpleGrantedAuthority(user.getRole().getName()));
 
-        // Fine-grained: ORGANIZATIONS_CREATE — powers hasAuthority(...)
         for (Permission permission : user.getRole().getPermissions()) {
             authorities.add(new SimpleGrantedAuthority(permission.getCode()));
         }

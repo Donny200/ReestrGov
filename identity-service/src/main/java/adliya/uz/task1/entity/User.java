@@ -67,7 +67,4 @@ public class User {
     )
     @Builder.Default
     private Set<Organization> organizations = new HashSet<>();
-
-
-
 }

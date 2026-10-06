@@ -13,38 +13,31 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class LanguageDataInitializer implements CommandLineRunner {
 
-    private record Seed(String code) {
-    }
+    private static final List<String> DEFAULT_CODES = List.of("en", "ru", "uz");
+    private static final String DEFAULT_LANGUAGE = "en";
 
     private final LanguageRepository languageRepository;
 
     @Override
     public void run(String... args) {
-        List<Seed> defaults = List.of(
-                new Seed("en"),
-                new Seed("ru"),
-                new Seed("uz")
-        );
-
-        for (Seed seed : defaults) {
-            Language language = languageRepository.findByCode(seed.code())
-                    .orElseGet(() -> {
-                        Locale locale = Locale.forLanguageTag(seed.code());
-                        return Language.builder()
-                                .code(seed.code())
-                                .nameNative(locale.getDisplayLanguage(locale))
-                                .active(true)
-                                .build();
-                    });
-            language.setActive(true);
-            languageRepository.save(language);
-        }
-
+        DEFAULT_CODES.forEach(this::ensureActive);
         if (languageRepository.findByIsDefaultTrueAndActiveTrue().isEmpty()) {
-            languageRepository.findByCode("en").ifPresent(language -> {
+            languageRepository.findByCode(DEFAULT_LANGUAGE).ifPresent(language -> {
                 language.setDefault(true);
                 languageRepository.save(language);
             });
         }
+    }
+
+    private void ensureActive(String code) {
+        Language language = languageRepository.findByCode(code).orElseGet(() -> {
+            Locale locale = Locale.forLanguageTag(code);
+            return Language.builder()
+                    .code(code)
+                    .nameNative(locale.getDisplayLanguage(locale))
+                    .build();
+        });
+        language.setActive(true);
+        languageRepository.save(language);
     }
 }

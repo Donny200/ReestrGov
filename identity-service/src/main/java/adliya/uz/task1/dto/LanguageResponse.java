@@ -4,7 +4,6 @@ import adliya.uz.task1.entity.Language;
 
 import java.util.Locale;
 
-/** Includes legacy aliases so the existing language selector remains compatible. */
 public record LanguageResponse(
         Long id,
         String code,

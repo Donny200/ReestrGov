@@ -1,10 +1,10 @@
 package adliya.uz.task1.service;
 
+import adliya.uz.task1.config.security.SystemRole;
 import adliya.uz.task1.dto.CreateModeratorRequest;
 import adliya.uz.task1.dto.PromoteToModeratorRequest;
 import adliya.uz.task1.dto.UpdateModeratorRequest;
 import adliya.uz.task1.entity.Organization;
-import adliya.uz.task1.entity.Role;
 import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.EmailAlreadyExistsException;
 import adliya.uz.task1.exception.ResourceNotFoundException;
@@ -23,8 +23,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ModeratorService {
 
-    private static final String SUPER_ADMIN_ROLE = "ROLE_SUPER_ADMIN";
-    private static final String MODERATOR_ROLE = "ROLE_MODERATOR";
+    private static final String SUPER_ADMIN_ROLE = SystemRole.SUPER_ADMIN.authority();
+    private static final String ORG_ADMIN_ROLE = SystemRole.ORG_ADMIN.authority();
+    private static final String MODERATOR_ROLE = SystemRole.MODERATOR.authority();
 
     private final UserRepository userRepository;
     private final OrganizationService organizationService;
@@ -35,14 +36,10 @@ public class ModeratorService {
     @Transactional
     public User create(CreateModeratorRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistsException(
-                    "User with this email already exists: " + request.getEmail());
+            throw new EmailAlreadyExistsException("User with this email already exists: " + request.getEmail());
         }
-
         Set<Organization> orgs = resolveOrganizations(request.getOrganizationIds());
-        checkScopeOrThrow(orgs);
-
-        Role moderatorRole = roleService.getByName(MODERATOR_ROLE);
+        checkScopeOrThrow(userService.getCurrentUser(), orgs);
 
         User user = User.builder()
                 .firstName(request.getFirstName())
@@ -50,76 +47,68 @@ public class ModeratorService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(moderatorRole)
+                .role(roleService.getByName(MODERATOR_ROLE))
                 .build();
-
         user.getOrganizations().addAll(orgs);
-
         return userRepository.save(user);
     }
 
     @Transactional
     public User promote(PromoteToModeratorRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found, ID: " + request.getUserId()));
-
+        User user = findUser(request.getUserId());
         User current = userService.getCurrentUser();
         validatePromotionTarget(user, current);
 
         Set<Organization> orgs = resolveOrganizations(request.getOrganizationIds());
-        checkScopeOrThrow(orgs);
+        checkScopeOrThrow(current, orgs);
 
-        Role moderatorRole = roleService.getByName(MODERATOR_ROLE);
-        user.setRole(moderatorRole);
+        user.setRole(roleService.getByName(MODERATOR_ROLE));
         user.getOrganizations().clear();
         user.getOrganizations().addAll(orgs);
-
         return userRepository.save(user);
     }
 
     @Transactional(readOnly = true)
     public List<User> getPromotionCandidates() {
         User current = userService.getCurrentUser();
+        boolean superAdmin = isSuperAdmin(current);
         Set<Long> myOrgIds = orgIdsOf(current);
-
         return userRepository.findAll().stream()
                 .filter(user -> Boolean.TRUE.equals(user.getEnabled()))
                 .filter(user -> user.getRole() != null)
                 .filter(user -> !MODERATOR_ROLE.equals(user.getRole().getName()))
                 .filter(user -> !SUPER_ADMIN_ROLE.equals(user.getRole().getName()))
-                .filter(user -> isSuperAdmin(current)
-                        || (!"ROLE_ORG_ADMIN".equals(user.getRole().getName())
-                        && isEntirelyWithinScope(user, myOrgIds)))
+                .filter(user -> superAdmin
+                        || (!ORG_ADMIN_ROLE.equals(user.getRole().getName()) && isEntirelyWithinScope(user, myOrgIds)))
                 .toList();
     }
 
     public List<User> getAll() {
         User current = userService.getCurrentUser();
         List<User> moderators = userRepository.findAllByRole_Name(MODERATOR_ROLE);
-
-        if (isSuperAdmin(current)) return moderators;
-
+        if (isSuperAdmin(current)) {
+            return moderators;
+        }
         Set<Long> myOrgIds = orgIdsOf(current);
         return moderators.stream()
-                .filter(m -> orgIdsOf(m).stream().anyMatch(myOrgIds::contains))
+                .filter(moderator -> orgIdsOf(moderator).stream().anyMatch(myOrgIds::contains))
                 .toList();
     }
 
     public User getById(Long id) {
-        User moderator = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found, ID: " + id));
-        requireRole(moderator, MODERATOR_ROLE);
-        checkScopeOrThrow(moderator.getOrganizations());
+        User moderator = findUser(id);
+        requireModeratorInScope(moderator, userService.getCurrentUser());
         return moderator;
     }
 
     @Transactional
     public User update(Long id, UpdateModeratorRequest request) {
-        User moderator = getById(id); // includes scope check on current org(s)
+        User moderator = findUser(id);
+        User current = userService.getCurrentUser();
+        requireModeratorInScope(moderator, current);
 
         Set<Organization> newOrgs = resolveOrganizations(request.getOrganizationIds());
-        checkScopeOrThrow(newOrgs); // caller must also be allowed to assign the NEW org(s)
+        checkScopeOrThrow(current, newOrgs);
 
         if (request.getFirstName() != null) moderator.setFirstName(request.getFirstName());
         if (request.getLastName() != null) moderator.setLastName(request.getLastName());
@@ -135,11 +124,20 @@ public class ModeratorService {
 
     @Transactional
     public void deactivate(Long id) {
-        User moderator = getById(id); // includes scope check
+        User moderator = getById(id);
         moderator.setEnabled(false);
         userRepository.save(moderator);
     }
 
+    private User findUser(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found, ID: " + id));
+    }
+
+    private void requireModeratorInScope(User moderator, User current) {
+        requireRole(moderator, MODERATOR_ROLE);
+        checkScopeOrThrow(current, moderator.getOrganizations());
+    }
 
     private Set<Organization> resolveOrganizations(Set<Long> ids) {
         return ids.stream()
@@ -147,19 +145,14 @@ public class ModeratorService {
                 .collect(Collectors.toSet());
     }
 
-
-    private void checkScopeOrThrow(Set<Organization> orgs) {
-        User current = userService.getCurrentUser();
-        if (isSuperAdmin(current)) return;
-
+    private void checkScopeOrThrow(User current, Set<Organization> orgs) {
+        if (isSuperAdmin(current)) {
+            return;
+        }
         Set<Long> myOrgIds = orgIdsOf(current);
-        boolean allowed = orgs.stream()
-                .map(Organization::getId)
-                .allMatch(myOrgIds::contains);
-
+        boolean allowed = orgs.stream().map(Organization::getId).allMatch(myOrgIds::contains);
         if (!allowed) {
-            throw new AccessDeniedException(
-                    "You can only manage moderators within your own organization(s)");
+            throw new AccessDeniedException("You can only manage moderators within your own organization(s)");
         }
     }
 
@@ -180,12 +173,10 @@ public class ModeratorService {
             }
         }
         if (!isSuperAdmin(current)) {
-            if ("ROLE_ORG_ADMIN".equals(target.getRole().getName())) {
+            if (ORG_ADMIN_ROLE.equals(target.getRole().getName())) {
                 throw new AccessDeniedException("ORG_ADMIN cannot downgrade another ORG_ADMIN");
             }
-            Set<Long> currentOrgIds = orgIdsOf(current);
-            boolean targetInScope = isEntirelyWithinScope(target, currentOrgIds);
-            if (!targetInScope) {
+            if (!isEntirelyWithinScope(target, orgIdsOf(current))) {
                 throw new AccessDeniedException("You can only promote users in your organization scope");
             }
         }
@@ -193,8 +184,7 @@ public class ModeratorService {
 
     private boolean isEntirelyWithinScope(User user, Set<Long> allowedOrganizationIds) {
         Set<Long> targetOrganizationIds = orgIdsOf(user);
-        return !targetOrganizationIds.isEmpty()
-                && allowedOrganizationIds.containsAll(targetOrganizationIds);
+        return !targetOrganizationIds.isEmpty() && allowedOrganizationIds.containsAll(targetOrganizationIds);
     }
 
     private Set<Long> orgIdsOf(User user) {
@@ -209,8 +199,7 @@ public class ModeratorService {
 
     private void requireRole(User user, String expectedRole) {
         if (!expectedRole.equals(user.getRole().getName())) {
-            throw new ResourceNotFoundException(
-                    "User with ID " + user.getId() + " is not a " + expectedRole);
+            throw new ResourceNotFoundException("User with ID " + user.getId() + " is not a " + expectedRole);
         }
     }
 }

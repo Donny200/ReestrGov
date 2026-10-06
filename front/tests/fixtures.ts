@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFunctions';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
 
@@ -24,6 +24,12 @@ function dictionary(language: string) {
     if (parts.length === 3 && parts[1] === language) values[parts[0]] = parts[2];
   }
   return values;
+}
+export async function chooseOption(trigger: Locator, value: string) {
+  await trigger.click();
+  const listbox = trigger.page().getByRole('listbox');
+  await listbox.locator(`[role="option"][data-value="${value}"]`).click();
+  await expect(listbox).toBeHidden();
 }
 export function card(id = 1, status: AdminFunction['status'] = 'DRAFT'): AdminFunction {
   return { id, name: 'Service ' + id, description: 'Description ' + id, requirements: 'Passport',

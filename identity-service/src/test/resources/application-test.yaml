@@ -26,3 +26,6 @@ app:
   cookie:
     secure: false
     same-site: Lax
+
+jwt:
+  secret: identity-test-secret-at-least-32-bytes-long

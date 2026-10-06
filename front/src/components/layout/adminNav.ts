@@ -11,11 +11,6 @@ export interface AdminNavItem {
   dividerBefore?: boolean;
 }
 
-/**
- * Role-aware navigation.
- * SUPER_ADMIN: everything. ORG_ADMIN: organizations, moderators, catalog.
- * MODERATOR: read-only catalog + own security settings.
- */
 export const adminNav: AdminNavItem[] = [
 { to: '/admin/functions', labelKey: 'nav.functions', icon: 'functions', roles: [], anyPermissions: FUNCTION_PERMISSIONS },
 {

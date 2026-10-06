@@ -2,6 +2,7 @@ package adliya.uz.task1.controller;
 
 import adliya.uz.task1.config.security.CookieUtil;
 import adliya.uz.task1.config.security.JwtService;
+import adliya.uz.task1.dto.ChangePasswordRequest;
 import adliya.uz.task1.dto.LoginRequest;
 import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.User;
@@ -20,8 +21,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import adliya.uz.task1.dto.ChangePasswordRequest;
-
 
 @RestController
 @RequestMapping("/api/auth")
@@ -36,23 +35,19 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         User user = authService.login(request);
-        return withAuthCookies(HttpStatus.OK, user);
+        return sessionCookies(user).body(UserResponse.from(user));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refresh(
             @CookieValue(name = "${app.cookie.refresh-token-name}", required = false) String refreshToken) {
-
         if (refreshToken == null) {
             return clearAuthCookies(HttpStatus.UNAUTHORIZED);
         }
-
         try {
             RefreshTokenService.RotationResult result = refreshTokenService.rotate(refreshToken);
-
             ResponseCookie accessCookie = cookieUtil.createAccessCookie(jwtService.generateToken(result.user()));
             ResponseCookie refreshCookie = cookieUtil.createRefreshCookie(result.rawToken());
-
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                     .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
@@ -65,11 +60,9 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = "${app.cookie.refresh-token-name}", required = false) String refreshToken) {
-
         if (refreshToken != null) {
             refreshTokenService.revoke(refreshToken);
         }
-
         return clearAuthCookies(HttpStatus.OK);
     }
 
@@ -78,24 +71,25 @@ public class AuthController {
         return ResponseEntity.ok(authService.getCurrentUser());
     }
 
-    private ResponseEntity<UserResponse> withAuthCookies(HttpStatus status, User user) {
+    @PostMapping("/change-password")
+    public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        User user = authService.changePassword(request);
         ResponseCookie accessCookie = cookieUtil.createAccessCookie(jwtService.generateToken(user));
-
-        if (Boolean.TRUE.equals(user.getMustChangePassword())) {
-            return ResponseEntity.status(status)
-                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                    .header(HttpHeaders.SET_COOKIE, cookieUtil.createLogoutRefreshCookie().toString())
-                    .body(UserResponse.from(user));
-        }
-
-        ResponseCookie refreshCookie = cookieUtil.createRefreshCookie(
-                refreshTokenService.createRefreshToken(user)
-        );
-
-        return ResponseEntity.status(status)
+        ResponseCookie refreshCookie = cookieUtil.createRefreshCookie(refreshTokenService.createRefreshToken(user));
+        return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(UserResponse.from(user));
+                .body("Password changed successfully.");
+    }
+
+    private ResponseEntity.BodyBuilder sessionCookies(User user) {
+        ResponseCookie accessCookie = cookieUtil.createAccessCookie(jwtService.generateToken(user));
+        ResponseCookie refreshCookie = Boolean.TRUE.equals(user.getMustChangePassword())
+                ? cookieUtil.createLogoutRefreshCookie()
+                : cookieUtil.createRefreshCookie(refreshTokenService.createRefreshToken(user));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString());
     }
 
     private ResponseEntity<Void> clearAuthCookies(HttpStatus status) {
@@ -104,20 +98,4 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, cookieUtil.createLogoutRefreshCookie().toString())
                 .build();
     }
-
-    @PostMapping("/change-password")
-    public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        User user = authService.changePassword(request);
-        ResponseCookie accessCookie = cookieUtil.createAccessCookie(jwtService.generateToken(user));
-        ResponseCookie refreshCookie = cookieUtil.createRefreshCookie(
-                refreshTokenService.createRefreshToken(user)
-        );
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body("Password changed successfully.");
-    }
-    
-
 }

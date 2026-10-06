@@ -1,25 +1,33 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRightIcon, LayoutDashboardIcon, LogInIcon, MenuIcon, XIcon } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import { Logo } from './Logo';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeToggle } from '../ui/ThemeToggle';
+import { Button } from '../ui/Button';
+import { buttonVariants } from '../ui/buttonVariants';
+import { Avatar } from '../ui/Avatar';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
-import { initials } from '../../utils/format';
 
 const links = [
   { to: '/', key: 'nav.home' },
   { to: '/#organizations', key: 'nav.organizations' },
-  { to: '/#functions', key: 'nav.functions' }
+  { to: '/#functions', key: 'nav.functions' },
 ] as const;
+
+const FOCUSABLE = 'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function PublicHeader() {
   const { t } = useI18n();
   const { user, initializing } = useAuth();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
   const drawerTitleId = useId();
 
   useEffect(() => {
@@ -37,28 +45,20 @@ export function PublicHeader() {
 
   useEffect(() => {
     if (!open) return undefined;
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const frame = window.requestAnimationFrame(() => {
-      drawerRef.current?.querySelector<HTMLElement>('button, a, select')?.focus();
+      drawerRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     });
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false);
         window.requestAnimationFrame(() => menuButtonRef.current?.focus());
         return;
       }
-
       if (event.key !== 'Tab' || !drawerRef.current) return;
-      const focusable = Array.from(
-        drawerRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
-      );
+      const focusable = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
       if (focusable.length === 0) return;
-
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) {
@@ -69,7 +69,6 @@ export function PublicHeader() {
         first.focus();
       }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
@@ -84,17 +83,20 @@ export function PublicHeader() {
     return location.hash === new URL(to, window.location.origin).hash;
   };
 
-  const closeDrawer = () => setOpen(false);
-  const closeDrawerAfterNavigation = () => {
+  const closeDrawer = () => {
+    setOpen(false);
+    window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+  };
+
+  const closeAfterNavigation = () => {
     setOpen(false);
     window.requestAnimationFrame(() => document.getElementById('main-content')?.focus({ preventScroll: true }));
   };
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-line bg-white/90 backdrop-blur-xl">
-        <div className="pattern-band h-1 w-full" aria-hidden="true" />
-        <div className="mx-auto flex h-[4.5rem] w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <header className="glass sticky top-0 z-50 border-x-0 border-t-0">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <Logo />
 
           <nav aria-label={t('nav.catalog')} className="hidden items-center gap-1 lg:flex">
@@ -105,11 +107,10 @@ export function PublicHeader() {
                   key={link.to}
                   to={link.to}
                   aria-current={active ? 'page' : undefined}
-                    className={`relative inline-flex h-11 items-center rounded-full px-4 text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? 'bg-brand text-content-inverse'
-                      : 'text-content-muted hover:bg-surface-subtle hover:text-content-strong'
-                  }`}
+                  className={cn(
+                    'press inline-flex h-9 items-center rounded-control px-3.5 text-sm font-medium transition-colors duration-fast',
+                    active ? 'bg-brand-subtle text-link' : 'text-content-muted hover:bg-surface-subtle hover:text-content-strong',
+                  )}
                 >
                   {t(link.key)}
                 </Link>
@@ -117,146 +118,129 @@ export function PublicHeader() {
             })}
           </nav>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="hidden md:block">
-              <LanguageSwitcher />
-            </div>
-
+          <div className="flex items-center gap-1 sm:gap-2">
+            <ThemeToggle />
+            <LanguageSwitcher compact className="hidden md:inline-flex" />
             {initializing ? (
-              <span className="hidden h-11 w-24 animate-pulse rounded-full bg-surface-subtle sm:block" aria-hidden="true" />
+              <span className="hidden h-10 w-28 animate-pulse rounded-control bg-surface-subtle sm:block" aria-hidden="true" />
             ) : user ? (
-              <Link
-                to="/admin"
-                className="group inline-flex h-11 items-center gap-2 rounded-full bg-brand px-2.5 text-[13px] font-semibold text-white transition-all hover:bg-brand-hover hover:-translate-y-px sm:px-3.5"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-[11px] font-bold">
-                  {initials(user)}
-                </span>
-                <span className="hidden sm:inline">{t('nav.admin')}</span>
-                <LayoutDashboardIcon className="hidden h-4 w-4 sm:block" aria-hidden="true" />
+              <Link to="/admin" className={cn(buttonVariants({ variant: 'outline' }), 'hidden pl-1.5 sm:inline-flex')}>
+                <Avatar user={user} size="sm" />
+                {t('nav.admin')}
+                <LayoutDashboardIcon aria-hidden="true" />
               </Link>
             ) : (
-              <Link
-                to="/login"
-                className="hidden h-11 items-center gap-2 rounded-full bg-brand px-4 text-sm font-semibold text-white transition-all hover:bg-brand-hover hover:-translate-y-px sm:inline-flex"
-              >
-                <LogInIcon className="h-4 w-4" aria-hidden="true" />
+              <Link to="/login" className={cn(buttonVariants({ variant: 'primary' }), 'hidden sm:inline-flex')}>
+                <LogInIcon aria-hidden="true" />
                 {t('action.login')}
               </Link>
             )}
-
-            <button
+            <Button
               ref={menuButtonRef}
-              type="button"
+              variant="outline"
+              size="icon"
+              className="lg:hidden"
               onClick={() => setOpen(true)}
-              aria-label={t('a11y.openMenu', 'Menyuni ochish')}
+              aria-label={t('a11y.openMenu', 'Open menu')}
               aria-expanded={open}
               aria-controls="public-mobile-menu"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line text-content transition-colors hover:bg-surface-subtle lg:hidden"
             >
-              <MenuIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
+              <MenuIcon aria-hidden="true" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <div
-        className={`fixed inset-0 z-[70] lg:hidden ${open ? 'visible' : 'invisible pointer-events-none'}`}
-        aria-hidden={!open}
-      >
-        <button
-          type="button"
-          aria-label={t('action.close')}
-          onClick={() => {
-            closeDrawer();
-            window.requestAnimationFrame(() => menuButtonRef.current?.focus());
-          }}
-          className={`absolute inset-0 h-full w-full bg-brand/60 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
-        />
-
-        <aside
-          id="public-mobile-menu"
-          ref={drawerRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={drawerTitleId}
-            className={`absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-1rem))] flex-col bg-brand text-content-inverse shadow-pop transition-transform duration-300 ease-out motion-reduce:transition-none ${
-            open ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <div className="pattern-band h-1 w-full shrink-0" aria-hidden="true" />
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
-            <div id={drawerTitleId} className="min-w-0">
-              <Logo />
-            </div>
-            <button
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-[70] lg:hidden">
+            <motion.button
               type="button"
-              onClick={() => {
-                closeDrawer();
-                window.requestAnimationFrame(() => menuButtonRef.current?.focus());
-              }}
+              tabIndex={-1}
               aria-label={t('action.close')}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+              onClick={closeDrawer}
+              className="absolute inset-0 h-full w-full cursor-default bg-black/50 backdrop-blur-sm"
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            />
+            <motion.div
+              ref={drawerRef}
+              id="public-mobile-menu"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={drawerTitleId}
+              className="glass-strong absolute inset-y-0 right-0 flex w-[min(22rem,calc(100%-1rem))] flex-col shadow-overlay"
+              initial={reduceMotion ? false : { x: 40, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={reduceMotion ? undefined : { x: 40, opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             >
-              <XIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
+              <div className="flex h-16 items-center justify-between border-b border-line/80 px-4">
+                <div id={drawerTitleId} className="min-w-0">
+                  <Logo />
+                </div>
+                <Button variant="ghost" size="iconSm" onClick={closeDrawer} aria-label={t('action.close')}>
+                  <XIcon aria-hidden="true" />
+                </Button>
+              </div>
 
-          <nav aria-label={t('nav.catalog')} className="flex-1 overflow-y-auto px-4 py-5">
-            <ul className="space-y-1.5">
-              {links.map((link) => {
-                const active = isActive(link.to);
-                return (
-                  <li key={link.to}>
+              <nav aria-label={t('nav.catalog')} className="flex-1 overflow-y-auto px-3 py-4">
+                <ul className="space-y-1">
+                  {links.map((link) => {
+                    const active = isActive(link.to);
+                    return (
+                      <li key={link.to}>
+                        <Link
+                          to={link.to}
+                          onClick={closeAfterNavigation}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'flex min-h-12 items-center justify-between rounded-control px-3.5 text-[15px] font-medium transition-colors duration-fast',
+                            active ? 'bg-brand-subtle text-link' : 'text-content hover:bg-surface-subtle hover:text-content-strong',
+                          )}
+                        >
+                          {t(link.key)}
+                          <ArrowRightIcon className="h-4 w-4 opacity-60 rtl:rotate-180" aria-hidden="true" />
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+
+              <div className="space-y-3 border-t border-line/80 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">{t('field.language')}</p>
+                <LanguageSwitcher className="w-full" />
+                {!initializing &&
+                  (user ? (
                     <Link
-                      to={link.to}
-                      onClick={closeDrawerAfterNavigation}
-                      aria-current={active ? 'page' : undefined}
-                      className={`flex min-h-12 items-center justify-between rounded-xl px-4 py-3 text-[15px] font-semibold transition-colors ${
-                        active ? 'bg-white/10 text-accent' : 'text-white/75 hover:bg-white/10 hover:text-white'
-                      }`}
+                      to="/admin"
+                      onClick={closeAfterNavigation}
+                      className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full justify-between')}
                     >
-                      {t(link.key)}
-                      <ArrowRightIcon className="h-4 w-4 opacity-60 rtl:rotate-180" aria-hidden="true" />
+                      <span className="flex items-center gap-2.5">
+                        <Avatar user={user} size="sm" />
+                        {t('nav.admin')}
+                      </span>
+                      <LayoutDashboardIcon aria-hidden="true" />
                     </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          <div className="border-t border-white/10 bg-black/10 px-4 py-4">
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-white/45">{t('field.language')}</p>
-            <LanguageSwitcher />
-            {!initializing && (
-              user ? (
-                <Link
-                  to="/admin"
-                  onClick={closeDrawerAfterNavigation}
-                  className="mt-4 flex min-h-12 items-center justify-between rounded-xl bg-navy-900 px-4 py-3 text-sm font-semibold text-white"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-[11px] font-bold">
-                      {initials(user)}
-                    </span>
-                    {t('nav.admin')}
-                  </span>
-                  <LayoutDashboardIcon className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              ) : (
-                <Link
-                  to="/login"
-                  onClick={closeDrawerAfterNavigation}
-                  className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
-                >
-                  <LogInIcon className="h-4 w-4" aria-hidden="true" />
-                  {t('action.login')}
-                </Link>
-              )
-            )}
+                  ) : (
+                    <Link
+                      to="/login"
+                      onClick={closeAfterNavigation}
+                      className={cn(buttonVariants({ variant: 'gradient', size: 'lg' }), 'w-full')}
+                    >
+                      <LogInIcon aria-hidden="true" />
+                      {t('action.login')}
+                    </Link>
+                  ))}
+              </div>
+            </motion.div>
           </div>
-        </aside>
-      </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

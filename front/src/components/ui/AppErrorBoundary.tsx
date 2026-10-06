@@ -21,10 +21,6 @@ class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
     return { failed: true };
   }
 
-  componentDidCatch(): void {
-    // React reports the original exception in development; production can attach monitoring here.
-  }
-
   componentDidUpdate(previous: BoundaryProps): void {
     if (this.state.failed && previous.resetKey !== this.props.resetKey) {
       this.setState({ failed: false });
@@ -41,21 +37,16 @@ export function AppErrorBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   const fallback = (
-    <main className="flex min-h-dvh items-center justify-center bg-canvas px-4 py-12">
-      <section role="alert" className="w-full max-w-lg rounded-overlay border border-line bg-surface p-6 text-center shadow-elevated sm:p-8">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger/10 text-danger">
-          <AlertTriangleIcon className="h-5 w-5" aria-hidden="true" />
+    <main className="flex min-h-dvh items-center justify-center px-4 py-12">
+      <section role="alert" className="glass w-full max-w-lg rounded-overlay p-8 text-center shadow-elevated">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-danger/10 text-danger">
+          <AlertTriangleIcon className="h-6 w-6" aria-hidden="true" />
         </span>
-        <h1 className="mt-4 font-display text-xl font-bold text-content-strong">{t('state.errorTitle')}</h1>
+        <h1 className="mt-5 font-display text-xl font-semibold text-content-strong">{t('state.errorTitle')}</h1>
         <p className="mt-2 text-sm leading-6 text-content-muted">
-          {t('state.errorText', "Sahifani yuklashda xatolik yuz berdi. Qayta urinib ko'ring.")}
+          {t('state.errorText', 'Something went wrong while loading this page. Please try again.')}
         </p>
-        <Button
-          className="mt-6"
-          variant="outline"
-          icon={<RotateCcwIcon className="h-4 w-4" />}
-          onClick={() => window.location.reload()}
-        >
+        <Button className="mt-6" variant="outline" icon={<RotateCcwIcon />} onClick={() => window.location.reload()}>
           {t('action.retry')}
         </Button>
       </section>

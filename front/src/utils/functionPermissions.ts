@@ -1,4 +1,3 @@
-// Existing backend authorities; the server remains the access boundary.
 export const FUNCTION_PERMISSIONS = [
   'FUNCTIONS_VIEW', 'FUNCTIONS_CREATE', 'FUNCTIONS_EDIT', 'FUNCTIONS_MANAGE_REQUIREMENTS',
   'FUNCTIONS_DEACTIVATE', 'FUNCTIONS_SUBMIT_REVIEW', 'FUNCTIONS_REVIEW',

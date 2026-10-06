@@ -67,7 +67,7 @@ public class OrgFunctionController {
     @PreAuthorize("hasAuthority('FUNCTIONS_MANAGE_REQUIREMENTS')")
     public ResponseEntity<OrgFunctionResponse> updateRequirements(
             @PathVariable Long id, @Valid @RequestBody UpdateRequirementsRequest request) {
-        return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.updateRequirements(id, request.getRequirements())));
+        return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.updateRequirements(id, request.requirements())));
     }
 
     @DeleteMapping("/{id}")

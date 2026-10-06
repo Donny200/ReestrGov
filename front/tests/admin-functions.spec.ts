@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setup, card, allPermissions } from './fixtures';
+import { setup, card, allPermissions, chooseOption } from './fixtures';
 
 test('all statuses, filters, active languages and pagination', async ({ page }) => {
   await setup(page, { records: Array.from({ length: 56 }, (_, i) => card(i + 1, i < 3 ? 'PUBLISHED' : 'DRAFT')) });
@@ -8,13 +8,13 @@ test('all statuses, filters, active languages and pagination', async ({ page }) 
   await expect(main.getByRole('table').getByRole('row')).toHaveCount(51);
   await main.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(main.getByRole('table').getByRole('row')).toHaveCount(7);
-  await main.getByLabel('Status', { exact: true }).selectOption('PUBLISHED');
+  await chooseOption(main.getByLabel('Status', { exact: true }), 'PUBLISHED');
   await expect(main.getByRole('table').getByRole('row')).toHaveCount(4);
-  await main.getByLabel('Language', { exact: true }).selectOption('ru');
+  await chooseOption(main.getByLabel('Language', { exact: true }), 'ru');
   await expect(main.getByRole('table').getByText('Услуга 1', { exact: true })).toBeVisible();
-  await main.getByLabel('Language', { exact: true }).selectOption('uz');
+  await chooseOption(main.getByLabel('Language', { exact: true }), 'uz');
   await expect(main.getByRole('table').getByText('Xizmat 1', { exact: true })).toBeVisible();
-  await main.getByLabel('Language', { exact: true }).selectOption('fr');
+  await chooseOption(main.getByLabel('Language', { exact: true }), 'fr');
   await expect(main.getByRole('table').getByText('Service 1', { exact: true })).toBeVisible();
   await main.getByLabel('Search', { exact: true }).fill('Service 2');
   await expect(main.getByRole('table').getByRole('row')).toHaveCount(2);
@@ -27,7 +27,7 @@ test('create failure preserves input, retry creates draft and reload sees it', a
   await page.getByRole('link', { name: 'Create service', exact: true }).click();
   await page.getByLabel('Name', { exact: false }).first().fill('Test');
   await page.getByLabel('Description', { exact: false }).first().fill('Test service');
-  await page.getByLabel('Organization', { exact: false }).first().selectOption('10');
+  await chooseOption(page.getByLabel('Organization', { exact: false }).first(), '10');
   fixture.failures.set('POST /api/functions', 400);
   await page.getByRole('button', { name: 'Create service', exact: true }).click();
   await expect(page.getByText('Please retry this operation')).toBeVisible();
@@ -83,7 +83,7 @@ test('manual translation retry preserves input and other language sources', asyn
   expect(fixture.records[0].nameTranslations?.ru.source).toBe('human');
   expect(fixture.records[0].nameTranslations?.uz.source).toBe('machine');
   expect(fixture.records[0].name).toBe('Service 1');
-  await page.getByRole('banner').first().getByLabel('Language', { exact: true }).selectOption('ru');
+  await chooseOption(page.getByRole('banner').first().getByLabel('Language', { exact: true }), 'ru');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ручной перевод');
 });
 

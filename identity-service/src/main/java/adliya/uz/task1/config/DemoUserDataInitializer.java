@@ -1,8 +1,6 @@
 package adliya.uz.task1.config;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
@@ -13,39 +11,33 @@ import org.springframework.stereotype.Component;
 @Profile("!prod & (dev | test)")
 @ConditionalOnProperty(name = "app.demo-users.enabled", havingValue = "true")
 @Order(100)
-@RequiredArgsConstructor
 @Slf4j
-public class DemoUserDataInitializer implements CommandLineRunner {
+public class DemoUserDataInitializer extends AbstractSuperAdminInitializer {
 
     static final String EMAIL_ENV = "DEMO_SUPER_ADMIN_EMAIL";
     static final String PASSWORD_ENV = "DEMO_SUPER_ADMIN_PASSWORD";
 
-    private final SuperAdminProvisioner provisioner;
-    private final Environment environment;
-
-    @Override
-    public void run(String... args) {
-        if (provisioner.superAdminExists()) {
-            return;
-        }
-
-        String email = requiredEnvironmentValue(EMAIL_ENV);
-        String password = requiredEnvironmentValue(PASSWORD_ENV);
-
-        provisioner.provisionIfMissing(email, password)
-                .ifPresent(createdEmail -> log.info(
-                        "Opt-in demo SUPER_ADMIN account created for {}. A password change is required.",
-                        createdEmail
-                ));
+    public DemoUserDataInitializer(SuperAdminProvisioner provisioner, Environment environment) {
+        super(provisioner, environment);
     }
 
-    private String requiredEnvironmentValue(String name) {
-        String value = environment.getProperty(name);
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException(
-                    "Demo account initialization requires environment variable " + name
-            );
-        }
-        return value;
+    @Override
+    protected String emailVariable() {
+        return EMAIL_ENV;
+    }
+
+    @Override
+    protected String passwordVariable() {
+        return PASSWORD_ENV;
+    }
+
+    @Override
+    protected String missingVariableMessage(String variableName) {
+        return "Demo account initialization requires environment variable " + variableName;
+    }
+
+    @Override
+    protected void onCreated(String email) {
+        log.info("Opt-in demo SUPER_ADMIN account created for {}. A password change is required.", email);
     }
 }

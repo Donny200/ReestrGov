@@ -1,27 +1,30 @@
 import { ApiError, type FieldIssue } from '../services/http';
 
-/** Human-friendly (Uzbek) message for any thrown error. */
-export function errorMessage(error: unknown): string {
+export type Translate = (key: string, fallback?: string) => string;
+
+const fallbackTranslate: Translate = (key, fallback) => fallback ?? key;
+
+export function errorMessage(error: unknown, t: Translate = fallbackTranslate): string {
   if (error instanceof ApiError) {
     switch (error.status) {
       case 400:
-        return error.message || 'Kiritilgan ma’lumotlarda xatolik bor';
+        return error.message || t('error.badRequest', 'The submitted data is invalid');
       case 401:
-        return 'Sessiya muddati tugadi — qaytadan kiring';
+        return t('error.sessionExpired', 'Your session has expired, sign in again');
       case 403:
-        return 'Sizda ushbu amal uchun ruxsat yo‘q';
+        return t('state.forbidden', 'You do not have permission for this action');
       case 404:
-        return error.message || 'Ma’lumot topilmadi';
+        return error.message || t('error.notFound', 'Not found');
       case 409:
-        return error.message || 'Amalni bajarish mumkin emas — ziddiyat aniqlandi';
+        return error.message || t('error.conflict', 'The operation conflicts with the current state');
       case 0:
-        return 'Serverga ulanib bo‘lmadi';
+        return t('error.network', 'Could not reach the server');
       default:
-        return error.message || 'Kutilmagan xatolik yuz berdi';
+        return error.message || t('error.unexpected', 'Something went wrong');
     }
   }
   if (error instanceof Error) return error.message;
-  return 'Kutilmagan xatolik yuz berdi';
+  return t('error.unexpected', 'Something went wrong');
 }
 
 export function statusOf(error: unknown): number | null {

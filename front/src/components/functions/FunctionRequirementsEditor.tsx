@@ -1,46 +1,79 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { ClipboardListIcon, SaveIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/i18n';
+import { useUpdateFunctionRequirements } from '../../features/functions/queries';
+import { REQUIREMENTS_MAX } from '../../features/functions/schema';
+import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
-import { updateFunctionRequirements } from '../../services/functionService';
-import { getAdminFunction } from '../../services/adminFunctionService';
-import { Panel, PanelHeader, PanelBody } from '../ui/Card';
-import { Field, TextArea } from '../ui/Field';
+import { errorMessage } from '../../utils/errors';
+import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { ErrorState } from '../ui/States';
+import { Card, CardBody, CardHeader } from '../ui/Card';
+import { Field } from '../ui/Field';
+import { Textarea } from '../ui/Input';
 import type { AdminFunction } from '../../types/adminFunctions';
 
 interface Props {
-  record: AdminFunction; busy: boolean;
-  onBusy: (value: boolean) => void; onDirty: (value: boolean) => void;
-  onUpdate: (record: AdminFunction) => void;
+  record: AdminFunction;
+  busy: boolean;
+  onDirty: (dirty: boolean) => void;
 }
-export function FunctionRequirementsEditor({ record, busy, onBusy, onDirty, onUpdate }: Props) {
+
+export function FunctionRequirementsEditor({ record, busy, onDirty }: Props) {
   const { t } = useI18n();
-  const [text, setText] = useState(record.requirements ?? '');
+  const update = useUpdateFunctionRequirements(record.id);
+  const baseline = record.requirements ?? '';
+  const [text, setText] = useState(baseline);
   const [error, setError] = useState<unknown>(null);
-  const dirty = text !== (record.requirements ?? '');
-  useEffect(() => { setText(record.requirements ?? ''); }, [record]);
-  useEffect(() => { onDirty(dirty); return () => onDirty(false); }, [dirty, onDirty]);
+  const dirty = text !== baseline;
+
+  useEffect(() => {
+    setText(baseline);
+    setError(null);
+  }, [baseline]);
+
+  useEffect(() => {
+    onDirty(dirty);
+    return () => onDirty(false);
+  }, [dirty, onDirty]);
+
   useUnsavedChanges(dirty, t('fnAdmin.discard'));
+
   async function save(event: FormEvent) {
     event.preventDefault();
     if (busy || !dirty || !text.trim()) return;
-    onBusy(true); setError(null);
+    setError(null);
     try {
-      await updateFunctionRequirements(record.id, { requirements: text });
-      onUpdate(await getAdminFunction(record.id));
+      await update.mutateAsync(text);
       toast.success(t('fnAdmin.saved'));
-    } catch (failure) { setError(failure); } finally { onBusy(false); }
+    } catch (failure) {
+      setError(failure);
+    }
   }
-  return <Panel className="mt-5">
-    <PanelHeader title={t('fnEdit.title')} description={t('fnAdmin.requirementsHint')} />
-    <PanelBody><form className="max-w-3xl space-y-4" onSubmit={save}>
-      <Field label={t('field.requirements')} required>{() =>
-        <TextArea rows={5} maxLength={500} value={text} disabled={busy} onChange={event => setText(event.target.value)} />}</Field>
-      {dirty && <p className="text-sm text-amber-700">{t('fnAdmin.unsaved')}</p>}
-      {Boolean(error) && <ErrorState error={error} />}
-      <Button type="submit" loading={busy} disabled={!dirty || !text.trim()}>{t('action.save')}</Button>
-    </form></PanelBody>
-  </Panel>;
+
+  return (
+    <Card>
+      <CardHeader title={t('fnEdit.title')} description={t('fnAdmin.requirementsHint')} icon={<ClipboardListIcon className="h-4 w-4" />} />
+      <CardBody>
+        <form className="space-y-4" onSubmit={save}>
+          <Field label={t('field.requirements')} required hint={t('fnEdit.hint')}>
+            {(control) => (
+              <Textarea {...control} rows={6} maxLength={REQUIREMENTS_MAX} value={text} disabled={busy} onChange={(event) => setText(event.target.value)} />
+            )}
+          </Field>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs tabular-nums text-content-muted">{text.length} / {REQUIREMENTS_MAX}</span>
+            {dirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+          </div>
+          {Boolean(error) && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
+          <div className="flex justify-end">
+            <Button type="submit" icon={<SaveIcon />} loading={update.isPending} disabled={busy || !dirty || !text.trim()}>
+              {t('action.save')}
+            </Button>
+          </div>
+        </form>
+      </CardBody>
+    </Card>
+  );
 }

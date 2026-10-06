@@ -44,7 +44,7 @@ public class RefreshTokenService {
         return rawToken;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RotationResult rotate(String rawToken) {
         RefreshToken stored = refreshTokenRepository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> new InvalidRefreshTokenException("Unknown refresh token"));

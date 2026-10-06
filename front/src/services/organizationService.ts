@@ -1,36 +1,19 @@
-import type {
-  CreateOrganizationRequest,
-  Organization,
-  PublicOrganization,
-  UpdateOrganizationRequest
-} from '../types/api';
+import type { CreateOrganizationRequest, Organization, PublicOrganization, UpdateOrganizationRequest } from '../types/api';
 import { apiRequest } from './http';
 
-export function getPublicOrganizations(): Promise<PublicOrganization[]> {
-  return apiRequest<PublicOrganization[]>('/api/public/organizations');
-}
+export const getPublicOrganizations = () => apiRequest<PublicOrganization[]>('/api/public/organizations');
 
-export function getPublicOrganization(id: number): Promise<PublicOrganization> {
-  return apiRequest<PublicOrganization>(`/api/public/organizations/${id}`);
-}
+export const getPublicOrganization = (id: number) => apiRequest<PublicOrganization>(`/api/public/organizations/${id}`);
 
-export function getOrganizations(): Promise<Organization[]> {
-  return apiRequest<Organization[]>('/api/organizations');
-}
+export const getOrganizations = () => apiRequest<Organization[]>('/api/organizations');
 
-export function getOrganization(id: number): Promise<Organization> {
-  return apiRequest<Organization>(`/api/organizations/${id}`);
-}
+export const createOrganization = (payload: CreateOrganizationRequest) =>
+  apiRequest<Organization>('/api/organizations', { method: 'POST', body: payload });
 
-export function createOrganization(payload: CreateOrganizationRequest): Promise<Organization> {
-  return apiRequest<Organization>('/api/organizations', { method: 'POST', body: payload });
-}
+export const updateOrganization = (id: number, payload: UpdateOrganizationRequest) =>
+  apiRequest<Organization>(`/api/organizations/${id}`, { method: 'PUT', body: payload });
 
-export function updateOrganization(id: number, payload: UpdateOrganizationRequest): Promise<Organization> {
-  return apiRequest<Organization>(`/api/organizations/${id}`, { method: 'PUT', body: payload });
-}
+export const deactivateOrganization = (id: number) => apiRequest<void>(`/api/organizations/${id}`, { method: 'DELETE' });
 
-/** The backend deactivates the record; it does not physically delete it. */
-export function deactivateOrganization(id: number): Promise<void> {
-  return apiRequest<void>(`/api/organizations/${id}`, { method: 'DELETE' });
-}
+export const reactivateOrganization = (id: number) =>
+  apiRequest<Organization>(`/api/organizations/${id}/reactivate`, { method: 'POST' });

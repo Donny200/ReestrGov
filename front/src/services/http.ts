@@ -23,7 +23,6 @@ type UnauthorizedHandler = () => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
-/** AuthContext registers a handler so a failed refresh can bounce to /login. */
 export function onUnauthorized(handler: UnauthorizedHandler | null): void {
   unauthorizedHandler = handler;
 }
@@ -32,10 +31,8 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
-  /** Skip the automatic refresh-and-retry (used by the auth endpoints themselves). */
-  skipRefresh?: boolean;
-  /** Do not redirect to /login when this request is used only to restore a session. */
-  skipUnauthorizedHandler?: boolean;
+    skipRefresh?: boolean;
+    skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
 }
 
@@ -81,7 +78,6 @@ function extractFieldErrors(payload: unknown): FieldIssue[] {
 
 let refreshInFlight: Promise<boolean> | null = null;
 
-/** POST /api/auth/refresh — no body, refreshes the HttpOnly cookies. */
 export function refreshSession(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = fetch(buildUrl('/api/auth/refresh'), {
@@ -119,12 +115,6 @@ function messageFor(status: number, payload: unknown): string {
   return `HTTP ${status}`;
 }
 
-/**
- * Single entry point for every backend call.
- * - Always sends cookies (`credentials: "include"`).
- * - Never sends an Authorization header: auth is HttpOnly-cookie based.
- * - On 401 it tries POST /api/auth/refresh exactly once, then gives up.
- */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, skipRefresh, skipUnauthorizedHandler, signal } = options;
 
@@ -142,7 +132,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     response = await execute();
   } catch (error) {
     if ((error as Error).name === 'AbortError') throw error;
-    throw new ApiError(0, 'Serverga ulanib bo‘lmadi');
+    throw new ApiError(0, 'Network error');
   }
 
   if (response.status === 401 && !skipRefresh) {
@@ -151,7 +141,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       response = await execute();
     } else {
       if (!skipUnauthorizedHandler) unauthorizedHandler?.();
-      throw new ApiError(401, 'Sessiya muddati tugadi');
+      throw new ApiError(401, 'Session expired');
     }
   }
 

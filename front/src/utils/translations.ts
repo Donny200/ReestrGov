@@ -1,6 +1,5 @@
 import type { TranslatedText } from '../types/api';
 
-/** Uses the original value while a translation is absent or being retried. */
 export function localizedText(
   original: string | null | undefined,
   translations: Record<string, TranslatedText> | undefined,

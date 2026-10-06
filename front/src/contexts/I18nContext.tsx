@@ -59,7 +59,6 @@ export function I18nProvider({ children }: {children: ReactNode;}) {
         return fallback.code;
       });
     } catch {
-      // Language choices and interface text are owned by the reference service.
       setAvailable([]);
     }
   }, []);
@@ -132,8 +131,8 @@ export function I18nProvider({ children }: {children: ReactNode;}) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-navy-50" role="status" aria-label="Loading">
-        <span className="h-7 w-7 animate-spin rounded-full border-2 border-navy-200 border-t-teal-600" aria-hidden="true" />
+      <div className="flex min-h-dvh items-center justify-center" role="status" aria-label="Loading">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-brand motion-reduce:animate-none" aria-hidden="true" />
       </div>
     );
   }

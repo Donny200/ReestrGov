@@ -9,8 +9,4 @@ public record AddLanguageRequest(
         String code,
         @Size(max = 100, message = "Native name must be at most 100 characters")
         String nativeName
-) {
-    public AddLanguageRequest(String code) {
-        this(code, null);
-    }
-}
+) {}
