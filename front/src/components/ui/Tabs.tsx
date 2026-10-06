@@ -46,7 +46,7 @@ export function Tabs({ items, value, onChange, label, disabled = false, classNam
       ref={listRef}
       role="tablist"
       aria-label={label}
-      className={cn('no-scrollbar flex max-w-full gap-1.5 overflow-x-auto rounded-pill bg-surface p-1', className)}
+      className={cn('no-scrollbar relative flex max-w-full gap-1.5 overflow-x-auto rounded-pill bg-surface p-1', className)}
     >
       {items.map((item, index) => {
         const active = item.id === value;

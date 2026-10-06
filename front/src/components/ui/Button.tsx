@@ -41,11 +41,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
           <Loader2Icon className="animate-spin motion-reduce:animate-none" />
         </span>
       )}
-      <span className={cn('inline-flex items-center justify-center gap-2', loading && 'invisible')}>
+      <span className={cn('inline-flex items-center justify-center gap-2', loading && 'opacity-0')}>
         {icon && <span className="inline-flex shrink-0 [&_svg]:rtl:-scale-x-100" aria-hidden="true">{icon}</span>}
         {children}
       </span>
-      {arrow && <span className={cn(loading && 'invisible')}><ArrowBadge arrow={arrow} variant={variant ?? 'dark'} /></span>}
+      {arrow && <span className={cn(loading && 'opacity-0')}><ArrowBadge arrow={arrow} variant={variant ?? 'dark'} /></span>}
     </button>
   );
 });

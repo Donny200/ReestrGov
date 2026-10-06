@@ -32,7 +32,7 @@ export function SearchInput({ value, onChange, label, placeholder, className }: 
           type="button"
           onClick={() => onChange('')}
           aria-label={t('action.reset')}
-          className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-pill text-secondary transition-colors fine:hover:bg-surface-2 fine:hover:text-foreground"
+          className="absolute end-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-pill text-secondary transition-colors fine:hover:bg-surface-2 fine:hover:text-foreground"
         >
           <XIcon className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

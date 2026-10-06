@@ -141,7 +141,7 @@ export function Languages() {
             <label className="block">
               <span className="block text-sm font-medium text-foreground">{t('lang.searchPlaceholder')}</span>
               <span className="relative mt-2 block">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" aria-hidden="true" />
+                <SearchIcon className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" aria-hidden="true" />
                 <Input
                   value={query}
                   onChange={(event) => {
@@ -149,7 +149,7 @@ export function Languages() {
                     setSelectedCode('');
                   }}
                   placeholder={t('lang.searchPlaceholder')}
-                  className="pl-9"
+                  className="ps-9"
                 />
               </span>
             </label>
@@ -164,7 +164,7 @@ export function Languages() {
               ) : (results.data ?? []).length === 0 ? (
                 <EmptyState title={t('state.emptyTitle')} icon={<GlobeIcon className="h-6 w-6" aria-hidden="true" />} />
               ) : (
-                <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                <ul className="max-h-64 space-y-1 overflow-y-auto pe-1">
                   {(results.data ?? []).map((item) => {
                     const already = item.alreadyAdded || existingCodes.has(item.code.toLowerCase());
                     const selected = selectedCode === item.code;
