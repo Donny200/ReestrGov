@@ -26,7 +26,8 @@ public class DataInitializer implements CommandLineRunner {
     private static final List<String> ROLE_NAMES = Arrays.stream(SystemRole.values()).map(SystemRole::authority).toList();
     private static final List<String> ORG_ADMIN_PERMISSIONS = List.of(
             "ORGANIZATIONS_VIEW", "MODERATORS_VIEW", "MODERATORS_CREATE",
-            "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE");
+            "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE",
+            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE");
     private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW");
     private static final List<PermissionSeed> PERMISSION_SEEDS = List.of(
             new PermissionSeed("ORGANIZATIONS_VIEW", "View organizations", "Organization Management"),
@@ -84,7 +85,10 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("ROLES_ASSIGN", "Assign roles to users", "Role & Permission Management"),
 
             new PermissionSeed("REPORTS_VIEW", "View reports", "Reports"),
-            new PermissionSeed("REPORTS_MANAGE", "Review and resolve information reports", "Reports")
+            new PermissionSeed("REPORTS_MANAGE", "Review and resolve information reports", "Reports"),
+            new PermissionSeed("ORG_REPORTS_MANAGE", "Handle visitor reports for own organizations", "Reports"),
+
+            new PermissionSeed("ORG_ANALYTICS_VIEW", "View organization dashboard, catalog engagement and quality queue", "Analytics")
     );
 
     private final RoleRepository roleRepository;

@@ -60,8 +60,10 @@ class DataInitializerTest {
 
         new DataInitializer(roleRepository, permissionRepository).run();
 
-        assertThat(catalogue).hasSize(48);
+        assertThat(catalogue).hasSize(50);
         assertThat(catalogue.get("REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
+        assertThat(catalogue.get("ORG_REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
+        assertThat(catalogue.get("ORG_ANALYTICS_VIEW").getCategory()).isEqualTo("Analytics");
         assertThat(catalogue.values().stream().filter(p -> p.getCategory().equals("Function Management")).map(Permission::getCode))
                 .contains("FUNCTIONS_CREATE", "FUNCTIONS_EDIT", "FUNCTIONS_DEACTIVATE",
                         "FUNCTIONS_SUBMIT_REVIEW", "FUNCTIONS_REVIEW", "FUNCTIONS_PUBLISH",
@@ -80,6 +82,36 @@ class DataInitializerTest {
         verify(roleRepository).save(superAdmin);
         verify(roleRepository, never()).save(orgAdmin);
         verify(roleRepository, never()).save(moderator);
+    }
+
+    @Test
+    void freshOrgAdminGetsDashboardAndReportHandlingButModeratorStaysReadOnly() throws Exception {
+        Map<String, Permission> catalogue = new LinkedHashMap<>();
+        Role superAdmin = role(1L, "ROLE_SUPER_ADMIN", Set.of());
+        Role orgAdmin = role(2L, "ROLE_ORG_ADMIN", Set.of());
+        Role moderator = role(3L, "ROLE_MODERATOR", Set.of());
+
+        when(roleRepository.findByName("ROLE_SUPER_ADMIN")).thenReturn(Optional.of(superAdmin));
+        when(roleRepository.findByName("ROLE_ORG_ADMIN")).thenReturn(Optional.of(orgAdmin));
+        when(roleRepository.findByName("ROLE_MODERATOR")).thenReturn(Optional.of(moderator));
+        when(permissionRepository.findByCode(any())).thenAnswer(invocation ->
+                Optional.ofNullable(catalogue.get(invocation.getArgument(0))));
+        when(permissionRepository.save(any(Permission.class))).thenAnswer(invocation -> {
+            Permission saved = invocation.getArgument(0);
+            saved.setId((long) catalogue.size() + 1);
+            catalogue.put(saved.getCode(), saved);
+            return saved;
+        });
+        when(permissionRepository.findAll()).thenAnswer(invocation -> new ArrayList<>(catalogue.values()));
+
+        new DataInitializer(roleRepository, permissionRepository).run();
+
+        assertThat(orgAdmin.getPermissions()).extracting(Permission::getCode)
+                .contains("ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "REPORTS_VIEW");
+        assertThat(moderator.getPermissions()).extracting(Permission::getCode)
+                .containsExactlyInAnyOrder("ORGANIZATIONS_VIEW", "REPORTS_VIEW");
+        assertThat(superAdmin.getPermissions()).extracting(Permission::getCode)
+                .contains("ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE");
     }
 
     private Role role(Long id, String name, Set<Permission> permissions) {
