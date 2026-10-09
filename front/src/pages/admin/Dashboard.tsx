@@ -13,6 +13,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { useOrganizations } from '../../features/organizations/queries';
 import { useAdminFunctions } from '../../features/functions/queries';
 import { useReports } from '../../features/reports/queries';
+import { canViewReports } from '../../features/reports/reportOptions';
 import { needsRecheck } from '../../utils/verification';
 import { staffKeys } from '../../features/queryKeys';
 import { getModerators, getOrgAdmins } from '../../services/staffService';
@@ -29,7 +30,7 @@ export function Dashboard() {
   const canSeeOrgAdmins = isSuperAdmin;
   const canSeeModerators = hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN');
   const canSeeFunctions = hasPermission('FUNCTIONS_VIEW');
-  const canSeeReports = hasPermission('REPORTS_VIEW');
+  const canSeeReports = canViewReports(hasPermission);
 
   const organizations = useOrganizations();
   const functions = useAdminFunctions(canSeeFunctions);

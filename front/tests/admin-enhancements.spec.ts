@@ -8,8 +8,8 @@ const reportPermissions = [...allPermissions, 'REPORTS_VIEW', 'REPORTS_MANAGE'];
 function report(id: number, status: InformationReport['status'], contact: string | null): InformationReport {
   return {
     id, entityType: 'FUNCTION', entityId: 1, entityLabel: 'Service 1', organizationId: 10, category: 'FEES_OR_TIMING',
-    description: `The fee changed (report ${id}).`, contact, language: 'ru', status, resolutionNote: null, handledByUserId: null,
-    createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z',
+    description: `The fee changed (report ${id}).`, contact, contactAvailable: contact !== null, language: 'ru', status, resolutionNote: null,
+    handledByUserId: null, createdAt: '2026-10-01T09:00:00Z', updatedAt: '2026-10-01T09:00:00Z', serviceChangedSinceReport: null,
   };
 }
 
@@ -94,10 +94,11 @@ test('report reviewers change status privately and contact details disappear whe
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('visitor@example.uz')).toBeVisible();
   await expect(dialog.getByText('Changing the report status does not change the public page', { exact: false })).toBeVisible();
-  await dialog.getByLabel('Internal note').fill('Fee corrected in a new draft');
+  await dialog.getByLabel('Explanation').fill('Fee corrected in a new draft');
   await dialog.getByRole('button', { name: 'Mark resolved' }).click();
   await expect(dialog.getByText('Not stored: contact details are deleted when a report is closed.')).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Start review' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Reopen' })).toBeVisible();
+  await expect(dialog.getByText('Fee corrected in a new draft').first()).toBeVisible();
   expect(fixture.requests.find(request => request.path === '/api/reports/1/status')?.body).toEqual({ status: 'RESOLVED', note: 'Fee corrected in a new draft' });
   expect(fixture.requests.filter(request => request.path.startsWith('/api/functions') && request.method !== 'GET')).toEqual([]);
 });
@@ -113,6 +114,30 @@ test('report viewers without manage permission cannot change status and others c
   await page.goto('/admin/reports');
   await expect(page.getByText('You do not have permission for this action')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Reports' })).toHaveCount(0);
+});
+
+function lastRequest(requests: { path: string; query: URLSearchParams }[], path: string) {
+  const found = requests.filter(request => request.path === path).at(-1);
+  if (!found) throw new Error('No request to ' + path);
+  return found;
+}
+
+test('report handlers without the legacy view permission still reach the reports module and filter it', async ({ page }) => {
+  const fixture = await setup(page, { permissions: ['ORG_REPORTS_MANAGE'], role: 'ROLE_ORG_ADMIN', reports: [report(1, 'NEW', null), report(2, 'IN_PROGRESS', null)] });
+  await page.goto('/admin');
+  await page.getByRole('navigation', { name: 'Admin panel' }).first().getByRole('link', { name: 'Reports' }).click();
+  const main = page.getByRole('main');
+  await expect(main.getByRole('table').getByRole('row')).toHaveCount(3);
+  await chooseOption(main.getByRole('combobox', { name: 'Problem' }), 'FEES_OR_TIMING');
+  await expect.poll(() => lastRequest(fixture.requests, '/api/reports').query.get('category')).toBe('FEES_OR_TIMING');
+  await main.getByLabel('From', { exact: true }).fill('2026-10-01');
+  await main.getByLabel('To', { exact: true }).fill('2026-10-31');
+  await expect.poll(() => lastRequest(fixture.requests, '/api/reports').query.get('to')).toBe('2026-10-31');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  expect((await download).suggestedFilename()).toBe('visitor-reports.csv');
+  const exported = lastRequest(fixture.requests, '/api/reports/export').query;
+  expect([exported.get('category'), exported.get('from'), exported.get('to')]).toEqual(['FEES_OR_TIMING', '2026-10-01', '2026-10-31']);
 });
 
 test('organization editor validates contact details and verifies against the official source', async ({ page }) => {

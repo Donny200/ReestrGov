@@ -1,3 +1,4 @@
+import type { AnalyticsFilters, QualityQueueFilters } from '../types/analytics';
 import type { FunctionQuery } from '../types/api';
 import type { ReportQuery } from '../types/reports';
 
@@ -52,4 +53,14 @@ export const functionKeys = {
 export const reportKeys = {
   all: ['reports'] as const,
   list: (query: ReportQuery) => [...reportKeys.all, 'list', query] as const,
+  detail: (id: number) => [...reportKeys.all, 'detail', id] as const,
+  history: (id: number) => [...reportKeys.all, 'history', id] as const,
+};
+
+export const analyticsKeys = {
+  all: ['analytics'] as const,
+  summary: (filters: AnalyticsFilters) => [...analyticsKeys.all, 'summary', filters] as const,
+  engagement: (filters: AnalyticsFilters) => [...analyticsKeys.all, 'engagement', filters] as const,
+  quality: (filters: QualityQueueFilters) => [...analyticsKeys.all, 'quality', filters] as const,
+  reminders: (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'>) => [...analyticsKeys.all, 'reminders', filters] as const,
 };

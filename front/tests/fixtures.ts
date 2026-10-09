@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFunctions';
 import type { Organization, Region } from '../src/types/api';
-import type { InformationReport } from '../src/types/reports';
+import type { EngagementCounts, EngagementReport, OrganizationSummary, QualityQueue, QualityReminder } from '../src/types/analytics';
+import type { InformationReport, ReportHistoryEntry } from '../src/types/reports';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
 
 const MIGRATIONS = '../reference-service/src/main/resources/db/migration';
@@ -44,18 +45,47 @@ export interface FixtureOptions {
   records?: AdminFunction[]; permissions?: string[]; role?: string;
   autoAvailable?: boolean; realBackend?: string; token?: string;
   organizations?: Organization[]; regions?: Region[]; reports?: InformationReport[]; anonymous?: boolean;
+  summary?: OrganizationSummary; engagement?: EngagementReport; qualityQueue?: QualityQueue; reminders?: QualityReminder[];
+  organizationIds?: number[];
+}
+const csv = (rows: string[]) => '\uFEFF' + rows.join('\r\n') + '\r\n';
+export function counts(values: Partial<EngagementCounts> = {}): EngagementCounts {
+  return { CATALOG_VIEW: 0, SERVICE_VIEW: 0, OFFICIAL_LINK_CLICK: 0, PHONE_CLICK: 0, MAP_CLICK: 0, PRINT: 0, ...values };
+}
+export function summary(overrides: Partial<OrganizationSummary> = {}): OrganizationSummary {
+  return {
+    generatedAt: '2026-10-09T08:00:00Z',
+    period: { from: '2026-09-10', to: '2026-10-09', previousFrom: '2026-08-11', previousTo: '2026-09-09', timeZone: 'Asia/Tashkent' },
+    organizationId: null, categoryId: null,
+    services: { PUBLISHED: 12, PENDING_REVIEW: 2, DRAFT: 3, DEACTIVATED: 1 },
+    servicesNeedingAttention: 4,
+    attention: { VERIFICATION_OVERDUE: 2, SOURCE_MISSING: 1, INFORMATION_INCOMPLETE: 1, TRANSLATIONS_MISSING: 3 },
+    translationsChecked: true, activeLanguages: ['en', 'ru', 'uz'],
+    reports: { unresolved: 3, newReports: 2, inProgress: 1, receivedInPeriod: 4, receivedInPreviousPeriod: 2 },
+    openReminders: 1, ...overrides,
+  };
 }
 export async function setup(page: Page, options: FixtureOptions = {}) {
   const records = structuredClone(options.records ?? Array.from({ length: 11 }, (_, i) => card(i + 1, i < 3 ? 'PUBLISHED' : 'DRAFT')));
   const permissions = options.permissions ?? allPermissions;
   const role = options.role ?? 'ROLE_SUPER_ADMIN';
+  const organizationIds = options.organizationIds ?? [10];
   const user = { id: 42, firstName: 'Editor', lastName: 'Test', email: 'editor@example.test', phone: null,
-    role, enabled: true, mustChangePassword: false, organizationIds: [10], organizations: [organization], permissions };
+    role, enabled: true, mustChangePassword: false, organizationIds,
+    organizations: organizationIds.map(id => (id === organization.id ? organization : { id, name: 'Organization ' + id })), permissions };
   type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
     status?: InformationReport['status']; note?: string; instructions?: Record<string, string> };
   const organizations = structuredClone(options.organizations ?? [organization as Organization]);
   const reports = structuredClone(options.reports ?? []);
-  const requests: { method: string; path: string; body: Payload }[] = [];
+  const reminders = structuredClone(options.reminders ?? []);
+  const history = new Map<number, ReportHistoryEntry[]>();
+  reports.forEach(item => history.set(item.id, [{ id: item.id * 100, performedByUserId: null, performedBy: 'public:anonymous',
+    action: 'REPORT_RECEIVED', performedAt: item.createdAt, details: 'FUNCTION #' + item.entityId }]));
+  const canViewReports = permissions.includes('REPORTS_VIEW') || permissions.includes('ORG_REPORTS_MANAGE');
+  const canManageReports = permissions.includes('ORG_REPORTS_MANAGE') || (permissions.includes('REPORTS_VIEW') && permissions.includes('REPORTS_MANAGE'));
+  const canViewAnalytics = permissions.includes('ORG_ANALYTICS_VIEW');
+  const visible = (item: InformationReport) => ({ ...item, contact: canManageReports ? item.contact : null, contactAvailable: item.contact !== null });
+  const requests: { method: string; path: string; query: URLSearchParams; body: Payload }[] = [];
   const failures = new Map<string, number>();
   const audits: { id: number; functionId: number; performedBy: string; performedAt: string; action: string; details: string }[] = [];
   await page.addInitScript(() => window.localStorage.setItem('reestr-task-locale', 'en'));
@@ -64,7 +94,8 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     const path = new URL(request.url()).pathname;
     const method = request.method();
     const body = (request.postData() ? request.postDataJSON() : {}) as Payload;
-    requests.push({ method, path, body });
+    const query = new URL(request.url()).searchParams;
+    requests.push({ method, path, query, body });
     const reply = (json: unknown, status = 200) => route.fulfill({ status, json });
     const failureKey = method + ' ' + path;
     if (failures.has(failureKey)) {
@@ -97,20 +128,63 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     if (path === '/api/regions') return reply(options.regions ?? []);
     if (path.startsWith('/api/admin/')) return reply([]);
     if (path === '/api/reports' && method === 'POST') return reply({ received: true }, 202);
-    if (path === '/api/reports' && method === 'GET') {
-      if (!permissions.includes('REPORTS_VIEW')) return reply({ message: 'Forbidden' }, 403);
-      const query = new URL(request.url()).searchParams;
-      const status = query.get('status') ?? 'OPEN';
-      return reply(reports.filter(item => status === 'ALL' || (status === 'OPEN' ? ['NEW', 'IN_REVIEW'].includes(item.status) : item.status === status)));
+    if (path === '/api/analytics/events' && method === 'POST') return reply({}, 202);
+    if (path.startsWith('/api/analytics/')) {
+      if (!canViewAnalytics) return reply({ message: 'Forbidden' }, 403);
+      if (path === '/api/analytics/summary') return reply(options.summary ?? summary());
+      if (path === '/api/analytics/engagement') return options.engagement ? reply(options.engagement) : reply({ message: 'No engagement fixture' }, 500);
+      if (path === '/api/analytics/quality-queue') {
+        const queue = options.qualityQueue ?? { translationsChecked: true, activeLanguages: ['en'], items: [] };
+        const issue = query.get('issue');
+        const status = query.get('status');
+        return reply({ ...queue, items: queue.items.filter(item => (!issue || item.issues.some(found => found.type === issue)) && (!status || item.status === status)) });
+      }
+      if (path === '/api/analytics/reminders') return reply(reminders);
+      const acknowledged = path.match(/^\/api\/analytics\/reminders\/(\d+)\/acknowledge$/);
+      if (acknowledged && method === 'POST') {
+        const index = reminders.findIndex(item => item.id === Number(acknowledged[1]));
+        if (index < 0) return reply({ message: 'Reminder not found' }, 404);
+        reminders.splice(index, 1);
+        return route.fulfill({ status: 204 });
+      }
+      if (path.endsWith('/export')) {
+        return route.fulfill({ status: 200, contentType: 'text/csv;charset=UTF-8', body: csv(['service_id,service_name', '1,Service 1']),
+          headers: { 'Content-Disposition': 'attachment; filename="' + path.split('/')[3] + '-export.csv"', 'X-Export-Truncated': 'false' } });
+      }
     }
-    const reportMatch = path.match(/^\/api\/reports\/(\d+)\/status$/);
-    if (reportMatch && method === 'PUT') {
-      if (!permissions.includes('REPORTS_MANAGE')) return reply({ message: 'Forbidden' }, 403);
-      const found = reports.find(item => item.id === Number(reportMatch[1]));
-      if (!found || !body.status) return reply({ message: 'Not found' }, 404);
-      Object.assign(found, { status: body.status, resolutionNote: body.note || found.resolutionNote, handledByUserId: user.id,
-        contact: ['RESOLVED', 'DISMISSED'].includes(body.status) ? null : found.contact });
-      return reply(found);
+    if (path === '/api/reports/export' && method === 'GET') {
+      if (!canViewReports) return reply({ message: 'Forbidden' }, 403);
+      return route.fulfill({ status: 200, contentType: 'text/csv;charset=UTF-8', body: csv(['report_id,status', '1,NEW']),
+        headers: { 'Content-Disposition': 'attachment; filename="visitor-reports.csv"', 'X-Export-Truncated': 'false' } });
+    }
+    if (path === '/api/reports' && method === 'GET') {
+      if (!canViewReports) return reply({ message: 'Forbidden' }, 403);
+      const status = query.get('status') ?? 'OPEN';
+      const category = query.get('category');
+      const entityId = query.get('entityId');
+      return reply(reports.filter(item => (status === 'ALL' || (status === 'OPEN' ? ['NEW', 'IN_PROGRESS'].includes(item.status) : item.status === status))
+        && (!category || item.category === category) && (!entityId || item.entityId === Number(entityId))).map(visible));
+    }
+    const reportDetail = path.match(/^\/api\/reports\/(\d+)(?:\/(history|status))?$/);
+    if (reportDetail) {
+      if (!canViewReports) return reply({ message: 'Forbidden' }, 403);
+      const found = reports.find(item => item.id === Number(reportDetail[1]));
+      if (!found) return reply({ message: 'Report not found' }, 404);
+      if (reportDetail[2] === 'history') return reply(history.get(found.id) ?? []);
+      if (reportDetail[2] === 'status' && method === 'PUT') {
+        if (!canManageReports) return reply({ message: 'Forbidden' }, 403);
+        const note = (body.note ?? '').trim();
+        if (body.status === 'REJECTED' && !note) {
+          return reply({ message: 'note: An explanation is required to reject a report', fieldErrors: { note: 'An explanation is required to reject a report' } }, 400);
+        }
+        const previous = found.status;
+        Object.assign(found, { status: body.status, resolutionNote: note || found.resolutionNote, handledByUserId: user.id,
+          contact: body.status === 'RESOLVED' || body.status === 'REJECTED' ? null : found.contact });
+        history.get(found.id)?.push({ id: Date.now(), performedByUserId: user.id, performedBy: user.email, action: 'REPORT_STATUS_CHANGE',
+          performedAt: new Date().toISOString(), details: 'Report #' + found.id + ': ' + previous + ' -> ' + found.status + (note ? '\n' + note : '') });
+        return reply(visible(found));
+      }
+      return reply(visible(found));
     }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
     if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false });
@@ -172,5 +246,5 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits, organizations, reports };
+  return { records, requests, failures, audits, organizations, reports, reminders };
 }

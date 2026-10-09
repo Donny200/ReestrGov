@@ -13,6 +13,7 @@ import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { Toaster } from './components/ui/Toaster';
 import { useI18n } from './contexts/i18n';
+import { REPORT_VIEW_PERMISSIONS } from './features/reports/reportOptions';
 import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
@@ -87,7 +88,7 @@ export function App() {
                           <Route path="/admin/functions/:id" element={<PageBoundary><EditFunctionPage /></PageBoundary>} />
                           <Route path="/admin/functions/:id/edit" element={<PageBoundary><LegacyFunctionEditorRedirect /></PageBoundary>} />
                         </Route>
-                        <Route element={<RequireAuth anyPermissions={['REPORTS_VIEW']} />}>
+                        <Route element={<RequireAuth anyPermissions={REPORT_VIEW_PERMISSIONS} />}>
                           <Route path="/admin/reports" element={<PageBoundary><Reports /></PageBoundary>} />
                         </Route>
                         <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />

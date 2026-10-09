@@ -1,3 +1,4 @@
+import { REPORT_VIEW_PERMISSIONS } from '../../features/reports/reportOptions';
 import { FUNCTION_PERMISSIONS } from '../../utils/functionPermissions';
 import type { RoleName } from '../../types/api';
 
@@ -13,7 +14,7 @@ export interface AdminNavItem {
 
 export const adminNav: AdminNavItem[] = [
 { to: '/admin/functions', labelKey: 'nav.functions', icon: 'functions', roles: [], anyPermissions: FUNCTION_PERMISSIONS },
-{ to: '/admin/reports', labelKey: 'nav.reports', icon: 'reports', roles: [], anyPermissions: ['REPORTS_VIEW'] },
+{ to: '/admin/reports', labelKey: 'nav.reports', icon: 'reports', roles: [], anyPermissions: REPORT_VIEW_PERMISSIONS },
 {
   to: '/admin',
   labelKey: 'nav.dashboard',

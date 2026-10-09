@@ -115,6 +115,52 @@ function messageFor(status: number, payload: unknown): string {
   return `HTTP ${status}`;
 }
 
+export interface DownloadResult {
+  filename: string;
+  truncated: boolean;
+}
+
+function filenameOf(header: string | null): string | null {
+  if (!header) return null;
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encoded) return decodeURIComponent(encoded[1]);
+  const plain = header.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1] : null;
+}
+
+export async function apiDownload(path: string, query?: RequestOptions['query']): Promise<DownloadResult> {
+  const execute = () => fetch(buildUrl(path, query), { credentials: 'include' });
+  let response: Response;
+  try {
+    response = await execute();
+  } catch {
+    throw new ApiError(0, 'Network error');
+  }
+  if (response.status === 401) {
+    if (await refreshSession()) {
+      response = await execute();
+    } else {
+      unauthorizedHandler?.();
+      throw new ApiError(401, 'Session expired');
+    }
+  }
+  if (!response.ok) {
+    const payload = await parseBody(response);
+    throw new ApiError(response.status, messageFor(response.status, payload), extractFieldErrors(payload), payload);
+  }
+  const blob = await response.blob();
+  const filename = filenameOf(response.headers.get('Content-Disposition')) ?? 'export.csv';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { filename, truncated: response.headers.get('X-Export-Truncated') === 'true' };
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, skipRefresh, skipUnauthorizedHandler, signal } = options;
 
