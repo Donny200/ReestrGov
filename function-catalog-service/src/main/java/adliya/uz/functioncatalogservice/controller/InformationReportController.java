@@ -8,7 +8,9 @@ import adliya.uz.functioncatalogservice.dto.UpdateReportStatusRequest;
 import adliya.uz.functioncatalogservice.entity.InformationReport;
 import adliya.uz.functioncatalogservice.entity.ReportCategory;
 import adliya.uz.functioncatalogservice.entity.ReportEntityType;
+import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
+import adliya.uz.functioncatalogservice.service.CsvExport;
 import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,6 +37,7 @@ public class InformationReportController {
     private final ReportSubmissionService submissions;
     private final ReportReviewService reviews;
     private final ClientAddressResolver clientAddresses;
+    private final AnalyticsExportService exports;
 
     @PostMapping
     public ResponseEntity<Map<String, Boolean>> submit(@Valid @RequestBody SubmitReportRequest request, HttpServletRequest http) {
@@ -56,6 +59,22 @@ public class InformationReportController {
                 from, to, organizationId);
         boolean reveal = reviews.revealsContact();
         return reviews.list(query).stream().map(report -> ReportResponse.of(report, reveal, null)).toList();
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize(VIEW)
+    public ResponseEntity<byte[]> export(@RequestParam(required = false) String status,
+                                         @RequestParam(required = false) ReportCategory category,
+                                         @RequestParam(required = false) ReportEntityType entityType,
+                                         @RequestParam(required = false) Long entityId,
+                                         @RequestParam(required = false) Long serviceCategoryId,
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                         @RequestParam(required = false) Long organizationId,
+                                         @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter) {
+        ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, serviceCategoryId,
+                from, to, organizationId);
+        return CsvExport.attachment(exports.reports(query, delimiter));
     }
 
     @GetMapping("/{id}")

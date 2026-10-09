@@ -3,6 +3,7 @@ package adliya.uz.functioncatalogservice;
 import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.FunctionCategoryRequest;
 import adliya.uz.functioncatalogservice.entity.*;
+import adliya.uz.functioncatalogservice.repository.EngagementDailyCountRepository;
 import adliya.uz.functioncatalogservice.repository.InformationReportRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
 import adliya.uz.functioncatalogservice.repository.QualityReminderRepository;
@@ -20,13 +21,16 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -37,12 +41,15 @@ import java.util.Set;
 import static adliya.uz.functioncatalogservice.support.TestPrincipals.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,6 +78,7 @@ class OrganizationDashboardPostgresTest {
     @Autowired OrgFunctionRepository cards;
     @Autowired FunctionCategoryService categories;
     @Autowired InformationReportRepository reports;
+    @Autowired EngagementDailyCountRepository engagementRows;
     @Autowired QualityReminderRepository reminderRows;
     @Autowired QualityReminderService reminders;
     @Autowired JdbcTemplate jdbc;
@@ -287,11 +295,69 @@ class OrganizationDashboardPostgresTest {
         mvc.perform(post("/api/analytics/reminders/999/acknowledge").with(authentication(ANALYST_10))).andExpect(status().isNotFound());
     }
 
+    @Test void exportsApplyTheSameScopeAsTheDashboardAndNeutralizeFormulas() throws Exception {
+        OrgFunction own = published("Own card", 10L, null, null);
+        OrgFunction foreign = published("Foreign card", 20L, null, null);
+        LocalDate day = LocalDate.of(2026, 3, 2);
+        engagement(day, EngagementEventType.SERVICE_VIEW, 10L, own.getId(), 4);
+        engagement(day, EngagementEventType.MAP_CLICK, 10L, own.getId(), 1);
+        engagement(day, EngagementEventType.SERVICE_VIEW, 20L, foreign.getId(), 9);
+        engagement(day.plusDays(1), EngagementEventType.CATALOG_VIEW, null, null, 50);
+
+        String services = csv(get("/api/analytics/engagement/export").param("from", "2026-03-01").param("to", "2026-03-03")
+                .with(authentication(ANALYST_10)));
+        assertThat(services.split("\r\n")).containsExactly(
+                "\uFEFFperiod_from,period_to,subject,service_id,service_name,organization_id,category,catalog_view,service_view,official_link_click,phone_click,map_click,print",
+                "2026-03-01,2026-03-03,SERVICE," + own.getId() + ",Own card,10,,0,4,0,0,1,0");
+        String daily = csv(get("/api/analytics/engagement/export").param("from", "2026-03-01").param("to", "2026-03-03")
+                .param("breakdown", "DAILY").param("delimiter", "SEMICOLON").with(authentication(ANALYST_10)));
+        assertThat(daily.split("\r\n")).containsExactly("\uFEFFdate;catalog_view;service_view;official_link_click;phone_click;map_click;print",
+                "2026-03-01;0;0;0;0;0;0", "2026-03-02;0;4;0;0;1;0", "2026-03-03;0;0;0;0;0;0");
+        String everything = csv(get("/api/analytics/engagement/export").param("from", "2026-03-01").param("to", "2026-03-03")
+                .with(authentication(ADMIN)));
+        assertThat(everything).contains("Own card", "Foreign card", "CATALOG");
+        mvc.perform(get("/api/analytics/engagement/export").param("organizationId", "20").with(authentication(ANALYST_10)))
+                .andExpect(status().isForbidden());
+
+        String queue = csv(get("/api/analytics/quality-queue/export").with(authentication(ANALYST_10)));
+        assertThat(queue).contains("Own card", "/admin/functions/" + own.getId(), "SOURCE_MISSING,MISSING").doesNotContain("Foreign card");
+        assertThat(queue.split("\r\n")).hasSize(4);
+        mvc.perform(get("/api/analytics/quality-queue/export").param("organizationId", "20").with(authentication(ANALYST_10)))
+                .andExpect(status().isForbidden());
+
+        report(own, ReportStatus.NEW, "2026-03-02T12:00:00+05:00", "=HYPERLINK(\"http://evil.example\",\"open\")", "visitor@example.uz");
+        report(foreign, ReportStatus.NEW, "2026-03-02T12:00:00+05:00", "Foreign organization report", "other@example.uz");
+        var viewer = staff(11, List.of(10L), "REPORTS_VIEW", "ORG_REPORTS_MANAGE");
+        String visitorReports = csv(get("/api/reports/export").param("status", "ALL").with(authentication(viewer)));
+        assertThat(visitorReports).contains("\"'=HYPERLINK(\"\"http://evil.example\"\",\"\"open\"\")\"", "2026-03-02 12:00:00")
+                .doesNotContain("visitor@example.uz", "Foreign organization report", "contact");
+        mvc.perform(get("/api/reports/export").param("organizationId", "20").with(authentication(viewer)))
+                .andExpect(status().isForbidden());
+        assertThat(csv(get("/api/reports/export").param("status", "ALL").with(authentication(superAdmin("REPORTS_VIEW")))))
+                .contains("Foreign organization report");
+    }
+
+    private String csv(MockHttpServletRequestBuilder request) throws Exception {
+        return mvc.perform(request).andExpect(status().isOk())
+                .andExpect(content().contentType("text/csv;charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition", startsWith("attachment; filename=")))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+    }
+
+    private void engagement(LocalDate day, EngagementEventType type, Long organizationId, Long functionId, long count) {
+        engagementRows.save(EngagementDailyCount.builder().activityDate(day).eventType(type).organizationId(organizationId)
+                .functionId(functionId).eventCount(count).build());
+    }
+
     private void report(OrgFunction card, ReportStatus status, String createdAt) {
+        report(card, status, createdAt, "Report about " + card.getName(), null);
+    }
+
+    private void report(OrgFunction card, ReportStatus status, String createdAt, String description, String contact) {
         Instant created = OffsetDateTime.parse(createdAt).toInstant();
         reports.save(InformationReport.builder().entityType(ReportEntityType.FUNCTION).entityId(card.getId())
                 .entityLabel(card.getName()).organizationId(card.getOrganizationId()).category(ReportCategory.OTHER)
-                .description("Report about " + card.getName()).status(status).createdAt(created).updatedAt(created).build());
+                .description(description).contact(contact).status(status).createdAt(created).updatedAt(created).build());
     }
 
     private void translate(OrgFunction card, String language) {

@@ -82,6 +82,12 @@ public class EngagementInsightsService {
         return subjects(new Filter(scope, categoryId), period).stream().sorted(MOST_VIEWED).toList();
     }
 
+    public List<SeriesPoint> daily(Long organizationId, Long categoryId, ReportingPeriod period) {
+        OrganizationScope scope = access.scope(organizationId);
+        List<DailyCount> rows = scope.empty() ? List.of() : counts.daily(new Filter(scope, categoryId), period.from(), period.to());
+        return series(rows, period, Granularity.DAY);
+    }
+
     @Transactional
     public int purgeExpired() {
         LocalDate cutoff = LocalDate.now(properties.getZone()).minusDays(properties.getRetention().toDays());

@@ -6,6 +6,8 @@ import adliya.uz.functioncatalogservice.dto.QualityQueue;
 import adliya.uz.functioncatalogservice.dto.QualityReminderResponse;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.QualityIssueType;
+import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
+import adliya.uz.functioncatalogservice.service.CsvExport;
 import adliya.uz.functioncatalogservice.service.EngagementInsightsService;
 import adliya.uz.functioncatalogservice.service.OrganizationSummaryService;
 import adliya.uz.functioncatalogservice.service.QualityReminderService;
@@ -38,6 +40,7 @@ public class OrganizationInsightsController {
     private final OrganizationSummaryService summaries;
     private final ServiceQualityService quality;
     private final QualityReminderService reminders;
+    private final AnalyticsExportService exports;
 
     @GetMapping("/summary")
     @Operation(summary = "Dashboard summary",
@@ -62,6 +65,19 @@ public class OrganizationInsightsController {
         return engagement.report(organizationId, categoryId, from, to, granularity);
     }
 
+    @GetMapping("/engagement/export")
+    @Operation(summary = "Export catalog engagement as CSV",
+            description = "UTF-8 CSV with a byte order mark. SERVICES lists totals per service, organization page and catalog; "
+                    + "DAILY lists totals per calendar day. Counts are views and link clicks, not applications.")
+    public ResponseEntity<byte[]> exportEngagement(@RequestParam(required = false) Long organizationId,
+                                                   @RequestParam(required = false) Long categoryId,
+                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                                   @RequestParam(defaultValue = "SERVICES") AnalyticsExportService.Breakdown breakdown,
+                                                   @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter) {
+        return CsvExport.attachment(exports.engagement(organizationId, categoryId, from, to, breakdown, delimiter));
+    }
+
     @GetMapping("/quality-queue")
     @Operation(summary = "Service cards that need attention",
             description = "Cards with overdue verification, a missing or unusable official source, missing required fields, "
@@ -71,6 +87,16 @@ public class OrganizationInsightsController {
                                      @RequestParam(required = false) QualityIssueType issue,
                                      @RequestParam(required = false) FunctionStatus status) {
         return quality.queue(organizationId, categoryId, issue, status);
+    }
+
+    @GetMapping("/quality-queue/export")
+    @Operation(summary = "Export the quality queue as CSV", description = "One row per card and issue, with the editor path.")
+    public ResponseEntity<byte[]> exportQualityQueue(@RequestParam(required = false) Long organizationId,
+                                                     @RequestParam(required = false) Long categoryId,
+                                                     @RequestParam(required = false) QualityIssueType issue,
+                                                     @RequestParam(required = false) FunctionStatus status,
+                                                     @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter) {
+        return CsvExport.attachment(exports.qualityQueue(organizationId, categoryId, issue, status, delimiter));
     }
 
     @GetMapping("/reminders")

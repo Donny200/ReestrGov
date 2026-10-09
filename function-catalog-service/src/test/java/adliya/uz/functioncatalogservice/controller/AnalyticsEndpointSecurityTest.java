@@ -5,6 +5,7 @@ import adliya.uz.functioncatalogservice.config.SecurityConfig;
 import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
 import adliya.uz.functioncatalogservice.security.JwtAuthenticationFilter;
 import adliya.uz.functioncatalogservice.security.SimpleJwtService;
+import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.EngagementInsightsService;
 import adliya.uz.functioncatalogservice.service.EngagementTrackingService;
@@ -42,6 +43,7 @@ class AnalyticsEndpointSecurityTest {
     @MockitoBean OrganizationSummaryService summaries;
     @MockitoBean ServiceQualityService quality;
     @MockitoBean QualityReminderService reminders;
+    @MockitoBean AnalyticsExportService exports;
     @MockitoBean SimpleJwtService jwt;
 
     @Test void anonymousVisitorsMayOnlyPostAggregateEvents() throws Exception {
@@ -64,13 +66,14 @@ class AnalyticsEndpointSecurityTest {
     @Test void dashboardReadsAndReminderAcknowledgementRequireTheAnalyticsPermission() throws Exception {
         var editor = user("editor").authorities(new SimpleGrantedAuthority("FUNCTIONS_EDIT"), new SimpleGrantedAuthority("REPORTS_VIEW"));
         var analyst = user("analyst").authorities(new SimpleGrantedAuthority("ORG_ANALYTICS_VIEW"));
-        for (String path : List.of("/api/analytics/summary", "/api/analytics/quality-queue", "/api/analytics/reminders")) {
+        for (String path : List.of("/api/analytics/summary", "/api/analytics/quality-queue", "/api/analytics/reminders",
+                "/api/analytics/engagement/export", "/api/analytics/quality-queue/export")) {
             mvc.perform(get(path)).andExpect(status().isForbidden());
             mvc.perform(get(path).with(editor)).andExpect(status().isForbidden());
         }
         mvc.perform(post("/api/analytics/reminders/5/acknowledge")).andExpect(status().isForbidden());
         mvc.perform(post("/api/analytics/reminders/5/acknowledge").with(editor)).andExpect(status().isForbidden());
-        verifyNoInteractions(summaries, quality, reminders);
+        verifyNoInteractions(summaries, quality, reminders, exports);
 
         for (String path : List.of("/api/analytics/summary", "/api/analytics/quality-queue", "/api/analytics/reminders")) {
             mvc.perform(get(path).with(analyst)).andExpect(status().isOk());

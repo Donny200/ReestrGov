@@ -6,7 +6,9 @@ import adliya.uz.functioncatalogservice.entity.*;
 import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
 import adliya.uz.functioncatalogservice.security.JwtAuthenticationFilter;
 import adliya.uz.functioncatalogservice.security.SimpleJwtService;
+import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
+import adliya.uz.functioncatalogservice.service.CsvExport;
 import adliya.uz.functioncatalogservice.service.FunctionVerificationService;
 import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
@@ -24,6 +26,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -45,6 +48,7 @@ class ReportAndVerificationEndpointSecurityTest {
     @MockitoBean ReportSubmissionService submissions;
     @MockitoBean ReportReviewService reviews;
     @MockitoBean FunctionVerificationService verification;
+    @MockitoBean AnalyticsExportService exports;
     @MockitoBean SimpleJwtService jwt;
 
     @Test void anonymousVisitorCanSubmitAndTheForwardedClientAddressIsUsed() throws Exception {
@@ -108,6 +112,25 @@ class ReportAndVerificationEndpointSecurityTest {
         mvc.perform(get("/api/reports/1/history").with(user("editor").authorities(new SimpleGrantedAuthority("FUNCTIONS_VIEW"))))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(reviews);
+    }
+
+    @Test void reportExportUsesTheViewPermissionAndReturnsAnExcelFriendlyAttachment() throws Exception {
+        mvc.perform(get("/api/reports/export")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/reports/export").with(user("editor").authorities(new SimpleGrantedAuthority("FUNCTIONS_VIEW"))))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(exports);
+
+        when(exports.reports(any(), eq(CsvExport.Delimiter.SEMICOLON))).thenReturn(new CsvExport.File("visitor-reports_2026-03-01.csv",
+                CsvExport.write(CsvExport.Delimiter.SEMICOLON, List.of("report_id"), List.of(List.of(1L))), true));
+        mvc.perform(get("/api/reports/export").param("delimiter", "SEMICOLON").param("status", "ALL")
+                        .with(user("viewer").authorities(new SimpleGrantedAuthority("REPORTS_VIEW"))))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("text/csv;charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition", startsWith("attachment; filename=")))
+                .andExpect(header().string("X-Export-Truncated", "true"))
+                .andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(get("/api/reports/export").param("delimiter", "TAB")
+                .with(user("viewer").authorities(new SimpleGrantedAuthority("REPORTS_VIEW")))).andExpect(status().isBadRequest());
     }
 
     @Test void unknownStatusValuesAreRejected() throws Exception {
