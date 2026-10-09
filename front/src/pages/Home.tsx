@@ -15,6 +15,7 @@ import { ErrorState, NoResultsState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicOrganizations } from '../features/organizations/queries';
 import { usePublicFunctions } from '../features/functions/queries';
+import { usePageView } from '../features/engagement/tracking';
 import { useRegions } from '../features/reference/queries';
 import { localizedText } from '../utils/translations';
 
@@ -27,6 +28,7 @@ export function Home() {
   const organizations = usePublicOrganizations();
   const functions = usePublicFunctions();
   const regions = useRegions();
+  usePageView('CATALOG_VIEW');
 
   const orgList = useMemo(() => organizations.data ?? [], [organizations.data]);
   const fnList = useMemo(() => functions.data ?? [], [functions.data]);

@@ -15,6 +15,7 @@ import { ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicFunction } from '../features/functions/queries';
 import { usePublicOrganizations } from '../features/organizations/queries';
+import { useEngagementTracker, usePageView, usePrintTracking } from '../features/engagement/tracking';
 import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { SaveServiceButton } from '../features/saved/SaveServiceButton';
 import type { CatalogFunction } from '../types/api';
@@ -41,6 +42,10 @@ export function FunctionDetail() {
 
   const item = usePublicFunction(functionId);
   const organizations = usePublicOrganizations();
+  const track = useEngagementTracker();
+  const serviceId = item.data?.id;
+  usePageView(serviceId === undefined ? null : 'SERVICE_VIEW', serviceId);
+  usePrintTracking(serviceId ?? null);
 
   const organization = (organizations.data ?? []).find((org) => org.id === item.data?.organizationId);
   const functionName = localizedText(item.data?.name, item.data?.nameTranslations, locale) ?? item.data?.name ?? '';
@@ -126,7 +131,7 @@ export function FunctionDetail() {
                 </dl>
                 {organization && hasContactDetails(organization.contact) && (
                   <div className="border-t border-line pt-5">
-                    <OrganizationContactDetails contact={organization.contact} />
+                    <OrganizationContactDetails contact={organization.contact} onLinkOpen={(type) => track({ type, serviceId: item.data?.id })} />
                   </div>
                 )}
               </CardBody>
@@ -134,7 +139,7 @@ export function FunctionDetail() {
             <Card>
               <CardHeader title={t('verification.title', 'Information check')} />
               <CardBody>
-                <VerificationNotice info={item.data} />
+                <VerificationNotice info={item.data} onSourceOpen={() => track({ type: 'OFFICIAL_LINK_CLICK', serviceId: item.data?.id })} />
               </CardBody>
             </Card>
             <p className="border-s-2 border-line ps-4 text-sm leading-6 text-secondary">{t('app.demoNotice')}</p>

@@ -19,10 +19,10 @@ function Row({ icon, label, children }: { icon: ReactNode; label: string; childr
   );
 }
 
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+function ExternalLink({ href, children, onOpen }: { href: string; children: ReactNode; onOpen?: () => void }) {
   const { t } = useI18n();
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-sm font-medium text-accent-text underline-offset-4 fine:hover:underline">
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={onOpen} onAuxClick={onOpen} className="inline-flex items-center gap-1.5 rounded-sm font-medium text-accent-text underline-offset-4 fine:hover:underline">
       {children}
       <ExternalLinkIcon className="h-3.5 w-3.5 shrink-0 print:hidden" aria-hidden="true" />
       <span className="sr-only"> ({t('a11y.opensInNewTab', 'opens in a new tab')})</span>
@@ -30,7 +30,12 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
   );
 }
 
-export function OrganizationContactDetails({ contact }: { contact: OrganizationContact | null | undefined }) {
+interface OrganizationContactDetailsProps {
+  contact: OrganizationContact | null | undefined;
+  onLinkOpen?: (type: 'PHONE_CLICK' | 'MAP_CLICK') => void;
+}
+
+export function OrganizationContactDetails({ contact, onLinkOpen }: OrganizationContactDetailsProps) {
   const { t } = useI18n();
   const regions = useRegions();
   const notProvided = <span className="text-secondary">{t('contact.notProvided', 'Not provided yet')}</span>;
@@ -51,7 +56,7 @@ export function OrganizationContactDetails({ contact }: { contact: OrganizationC
       </Row>
       <Row icon={<PhoneIcon />} label={t('contact.phone', 'Phone')}>
         {contact?.phone ? (
-          <a href={telephoneHref(contact.phone)} className="rounded-sm font-medium tabular-nums underline-offset-4 fine:hover:underline">
+          <a href={telephoneHref(contact.phone)} onClick={() => onLinkOpen?.('PHONE_CLICK')} className="rounded-sm font-medium tabular-nums underline-offset-4 fine:hover:underline">
             {contact.phone}
           </a>
         ) : (
@@ -65,9 +70,9 @@ export function OrganizationContactDetails({ contact }: { contact: OrganizationC
         <Row icon={<MapIcon />} label={t('contact.map', 'Map')}>
           <span className="flex flex-col gap-1">
             {coordinates && (
-              <ExternalLink href={openStreetMapUrl(coordinates)}>{t('contact.openStreetMap', 'Open in OpenStreetMap')}</ExternalLink>
+              <ExternalLink href={openStreetMapUrl(coordinates)} onOpen={() => onLinkOpen?.('MAP_CLICK')}>{t('contact.openStreetMap', 'Open in OpenStreetMap')}</ExternalLink>
             )}
-            {contact?.mapUrl && <ExternalLink href={contact.mapUrl}>{t('contact.mapLink', 'Open the map link')}</ExternalLink>}
+            {contact?.mapUrl && <ExternalLink href={contact.mapUrl} onOpen={() => onLinkOpen?.('MAP_CLICK')}>{t('contact.mapLink', 'Open the map link')}</ExternalLink>}
             {coordinates && (
               <span className="text-xs tabular-nums text-secondary">{coordinates.latitude}, {coordinates.longitude}</span>
             )}

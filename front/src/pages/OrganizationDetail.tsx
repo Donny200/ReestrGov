@@ -13,6 +13,7 @@ import { EmptyState, ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicOrganization } from '../features/organizations/queries';
 import { usePublicFunctions } from '../features/functions/queries';
+import { useEngagementTracker, usePageView } from '../features/engagement/tracking';
 import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { organizationInitials } from '../utils/format';
 import { localizedText } from '../utils/translations';
@@ -24,6 +25,9 @@ export function OrganizationDetail() {
 
   const organization = usePublicOrganization(organizationId);
   const functions = usePublicFunctions({ organizationId });
+  const track = useEngagementTracker();
+  const trackedOrganization = organization.data?.id;
+  usePageView(trackedOrganization === undefined ? null : 'CATALOG_VIEW', undefined, trackedOrganization);
   const organizationName = localizedText(organization.data?.name, organization.data?.nameTranslations, locale);
   const organizationDescription = localizedText(organization.data?.description, organization.data?.descriptionTranslations, locale);
   const functionList = functions.data ?? [];
@@ -68,13 +72,13 @@ export function OrganizationDetail() {
           <Card>
             <CardHeader title={t('contact.title', 'Contact and visiting information')} />
             <CardBody>
-              <OrganizationContactDetails contact={organization.data.contact} />
+              <OrganizationContactDetails contact={organization.data.contact} onLinkOpen={(type) => track({ type, organizationId: trackedOrganization })} />
             </CardBody>
           </Card>
           <Card>
             <CardHeader title={t('verification.title', 'Information check')} />
             <CardBody>
-              <VerificationNotice info={organization.data} />
+              <VerificationNotice info={organization.data} onSourceOpen={() => track({ type: 'OFFICIAL_LINK_CLICK', organizationId: trackedOrganization })} />
             </CardBody>
           </Card>
         </Reveal>

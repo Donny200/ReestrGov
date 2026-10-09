@@ -39,7 +39,7 @@ const visitedOrganization: Organization = {
 };
 
 function writes(requests: { method: string; path: string }[]) {
-  return requests.filter(request => request.method !== 'GET' && !request.path.startsWith('/api/auth/'));
+  return requests.filter(request => request.method !== 'GET' && !request.path.startsWith('/api/auth/') && request.path !== '/api/analytics/events');
 }
 
 async function openPublic(page: Page, path: string) {

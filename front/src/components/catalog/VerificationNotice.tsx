@@ -4,13 +4,15 @@ import { formatDate } from '../../utils/format';
 import type { VerificationInfo } from '../../types/api';
 import { cn } from '../../lib/cn';
 
-export function OfficialSourceLink({ url, className }: { url: string; className?: string }) {
+export function OfficialSourceLink({ url, className, onOpen }: { url: string; className?: string; onOpen?: () => void }) {
   const { t } = useI18n();
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={onOpen}
+      onAuxClick={onOpen}
       className={cn('inline-flex max-w-full items-center gap-1.5 rounded-sm font-medium text-accent-text underline-offset-4 wrap-anywhere fine:hover:underline', className)}
     >
       <ExternalLinkIcon className="h-3.5 w-3.5 shrink-0 print:hidden" aria-hidden="true" />
@@ -21,7 +23,7 @@ export function OfficialSourceLink({ url, className }: { url: string; className?
   );
 }
 
-export function VerificationNotice({ info }: { info: VerificationInfo }) {
+export function VerificationNotice({ info, onSourceOpen }: { info: VerificationInfo; onSourceOpen?: () => void }) {
   const { t, locale } = useI18n();
   const status = info.verificationStatus ?? 'UNVERIFIED';
   const verified = status === 'VERIFIED' || status === 'DUE';
@@ -41,7 +43,7 @@ export function VerificationNotice({ info }: { info: VerificationInfo }) {
         />
         <span>{text}</span>
       </p>
-      {info.officialSourceUrl && <OfficialSourceLink url={info.officialSourceUrl} className="text-sm" />}
+      {info.officialSourceUrl && <OfficialSourceLink url={info.officialSourceUrl} className="text-sm" onOpen={onSourceOpen} />}
     </div>
   );
 }
