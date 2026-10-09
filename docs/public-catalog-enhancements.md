@@ -35,9 +35,12 @@
 | Метод и путь | Доступ |
 |---|---|
 | `POST /api/reports` | Анонимно, с ограничением частоты |
-| `GET /api/reports?status=OPEN\|ALL\|NEW\|IN_REVIEW\|RESOLVED\|DISMISSED&entityType=&entityId=` | `REPORTS_VIEW` и организация пользователя |
-| `GET /api/reports/{id}` | `REPORTS_VIEW` и организация пользователя |
-| `PUT /api/reports/{id}/status` | `REPORTS_VIEW` + `REPORTS_MANAGE` и организация пользователя |
+| `GET /api/reports?status=OPEN\|ALL\|NEW\|IN_PROGRESS\|RESOLVED\|REJECTED&entityType=&entityId=` | `REPORTS_VIEW` или `ORG_REPORTS_MANAGE` и организация пользователя |
+| `GET /api/reports/{id}` | `REPORTS_VIEW` или `ORG_REPORTS_MANAGE` и организация пользователя |
+| `PUT /api/reports/{id}/status` | `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE` и организация пользователя |
+
+Статусы `IN_REVIEW` и `DISMISSED` заменены на `IN_PROGRESS` и `REJECTED`, полный процесс описан в
+[organization-analytics.md](organization-analytics.md).
 | `POST /api/functions/{id}/verify` | `FUNCTIONS_REVIEW` и организация пользователя; нужна ссылка на официальный источник |
 | `POST /api/organizations/{id}/verify` | `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации; нужна ссылка на официальный источник |
 
@@ -81,7 +84,8 @@
   В памяти хранится только SHA-256 от адреса с солью, создаваемой при запуске. IP-адреса в базу не пишутся.
   Шлюз Spring Cloud Gateway 4.3 без `trusted-proxies` не добавляет X-Forwarded-заголовки и пропускает `X-Real-IP` без изменений.
   Порт шлюза 8082 не следует публиковать в production, иначе клиент сможет подменить заголовок; общие и объектные лимиты продолжат действовать.
-- Контакт видят только сотрудники с `REPORTS_VIEW` в своей организации. Он удаляется при статусе `RESOLVED` или `DISMISSED`.
+- Контакт видят только сотрудники, которые обрабатывают сообщения своей организации (`ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`).
+  Сотрудник только с `REPORTS_VIEW` видит лишь отметку, что контакт оставлен. Контакт удаляется при статусе `RESOLVED` или `REJECTED`.
 - Аудит: `REPORT_RECEIVED` с исполнителем `public:anonymous` без текста и контакта, `REPORT_STATUS_CHANGE` с автором из JWT.
 - Сообщения никогда не меняют карточку или организацию. Исправление идёт обычным редакционным процессом.
 

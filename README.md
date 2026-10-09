@@ -107,7 +107,7 @@ ReestrGov — это реестр государственных услуг («�
 | Порядок | ID маршрута | Предикаты пути | Цель |
 | --- | --- | --- | --- |
 | 1 | `reference-service` | `/api/regions/**`, `/api/interface-translations/**`, `/api/translation-keys/**` | `lb://reference-service` |
-| 2 | `function-catalog-service` | `/api/functions/**`, `/api/reports/**` | `lb://function-catalog-service` |
+| 2 | `function-catalog-service` | `/api/functions/**`, `/api/reports/**`, `/api/analytics/**` | `lb://function-catalog-service` |
 | 3 | `identity-service` | `/api/**` | `lb://identity-service` |
 
 Шлюз намеренно сделан тонким. Проверка JWT и авторизация выполняются внутри каждого нижестоящего сервиса, а не на шлюзе, и ограничение частоты запросов не настроено. Если для развёртывания требуется проверка токена на уровне шлюза или ограничитель частоты запросов, добавьте `GlobalFilter` или фильтр `RequestRateLimiter` в модуль шлюза и задокументируйте изменение здесь.
@@ -118,7 +118,7 @@ ReestrGov — это реестр государственных услуг («�
 | --- | --- |
 | identity-service | `/api/auth` (login, refresh, logout, me, change-password), `/api/user`, `/api/admin/moderators`, `/api/admin/org-admins`, `/api/organizations` (вкл. `/{id}/verify`), `/api/public/organizations`, `/api/roles` (вкл. `/assign`, `/{id}/permissions`), `/api/permissions`, `/api/languages` (вкл. `/catalog`) |
 | reference-service | `/api/regions`, `/api/interface-translations/{languageCode}` (а также `/exact`, `/missing`, `/coverage`), `/api/translation-keys` |
-| function-catalog-service | `/api/functions` (публичный список и детали, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/verify`, `/{id}/audit`, `/import`, `/translation-capabilities`), `/api/functions/categories`, `/api/reports` (анонимный `POST`, `GET`, `GET /{id}`, `PUT /{id}/status`) |
+| function-catalog-service | `/api/functions` (публичный список и детали, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/verify`, `/{id}/audit`, `/import`, `/translation-capabilities`), `/api/functions/categories`, `/api/reports` (анонимный `POST`, `GET`, `GET /{id}`, `GET /{id}/history`, `PUT /{id}/status`, `GET /export`), `/api/analytics` (анонимный `POST /events`, `GET /summary`, `/engagement`, `/engagement/export`, `/quality-queue`, `/quality-queue/export`, `/reminders`, `POST /reminders/{id}/acknowledge`) |
 
 Каждый сервис предоставляет Swagger UI по адресу `http://localhost:<port>/swagger` и документ OpenAPI по адресу `/v3/api-docs`.
 
@@ -128,7 +128,7 @@ SPA находится в `front/` и организовано по функци
 
 - `src/components/ui` — дизайн-система (Button, Card, DataTable, Field, Input, Select, Modal, DropdownMenu, Tooltip, Badge, Skeleton, Toolbar, ThemeToggle), построенная на токенах Tailwind, примитивах Radix и class-variance-authority.
 - `src/features/*` содержит хуки TanStack Query, схемы zod и диалоги для каждого домена (functions, organizations, staff, roles, legacy users, languages, reference).
-- `src/pages` содержит публичные страницы (`/`, `/organizations/:id`, `/functions/:id`, `/finder`, `/saved`), `/login` и административную консоль (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/reports`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
+- `src/pages` содержит публичные страницы (`/`, `/organizations/:id`, `/functions/:id`, `/finder`, `/saved`), `/login` и административную консоль (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/reports`, `/admin/organization-dashboard`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
 - `src/contexts` предоставляет аутентификацию, тему (светлая, тёмная, системная) и i18n. Словарь UI загружается из reference-service для каждой локали, и каждая подпись разрешается через `t('key', 'fallback')`.
 - `src/services/http.ts` — единственный HTTP-клиент. Он всегда отправляет `credentials: 'include'`, никогда не хранит токены, сопоставляет `fieldErrors` бэкенда с ошибками формы и выполняет единственное одновременное обновление токена при `401`.
 
@@ -337,8 +337,8 @@ npm run preview      # serve dist/ locally
 - **Один общий HMAC-ключ.** identity-service подписывает токены ключом `JWT_SECRET`; reference-service и function-catalog-service проверяют их локально тем же ключом, поэтому сетевой вызов на каждый запрос не требуется.
 - **Обязательная смена пароля.** Подписанный токен содержит `mustChangePassword`. identity-service ограничивает такие сессии профилем, сменой пароля, выходом и входом; остальные сервисы отклоняют токены, у которых этот флаг равен true или отсутствует. Успешная смена выдаёт новые cookie.
 - **Отключённые пользователи отклоняются** на уровне JWT-фильтра, даже если у них есть действительный токен.
-- **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW`, а их статус меняется с `REPORTS_VIEW` + `REPORTS_MANAGE`; обе проверки и ограничение по организации выполняются на бэкенде. Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации.
-- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; IP-адреса не сохраняются. Порт шлюза 8082 не следует публиковать в production, иначе клиент сможет подменить `X-Real-IP` в обход Nginx.
+- **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW` или `ORG_REPORTS_MANAGE`, а их статус меняется с `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`. Панель организации, очередь качества, напоминания и выгрузки требуют `ORG_ANALYTICS_VIEW`. Все проверки и ограничение по организации выполняются на бэкенде (см. [docs/organization-analytics.md](docs/organization-analytics.md)). Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации.
+- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports` и `POST /api/analytics/events`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза 8082 не следует публиковать в production, иначе клиент сможет подменить `X-Real-IP` в обход Nginx.
 - **Никаких встроенных учётных данных.** Первый администратор берётся из `BOOTSTRAP_SUPER_ADMIN_EMAIL` и `BOOTSTRAP_SUPER_ADMIN_PASSWORD`; identity-service отказывается запускаться без них, пока не существует ни одного `SUPER_ADMIN`. Демо-аккаунты существуют только при `APP_DEMO_USERS_ENABLED=true` в непродакшен-профиле.
 - **Ротация секретов.** При изменении `JWT_SECRET` или пароля базы данных переразверните все три сервиса с данными вместе и отзовите действующие refresh-сессии (`UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` в базе identity), чтобы старый refresh-токен не мог выпустить заново подписанный access-токен.
 
@@ -358,14 +358,14 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 | --- | --- | --- |
 | identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена | нет |
 | reference-service | Модульные тесты и тесты веб-слоя | нет |
-| function-catalog-service | Модульные тесты, `CatalogPostgresTest` (Testcontainers PostgreSQL) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
+| function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
 
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 (cd identity-service && mvn -q test)
 (cd reference-service && mvn -q test)
 (cd function-catalog-service && mvn -q test)                                           # needs Docker
-(cd function-catalog-service && mvn -q test -Dtest='!CatalogPostgresTest,!AdminFunctionsBrowserIT')   # without Docker
+(cd function-catalog-service && mvn -q test -Dtest='!*PostgresTest,!AdminFunctionsBrowserIT')   # without Docker
 ```
 
 `function-catalog-service/src/test/resources/docker-java.properties` фиксирует версию Docker API 1.44 для клиента Testcontainers, поскольку Docker Engine 29 требует её.
@@ -375,7 +375,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 ```shell
 cd front
 npx playwright install chromium   # once
-npm run test                      # UI suite: admin-functions, primitives, public-catalog and admin-enhancements specs against route mocks
+npm run test                      # UI suite: admin-functions, primitives, public-catalog, admin-enhancements, engagement-tracking and organization-dashboard specs against route mocks
 npm run test:backend              # real-backend suite, driven by AdminFunctionsBrowserIT
 ```
 
