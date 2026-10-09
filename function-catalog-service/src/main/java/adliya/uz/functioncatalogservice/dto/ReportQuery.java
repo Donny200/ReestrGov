@@ -1,22 +1,30 @@
 package adliya.uz.functioncatalogservice.dto;
 
+import adliya.uz.functioncatalogservice.entity.ReportCategory;
 import adliya.uz.functioncatalogservice.entity.ReportEntityType;
 import adliya.uz.functioncatalogservice.entity.ReportStatus;
 
+import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
 
-public record ReportQuery(Set<ReportStatus> statuses, ReportEntityType entityType, Long entityId) {
+public record ReportQuery(Set<ReportStatus> statuses, ReportCategory category, ReportEntityType entityType, Long entityId,
+                          LocalDate from, LocalDate to, Long organizationId) {
 
-    public static ReportQuery of(String status, ReportEntityType entityType, Long entityId) {
+    public ReportQuery {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("from must not be after to");
+        }
+    }
+
+    public static Set<ReportStatus> statuses(String status) {
         String value = status == null || status.isBlank() ? "OPEN" : status.trim().toUpperCase(Locale.ROOT);
-        Set<ReportStatus> statuses = switch (value) {
+        return switch (value) {
             case "OPEN" -> ReportStatus.OPEN;
             case "ALL" -> EnumSet.allOf(ReportStatus.class);
             default -> EnumSet.of(parse(value));
         };
-        return new ReportQuery(statuses, entityType, entityId);
     }
 
     private static ReportStatus parse(String value) {

@@ -54,6 +54,7 @@ public class OrgFunctionService {
     private final AuditWriter audit;
     private final AuditLogRepository auditLogs;
     private final IdentityOrganizationClient organizations;
+    private final ReportReviewService reports;
 
     public List<OrgFunction> getAll() {
         return orgFunctionRepository.findAllByStatus(PUBLISHED);
@@ -147,6 +148,7 @@ public class OrgFunctionService {
             access.requireOrganization(request.organizationId());
             organizations.requireExisting(request.organizationId());
             function.setOrganizationId(request.organizationId());
+            reports.reassignFunctionReports(function.getId(), request.organizationId());
             changed.add("organizationId");
         }
         if (request.requirements() != null && !request.requirements().equals(function.getRequirements())) {

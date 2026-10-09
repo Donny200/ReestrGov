@@ -13,7 +13,7 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor
 public class AuditWriter {
-    private static final String REPORT_ENTITY = "INFORMATION_REPORT";
+    public static final String REPORT_ENTITY = "INFORMATION_REPORT";
     private final AuditLogRepository repository;
     private final CatalogAccess access;
 
@@ -82,9 +82,10 @@ public class AuditWriter {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void reportStatusChanged(InformationReport report, ReportStatus previous) {
+    public void reportStatusChanged(InformationReport report, ReportStatus previous, String explanation) {
+        String transition = "Report #" + report.getId() + ": " + previous + " -> " + report.getStatus();
         write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_STATUS_CHANGE,
-                "Report #" + report.getId() + ": " + previous + " -> " + report.getStatus(), actor(), relatedFunctions(report));
+                explanation == null ? transition : transition + "\n" + explanation, actor(), relatedFunctions(report));
     }
 
     private static Set<Long> relatedFunctions(InformationReport report) {

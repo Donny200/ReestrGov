@@ -29,13 +29,15 @@ class VerificationAndReportStateTest {
     }
 
     @Test void reportStatusesFollowTheReviewWorkflow() {
-        assertThat(ReportStatus.NEW.canMoveTo(ReportStatus.IN_REVIEW)).isTrue();
-        assertThat(ReportStatus.NEW.canMoveTo(ReportStatus.DISMISSED)).isTrue();
-        assertThat(ReportStatus.IN_REVIEW.canMoveTo(ReportStatus.RESOLVED)).isTrue();
-        assertThat(ReportStatus.IN_REVIEW.canMoveTo(ReportStatus.NEW)).isFalse();
-        assertThat(ReportStatus.RESOLVED.canMoveTo(ReportStatus.IN_REVIEW)).isTrue();
-        assertThat(ReportStatus.RESOLVED.canMoveTo(ReportStatus.DISMISSED)).isFalse();
-        assertThat(ReportStatus.DISMISSED.canMoveTo(ReportStatus.DISMISSED)).isFalse();
+        assertThat(ReportStatus.NEW.canMoveTo(ReportStatus.IN_PROGRESS)).isTrue();
+        assertThat(ReportStatus.NEW.canMoveTo(ReportStatus.REJECTED)).isTrue();
+        assertThat(ReportStatus.NEW.canMoveTo(ReportStatus.RESOLVED)).isTrue();
+        assertThat(ReportStatus.IN_PROGRESS.canMoveTo(ReportStatus.RESOLVED)).isTrue();
+        assertThat(ReportStatus.IN_PROGRESS.canMoveTo(ReportStatus.NEW)).isFalse();
+        assertThat(ReportStatus.RESOLVED.canMoveTo(ReportStatus.IN_PROGRESS)).isTrue();
+        assertThat(ReportStatus.RESOLVED.canMoveTo(ReportStatus.REJECTED)).isFalse();
+        assertThat(ReportStatus.REJECTED.canMoveTo(ReportStatus.RESOLVED)).isFalse();
+        assertThat(ReportStatus.REJECTED.canMoveTo(ReportStatus.REJECTED)).isFalse();
     }
 
     @Test void reportCategoriesMatchTheReportedEntity() {

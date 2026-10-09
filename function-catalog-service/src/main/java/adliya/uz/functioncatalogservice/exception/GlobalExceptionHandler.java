@@ -31,6 +31,13 @@ public class GlobalExceptionHandler {
                 .body(body(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
     }
 
+    @ExceptionHandler(InvalidFieldException.class)
+    public ResponseEntity<Map<String, Object>> invalidField(InvalidFieldException ex) {
+        Map<String, Object> body = body(HttpStatus.BAD_REQUEST, ex.field() + ": " + ex.getMessage());
+        body.put("fieldErrors", Map.of(ex.field(), ex.getMessage()));
+        return ResponseEntity.badRequest().body(body);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> forbidden(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, ex.getMessage());

@@ -265,14 +265,14 @@ class CatalogEnhancementsPostgresTest {
         mvc.perform(put("/api/reports/{id}/status", foreignReport.getId()).with(authentication(manager))
                 .contentType("application/json").content("{\"status\":\"RESOLVED\"}")).andExpect(status().isForbidden());
         mvc.perform(put("/api/reports/{id}/status", ownReport.getId()).with(authentication(manager))
-                        .contentType("application/json").content("{\"status\":\"IN_REVIEW\"}"))
+                        .contentType("application/json").content("{\"status\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.contact").value("+998 71 200-00-00"));
         mvc.perform(put("/api/reports/{id}/status", ownReport.getId()).with(authentication(manager))
                         .contentType("application/json").content("{\"status\":\"RESOLVED\",\"note\":\"Fee corrected in the next revision\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.contact").doesNotExist())
                 .andExpect(jsonPath("$.handledByUserId").value(42));
         mvc.perform(put("/api/reports/{id}/status", ownReport.getId()).with(authentication(manager))
-                .contentType("application/json").content("{\"status\":\"DISMISSED\"}")).andExpect(status().isConflict());
+                .contentType("application/json").content("{\"status\":\"REJECTED\",\"note\":\"Duplicate\"}")).andExpect(status().isConflict());
         mvc.perform(get("/api/reports?status=RESOLVED").with(authentication(viewer))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
         mvc.perform(get("/api/reports?status=bogus").with(authentication(viewer))).andExpect(status().isBadRequest());
@@ -281,7 +281,7 @@ class CatalogEnhancementsPostgresTest {
         assertThat(service.history(own.getId())).extracting(AuditLogResponse::action)
                 .contains(AuditAction.REPORT_RECEIVED, AuditAction.REPORT_STATUS_CHANGE);
         assertThat(service.getById(own.getId()).getStatus()).isEqualTo(PUBLISHED);
-        assertThat(reviews.list(ReportQuery.of("all", null, null))).hasSize(3);
+        assertThat(reviews.list(new ReportQuery(ReportQuery.statuses("all"), null, null, null, null, null, null))).hasSize(3);
     }
 
     private OrgFunction published(String name, Long organization) {

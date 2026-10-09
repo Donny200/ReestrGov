@@ -4,18 +4,18 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public enum ReportStatus {
-    NEW, IN_REVIEW, RESOLVED, DISMISSED;
+    NEW, IN_PROGRESS, RESOLVED, REJECTED;
 
-    public static final Set<ReportStatus> OPEN = EnumSet.of(NEW, IN_REVIEW);
+    public static final Set<ReportStatus> OPEN = EnumSet.of(NEW, IN_PROGRESS);
 
     public boolean closed() {
-        return this == RESOLVED || this == DISMISSED;
+        return this == RESOLVED || this == REJECTED;
     }
 
     public boolean canMoveTo(ReportStatus target) {
         if (target == this) {
             return false;
         }
-        return closed() ? target == IN_REVIEW : target != NEW;
+        return closed() ? target == IN_PROGRESS : target != NEW;
     }
 }

@@ -6,6 +6,7 @@ import adliya.uz.functioncatalogservice.entity.*;
 import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
 import adliya.uz.functioncatalogservice.security.JwtAuthenticationFilter;
 import adliya.uz.functioncatalogservice.security.SimpleJwtService;
+import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.FunctionVerificationService;
 import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
@@ -32,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {InformationReportController.class, FunctionVerificationController.class},
         properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false"})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, ReportProperties.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, ReportProperties.class, ClientAddressResolver.class})
 class ReportAndVerificationEndpointSecurityTest {
 
     private static final String VALID_REPORT = """
@@ -88,6 +89,31 @@ class ReportAndVerificationEndpointSecurityTest {
         mvc.perform(put("/api/reports/1/status").contentType("application/json").content("{\"status\":\"RESOLVED\",\"note\":\"Fixed\"}")
                         .with(user("manager").authorities(new SimpleGrantedAuthority("REPORTS_VIEW"), new SimpleGrantedAuthority("REPORTS_MANAGE"))))
                 .andExpect(status().isOk());
+    }
+
+    @Test void organizationReportManagersCanViewAndChangeStatusWithoutLegacyPermissions() throws Exception {
+        var manager = user("org-manager").authorities(new SimpleGrantedAuthority("ORG_REPORTS_MANAGE"));
+        when(reviews.list(any())).thenReturn(List.of(report()));
+        when(reviews.changeStatus(eq(1L), eq(ReportStatus.REJECTED), eq("Not a catalog error"))).thenReturn(report());
+        mvc.perform(get("/api/reports").with(manager)).andExpect(status().isOk());
+        mvc.perform(get("/api/reports/1/history").with(manager)).andExpect(status().isOk());
+        mvc.perform(put("/api/reports/1/status").contentType("application/json")
+                        .content("{\"status\":\"REJECTED\",\"note\":\"Not a catalog error\"}").with(manager))
+                .andExpect(status().isOk());
+    }
+
+    @Test void legacyManagePermissionStillRequiresViewPermission() throws Exception {
+        mvc.perform(put("/api/reports/1/status").contentType("application/json").content("{\"status\":\"RESOLVED\"}")
+                .with(user("legacy").authorities(new SimpleGrantedAuthority("REPORTS_MANAGE")))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/reports/1/history").with(user("editor").authorities(new SimpleGrantedAuthority("FUNCTIONS_VIEW"))))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(reviews);
+    }
+
+    @Test void unknownStatusValuesAreRejected() throws Exception {
+        mvc.perform(put("/api/reports/1/status").contentType("application/json").content("{\"status\":\"DISMISSED\"}")
+                .with(user("org-manager").authorities(new SimpleGrantedAuthority("ORG_REPORTS_MANAGE")))).andExpect(status().isBadRequest());
+        verifyNoInteractions(reviews);
     }
 
     @Test void verificationRequiresReviewPermission() throws Exception {
