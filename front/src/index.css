@@ -166,6 +166,7 @@
     --status-danger-fg: #b3261e;
     --status-danger-bg: #fbe9e7;
     --backdrop: rgba(17, 17, 17, 0.3);
+    --chart-mark: #b15f2c;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
   }
@@ -204,6 +205,7 @@
     --status-danger-fg: #ff8a80;
     --status-danger-bg: #3b1210;
     --backdrop: rgba(0, 0, 0, 0.55);
+    --chart-mark: #c4703a;
   }
 
   html {

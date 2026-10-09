@@ -53,7 +53,7 @@ export function FunctionVerification({ record, dirty, busy }: Props) {
   }[status];
 
   return (
-    <Card>
+    <Card id="function-verification">
       <CardHeader title={t('verification.title', 'Information check')} actions={<VerificationBadge status={status} />} />
       <CardBody className="space-y-4">
         <dl className="space-y-3 text-sm">

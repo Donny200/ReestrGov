@@ -22,6 +22,9 @@ const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module)
 const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
 const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
 const Reports = lazy(() => import('./pages/admin/Reports').then((module) => ({ default: module.Reports })));
+const OrganizationDashboard = lazy(() =>
+  import('./pages/admin/OrganizationDashboard').then((module) => ({ default: module.OrganizationDashboard })),
+);
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings').then((module) => ({ default: module.SecuritySettings })));
@@ -90,6 +93,9 @@ export function App() {
                         </Route>
                         <Route element={<RequireAuth anyPermissions={REPORT_VIEW_PERMISSIONS} />}>
                           <Route path="/admin/reports" element={<PageBoundary><Reports /></PageBoundary>} />
+                        </Route>
+                        <Route element={<RequireAuth anyPermissions={['ORG_ANALYTICS_VIEW']} />}>
+                          <Route path="/admin/organization-dashboard" element={<PageBoundary><OrganizationDashboard /></PageBoundary>} />
                         </Route>
                         <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />
                         <Route path="/admin/organizations" element={<PageBoundary><Organizations /></PageBoundary>} />

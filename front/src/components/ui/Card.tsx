@@ -7,11 +7,12 @@ interface CardProps {
   className?: string;
   children: ReactNode;
   size?: 'sm' | 'lg';
+  id?: string;
 }
 
-export function Card({ className, children, size = 'sm' }: CardProps) {
+export function Card({ className, children, size = 'sm', id }: CardProps) {
   return (
-    <section className={cn('border border-line bg-background', size === 'lg' ? 'rounded-card' : 'rounded-card-sm', className)}>
+    <section id={id} className={cn('border border-line bg-background', size === 'lg' ? 'rounded-card' : 'rounded-card-sm', id && 'scroll-mt-24', className)}>
       {children}
     </section>
   );

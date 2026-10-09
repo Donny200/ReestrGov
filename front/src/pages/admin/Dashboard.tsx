@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BuildingIcon, FileTextIcon, FlagIcon, PlusIcon, ShieldAlertIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import { BellIcon, BuildingIcon, FileTextIcon, FlagIcon, PlusIcon, ShieldAlertIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge, FunctionStatusBadge, StatusBadge } from '../../components/ui/Badge';
@@ -12,6 +12,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useOrganizations } from '../../features/organizations/queries';
 import { useAdminFunctions } from '../../features/functions/queries';
+import { useReminders } from '../../features/analytics/queries';
 import { useReports } from '../../features/reports/queries';
 import { canViewReports } from '../../features/reports/reportOptions';
 import { needsRecheck } from '../../utils/verification';
@@ -31,12 +32,14 @@ export function Dashboard() {
   const canSeeModerators = hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN');
   const canSeeFunctions = hasPermission('FUNCTIONS_VIEW');
   const canSeeReports = canViewReports(hasPermission);
+  const canSeeAnalytics = hasPermission('ORG_ANALYTICS_VIEW');
 
   const organizations = useOrganizations();
   const functions = useAdminFunctions(canSeeFunctions);
   const orgAdmins = useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins, enabled: canSeeOrgAdmins });
   const moderators = useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators, enabled: canSeeModerators });
   const openReports = useReports({ status: 'OPEN' }, canSeeReports);
+  const reminders = useReminders({}, canSeeAnalytics);
 
   const orgList = useMemo(() => organizations.data ?? [], [organizations.data]);
   const fnList = useMemo(() => functions.data ?? [], [functions.data]);
@@ -113,6 +116,16 @@ export function Dashboard() {
       to: '/admin/reports',
       loading: openReports.isPending,
       visible: canSeeReports,
+    },
+    {
+      key: 'reminders',
+      label: t('reminders.title', 'Reminders'),
+      value: (reminders.data ?? []).length,
+      hint: t('reminders.dashboardHint', 'Quality issues to follow up'),
+      icon: BellIcon,
+      to: '/admin/organization-dashboard#reminders',
+      loading: reminders.isPending,
+      visible: canSeeAnalytics,
     },
   ].filter((card) => card.visible);
 

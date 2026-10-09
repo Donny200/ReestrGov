@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ComponentType, type CSSPropert
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   ArrowLeftIcon,
+  BarChart3Icon,
   BuildingIcon,
   DatabaseIcon,
   FileTextIcon,
@@ -42,6 +43,7 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
   legacy: DatabaseIcon,
   lock: LockIcon,
   reports: FlagIcon,
+  analytics: BarChart3Icon,
 };
 
 const TOP_BAR_HEIGHT = '4.5rem';

@@ -32,6 +32,7 @@ export default {
         'accent-text': 'var(--accent-text)',
         'ink-10': 'var(--ink-10)',
         'ink-30': 'var(--ink-30)',
+        'chart-mark': 'var(--chart-mark)',
       },
       fontFamily: {
         sans: ['Onest', 'system-ui', '"Segoe UI"', 'Roboto', 'sans-serif'],

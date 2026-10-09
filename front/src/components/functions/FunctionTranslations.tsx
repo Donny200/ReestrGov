@@ -124,7 +124,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
     busy || blocked || (!dirty && !missing) || !form.name.trim() || (Boolean(record.description) && !form.description.trim());
 
   return (
-    <Card>
+    <Card id="function-translations">
       <CardHeader title={t('fnAdmin.translations')} description={t('fnAdmin.translationsHint', 'Localized name and description for every active language.')} />
       <CardBody className="space-y-5">
         <FunctionAutoTranslate record={record} language={language} blocked={blocked || dirty} busy={busy} />

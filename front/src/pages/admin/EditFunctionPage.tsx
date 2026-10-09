@@ -23,6 +23,7 @@ import { FunctionErrorState } from '../../features/functions/FunctionErrorState'
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useAdminFunction, useFunctionOptions, useUpdateFunction } from '../../features/functions/queries';
 import { formOf, functionFormSchema, toUpdateRequest } from '../../features/functions/schema';
+import { useHashTarget } from '../../hooks/useHashTarget';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
@@ -72,6 +73,7 @@ export function EditFunctionPage() {
 
 function FunctionEditor({ record }: { record: AdminFunction }) {
   const { t, locale } = useI18n();
+  useHashTarget();
   const { hasPermission } = useAuth();
   const options = useFunctionOptions();
   const update = useUpdateFunction(record.id);
@@ -153,7 +155,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <div className="min-w-0 space-y-6">
-          <Card>
+          <Card id="function-details">
             <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
             {options.isPending ? (
               <CardBody><SkeletonText lines={8} /></CardBody>
