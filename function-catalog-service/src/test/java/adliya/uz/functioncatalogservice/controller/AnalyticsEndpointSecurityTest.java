@@ -8,6 +8,9 @@ import adliya.uz.functioncatalogservice.security.SimpleJwtService;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.EngagementInsightsService;
 import adliya.uz.functioncatalogservice.service.EngagementTrackingService;
+import adliya.uz.functioncatalogservice.service.OrganizationSummaryService;
+import adliya.uz.functioncatalogservice.service.QualityReminderService;
+import adliya.uz.functioncatalogservice.service.ServiceQualityService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -17,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Duration;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -35,6 +39,9 @@ class AnalyticsEndpointSecurityTest {
     @Autowired MockMvc mvc;
     @MockitoBean EngagementTrackingService tracking;
     @MockitoBean EngagementInsightsService engagement;
+    @MockitoBean OrganizationSummaryService summaries;
+    @MockitoBean ServiceQualityService quality;
+    @MockitoBean QualityReminderService reminders;
     @MockitoBean SimpleJwtService jwt;
 
     @Test void anonymousVisitorsMayOnlyPostAggregateEvents() throws Exception {
@@ -52,6 +59,25 @@ class AnalyticsEndpointSecurityTest {
         verifyNoInteractions(engagement);
         mvc.perform(get("/api/analytics/engagement").param("from", "2026-01-01").param("to", "2026-01-31")
                 .with(user("analyst").authorities(new SimpleGrantedAuthority("ORG_ANALYTICS_VIEW")))).andExpect(status().isOk());
+    }
+
+    @Test void dashboardReadsAndReminderAcknowledgementRequireTheAnalyticsPermission() throws Exception {
+        var editor = user("editor").authorities(new SimpleGrantedAuthority("FUNCTIONS_EDIT"), new SimpleGrantedAuthority("REPORTS_VIEW"));
+        var analyst = user("analyst").authorities(new SimpleGrantedAuthority("ORG_ANALYTICS_VIEW"));
+        for (String path : List.of("/api/analytics/summary", "/api/analytics/quality-queue", "/api/analytics/reminders")) {
+            mvc.perform(get(path)).andExpect(status().isForbidden());
+            mvc.perform(get(path).with(editor)).andExpect(status().isForbidden());
+        }
+        mvc.perform(post("/api/analytics/reminders/5/acknowledge")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/analytics/reminders/5/acknowledge").with(editor)).andExpect(status().isForbidden());
+        verifyNoInteractions(summaries, quality, reminders);
+
+        for (String path : List.of("/api/analytics/summary", "/api/analytics/quality-queue", "/api/analytics/reminders")) {
+            mvc.perform(get(path).with(analyst)).andExpect(status().isOk());
+        }
+        mvc.perform(post("/api/analytics/reminders/5/acknowledge").with(analyst)).andExpect(status().isNoContent());
+        verify(reminders).acknowledge(5L);
+        mvc.perform(get("/api/analytics/quality-queue").param("status", "ARCHIVED").with(analyst)).andExpect(status().isBadRequest());
     }
 
     @Test void throttledEventsReturnRetryAfter() throws Exception {

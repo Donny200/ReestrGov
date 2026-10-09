@@ -281,7 +281,7 @@ class CatalogEnhancementsPostgresTest {
         assertThat(service.history(own.getId())).extracting(AuditLogResponse::action)
                 .contains(AuditAction.REPORT_RECEIVED, AuditAction.REPORT_STATUS_CHANGE);
         assertThat(service.getById(own.getId()).getStatus()).isEqualTo(PUBLISHED);
-        assertThat(reviews.list(new ReportQuery(ReportQuery.statuses("all"), null, null, null, null, null, null))).hasSize(3);
+        assertThat(reviews.list(new ReportQuery(ReportQuery.statuses("all"), null, null, null, null, null, null, null))).hasSize(3);
     }
 
     private OrgFunction published(String name, Long organization) {

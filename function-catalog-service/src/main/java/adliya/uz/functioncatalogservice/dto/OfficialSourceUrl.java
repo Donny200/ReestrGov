@@ -22,7 +22,7 @@ public final class OfficialSourceUrl {
         return value;
     }
 
-    private static boolean isWebLink(String value) {
+    public static boolean isWebLink(String value) {
         try {
             URI uri = new URI(value);
             String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);

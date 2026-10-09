@@ -1,10 +1,13 @@
 package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.config.AnalyticsProperties;
+import adliya.uz.functioncatalogservice.dto.OrganizationSummary;
 import adliya.uz.functioncatalogservice.dto.ReportQuery;
+import adliya.uz.functioncatalogservice.dto.ReportingPeriod;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
 import adliya.uz.functioncatalogservice.entity.AuditLog;
 import adliya.uz.functioncatalogservice.entity.InformationReport;
+import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.ReportEntityType;
 import adliya.uz.functioncatalogservice.entity.ReportStatus;
 import adliya.uz.functioncatalogservice.exception.InvalidFieldException;
@@ -13,6 +16,8 @@ import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
 import adliya.uz.functioncatalogservice.repository.InformationReportRepository;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import adliya.uz.functioncatalogservice.security.OrganizationScope;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -54,8 +59,20 @@ public class ReportReviewService {
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))).getContent();
     }
 
-    public long count(Specification<InformationReport> filter, OrganizationScope scope) {
-        return scope.empty() ? 0 : reports.count(filter.and(inScope(scope)));
+    public OrganizationSummary.ReportCounts counts(OrganizationScope scope, Long serviceCategoryId, ReportingPeriod period) {
+        if (scope.empty()) {
+            return new OrganizationSummary.ReportCounts(0, 0, 0, 0, 0);
+        }
+        Specification<InformationReport> base = serviceCategoryId == null
+                ? inScope(scope)
+                : inScope(scope).and(inServiceCategory(serviceCategoryId));
+        ReportingPeriod previous = period.previous();
+        return new OrganizationSummary.ReportCounts(
+                reports.count(base.and(withStatus(ReportStatus.OPEN))),
+                reports.count(base.and(withStatus(Set.of(ReportStatus.NEW)))),
+                reports.count(base.and(withStatus(Set.of(ReportStatus.IN_PROGRESS)))),
+                reports.count(base.and(createdWithin(period))),
+                reports.count(base.and(createdWithin(previous))));
     }
 
     public InformationReport get(Long id) {
@@ -113,8 +130,7 @@ public class ReportReviewService {
     }
 
     private Specification<InformationReport> specification(ReportQuery query, OrganizationScope scope) {
-        Specification<InformationReport> specification = inScope(scope)
-                .and((root, criteria, builder) -> root.get("status").in(query.statuses()));
+        Specification<InformationReport> specification = inScope(scope).and(withStatus(query.statuses()));
         if (query.category() != null) {
             specification = specification.and((root, criteria, builder) -> builder.equal(root.get("category"), query.category()));
         }
@@ -123,6 +139,9 @@ public class ReportReviewService {
         }
         if (query.entityId() != null) {
             specification = specification.and((root, criteria, builder) -> builder.equal(root.get("entityId"), query.entityId()));
+        }
+        if (query.serviceCategoryId() != null) {
+            specification = specification.and(inServiceCategory(query.serviceCategoryId()));
         }
         if (query.from() != null) {
             Instant start = query.from().atStartOfDay(analytics.getZone()).toInstant();
@@ -133,6 +152,26 @@ public class ReportReviewService {
             specification = specification.and((root, criteria, builder) -> builder.lessThan(root.get("createdAt"), end));
         }
         return specification;
+    }
+
+    private Specification<InformationReport> createdWithin(ReportingPeriod period) {
+        Instant start = period.start(analytics.getZone());
+        Instant end = period.endExclusive(analytics.getZone());
+        return (root, criteria, builder) -> builder.and(
+                builder.greaterThanOrEqualTo(root.get("createdAt"), start), builder.lessThan(root.get("createdAt"), end));
+    }
+
+    private static Specification<InformationReport> withStatus(Set<ReportStatus> statuses) {
+        return (root, criteria, builder) -> root.get("status").in(statuses);
+    }
+
+    private static Specification<InformationReport> inServiceCategory(Long categoryId) {
+        return (root, criteria, builder) -> {
+            Subquery<Long> cards = criteria.subquery(Long.class);
+            Root<OrgFunction> card = cards.from(OrgFunction.class);
+            cards.select(card.get("id")).where(builder.equal(card.get("functionCategory").get("id"), categoryId));
+            return builder.and(builder.equal(root.get("entityType"), ReportEntityType.FUNCTION), root.get("entityId").in(cards));
+        };
     }
 
     private static Specification<InformationReport> inScope(OrganizationScope scope) {

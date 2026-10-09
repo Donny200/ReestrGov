@@ -48,10 +48,12 @@ public class InformationReportController {
                                      @RequestParam(required = false) ReportCategory category,
                                      @RequestParam(required = false) ReportEntityType entityType,
                                      @RequestParam(required = false) Long entityId,
+                                     @RequestParam(required = false) Long serviceCategoryId,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                      @RequestParam(required = false) Long organizationId) {
-        ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, from, to, organizationId);
+        ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, serviceCategoryId,
+                from, to, organizationId);
         boolean reveal = reviews.revealsContact();
         return reviews.list(query).stream().map(report -> ReportResponse.of(report, reveal, null)).toList();
     }
