@@ -82,10 +82,10 @@ public class QualityReminderService {
     }
 
     @Transactional(readOnly = true)
-    public List<QualityReminderResponse> active(Long organizationId, Long categoryId) {
+    public QualityReminderResponse.Page active(Long organizationId, Long categoryId) {
         OrganizationScope scope = access.scope(organizationId);
         if (scope.empty()) {
-            return List.of();
+            return new QualityReminderResponse.Page(0, List.of());
         }
         List<QualityReminder> found = scope.allOrganizations()
                 ? reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc()
@@ -94,11 +94,13 @@ public class QualityReminderService {
         Set<Long> functionIds = found.stream().map(QualityReminder::getFunctionId).collect(Collectors.toSet());
         Map<Long, OrgFunction> cards = functions.findAllById(functionIds).stream()
                 .collect(Collectors.toMap(OrgFunction::getId, Function.identity()));
-        return found.stream()
+        List<QualityReminder> matching = found.stream()
                 .filter(reminder -> categoryId == null || inCategory(cards.get(reminder.getFunctionId()), categoryId))
+                .toList();
+        return new QualityReminderResponse.Page(matching.size(), matching.stream()
                 .limit(LIST_LIMIT)
                 .map(reminder -> QualityReminderResponse.of(reminder, cards.get(reminder.getFunctionId())))
-                .toList();
+                .toList());
     }
 
     public long activeCount(OrganizationScope scope, Set<Long> functionIds) {

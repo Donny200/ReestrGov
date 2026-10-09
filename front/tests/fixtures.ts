@@ -139,7 +139,7 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         const status = query.get('status');
         return reply({ ...queue, items: queue.items.filter(item => (!issue || item.issues.some(found => found.type === issue)) && (!status || item.status === status)) });
       }
-      if (path === '/api/analytics/reminders') return reply(reminders);
+      if (path === '/api/analytics/reminders') return reply({ total: reminders.length, items: reminders });
       const acknowledged = path.match(/^\/api\/analytics\/reminders\/(\d+)\/acknowledge$/);
       if (acknowledged && method === 'POST') {
         const index = reminders.findIndex(item => item.id === Number(acknowledged[1]));

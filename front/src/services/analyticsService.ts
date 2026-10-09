@@ -7,7 +7,7 @@ import type {
   OrganizationSummary,
   QualityQueue,
   QualityQueueFilters,
-  QualityReminder,
+  QualityReminderPage,
 } from '../types/analytics';
 
 export const recordEngagement = (event: EngagementEvent) =>
@@ -23,7 +23,7 @@ export const getQualityQueue = (filters: QualityQueueFilters) =>
   apiRequest<QualityQueue>('/api/analytics/quality-queue', { query: { ...filters } });
 
 export const getReminders = (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'>) =>
-  apiRequest<QualityReminder[]>('/api/analytics/reminders', { query: { ...filters } });
+  apiRequest<QualityReminderPage>('/api/analytics/reminders', { query: { ...filters } });
 
 export const acknowledgeReminder = (id: number) =>
   apiRequest<void>(`/api/analytics/reminders/${id}/acknowledge`, { method: 'POST' });

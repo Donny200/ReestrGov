@@ -241,9 +241,10 @@ class OrganizationDashboardPostgresTest {
         assertThat(reminderRows.findAll()).hasSize(4).noneMatch(row -> row.getOrganizationId() == null);
 
         mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10)))
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].functionName").value("No source"))
-                .andExpect(jsonPath("$[0].issue").value("SOURCE_MISSING"));
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].functionName").value("No source"))
+                .andExpect(jsonPath("$.items[0].issue").value("SOURCE_MISSING"));
         long reminderId = reminderRows.findAll().stream().filter(row -> row.getFunctionId().equals(card.getId()))
                 .findFirst().orElseThrow().getId();
         mvc.perform(get("/api/analytics/summary").with(authentication(ANALYST_10))).andExpect(jsonPath("$.openReminders").value(1));
@@ -253,24 +254,26 @@ class OrganizationDashboardPostgresTest {
         mvc.perform(post("/api/analytics/reminders/{id}/acknowledge", reminderId).with(authentication(ANALYST_10)))
                 .andExpect(status().isNoContent());
         assertThat(reminderRows.findById(reminderId).orElseThrow().getAcknowledgedByUserId()).isEqualTo(10L);
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.total").value(0));
 
         Instant acknowledged = reminderRows.findById(reminderId).orElseThrow().getAcknowledgedAt();
         assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(13))).renotified()).isZero();
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.total").value(0));
         assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(14))).renotified()).isEqualTo(1);
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.items.length()").value(1));
 
         jdbc.update("UPDATE org_functions SET official_source_url = 'https://gov.uz/fixed' WHERE id = ?", card.getId());
         assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(15))).resolved()).isEqualTo(1);
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10))).andExpect(jsonPath("$.total").value(0));
         assertThat(reminderRows.findById(reminderId).orElseThrow().getResolvedAt()).isNotNull();
 
         jdbc.update("UPDATE org_functions SET official_source_url = NULL WHERE id = ?", card.getId());
         assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(16))).created()).isEqualTo(1);
         assertThat(reminderRows.findAll()).filteredOn(row -> row.getFunctionId().equals(card.getId())).hasSize(2);
 
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ADMIN))).andExpect(jsonPath("$.length()").value(4));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ADMIN))).andExpect(jsonPath("$.total").value(4));
+        mvc.perform(get("/api/analytics/reminders").param("categoryId", "999").with(authentication(ADMIN)))
+                .andExpect(jsonPath("$.total").value(0));
         mvc.perform(get("/api/analytics/reminders").param("organizationId", "20").with(authentication(ANALYST_10)))
                 .andExpect(status().isForbidden());
     }

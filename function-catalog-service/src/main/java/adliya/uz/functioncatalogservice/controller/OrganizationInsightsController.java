@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -101,8 +100,9 @@ public class OrganizationInsightsController {
 
     @GetMapping("/reminders")
     @Operation(summary = "Open quality reminders",
-            description = "Reminders created by the daily quality scan that nobody has acknowledged yet.")
-    public List<QualityReminderResponse> reminders(@RequestParam(required = false) Long organizationId,
+            description = "Reminders created by the daily quality scan that nobody has acknowledged yet, newest first. "
+                    + "Lists at most 200; total counts all of them.")
+    public QualityReminderResponse.Page reminders(@RequestParam(required = false) Long organizationId,
                                                    @RequestParam(required = false) Long categoryId) {
         return reminders.active(organizationId, categoryId);
     }

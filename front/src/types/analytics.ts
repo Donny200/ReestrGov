@@ -126,6 +126,11 @@ export interface QualityReminder {
   notifiedAt: string;
 }
 
+export interface QualityReminderPage {
+  total: number;
+  items: QualityReminder[];
+}
+
 export interface AnalyticsFilters {
   organizationId?: number;
   categoryId?: number;

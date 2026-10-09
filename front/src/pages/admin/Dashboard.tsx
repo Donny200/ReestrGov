@@ -120,7 +120,7 @@ export function Dashboard() {
     {
       key: 'reminders',
       label: t('reminders.title', 'Reminders'),
-      value: (reminders.data ?? []).length,
+      value: reminders.data?.total ?? 0,
       hint: t('reminders.dashboardHint', 'Quality issues to follow up'),
       icon: BellIcon,
       to: '/admin/organization-dashboard#reminders',

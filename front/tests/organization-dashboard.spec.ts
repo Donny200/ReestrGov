@@ -177,6 +177,19 @@ test('period, category and organization filters reach every dashboard request', 
   expect(lastRequest(fixture.requests, '/api/analytics/engagement').query.get('from')).toBe('2026-05-10');
 });
 
+test('long reminder lists start short, show the total and expand on request', async ({ page }) => {
+  const many = Array.from({ length: 12 }, (_, index) => ({ ...reminder, id: index + 1, functionId: index + 1, functionName: 'Service ' + (index + 1) }));
+  await setup(page, { permissions: dashboardPermissions, role: 'ROLE_ORG_ADMIN', engagement: engagement(), qualityQueue: queue, reminders: many });
+  await page.goto('/admin');
+  await expect(page.getByRole('link', { name: /Reminders/ })).toContainText('12');
+  await page.getByRole('link', { name: /Reminders/ }).click();
+  const reminders = page.getByRole('region', { name: 'Reminders' });
+  await expect(reminders.getByRole('heading', { name: 'Reminders (12)' })).toBeVisible();
+  await expect(reminders.getByRole('listitem')).toHaveCount(10);
+  await reminders.getByRole('button', { name: 'Show all reminders' }).click();
+  await expect(reminders.getByRole('listitem')).toHaveCount(12);
+});
+
 test('staff without the analytics permission get neither the menu entry nor the page', async ({ page }) => {
   await setup(page, { permissions: [...allPermissions, 'REPORTS_VIEW'], role: 'ROLE_ORG_ADMIN' });
   await page.goto('/admin');

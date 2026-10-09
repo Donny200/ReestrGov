@@ -51,7 +51,7 @@
 | `GET /api/analytics/engagement/export?…&breakdown=SERVICES\|DAILY&delimiter=COMMA\|SEMICOLON` | `ORG_ANALYTICS_VIEW` |
 | `GET /api/analytics/quality-queue?organizationId=&categoryId=&issue=&status=` | `ORG_ANALYTICS_VIEW` |
 | `GET /api/analytics/quality-queue/export?…&delimiter=` | `ORG_ANALYTICS_VIEW` |
-| `GET /api/analytics/reminders?organizationId=&categoryId=` | `ORG_ANALYTICS_VIEW` |
+| `GET /api/analytics/reminders?organizationId=&categoryId=` | `ORG_ANALYTICS_VIEW`. Ответ: `total` и до 200 самых новых напоминаний в `items` |
 | `POST /api/analytics/reminders/{id}/acknowledge` | `ORG_ANALYTICS_VIEW` и организация напоминания. Ответ 204 |
 | `GET /api/reports?status=&category=&entityType=&entityId=&serviceCategoryId=&from=&to=&organizationId=` | `REPORTS_VIEW` или `ORG_REPORTS_MANAGE` |
 | `GET /api/reports/{id}`, `GET /api/reports/{id}/history` | `REPORTS_VIEW` или `ORG_REPORTS_MANAGE` и организация сообщения |
@@ -133,7 +133,7 @@
 
 - Ежедневная проверка (через 2 минуты после запуска, затем каждые 24 часа) создаёт одно открытое напоминание на пару «карточка + проблема».
   Это гарантирует частичный уникальный индекс `quality_reminders_open_issue_idx`.
-- Открытие панели напоминания не создаёт.
+- Открытие панели напоминания не создаёт. Панель показывает общее число напоминаний, первые 10 и кнопку для остальных (до 200).
 - Когда проблема исчезает, напоминание закрывается. Напоминание о переводах не закрывается, пока список языков недоступен.
 - «Принять к сведению» скрывает напоминание для всей организации на 14 дней и записывает, кто и когда это сделал.
   Если проблема осталась, напоминание появляется снова.
@@ -178,6 +178,7 @@
 | function-catalog-service | `V5__engagement_daily_counts.sql` | Таблица дневных агрегатов активности |
 | function-catalog-service | `V6__quality_reminders.sql` | Таблица напоминаний с частичным уникальным индексом |
 | reference-service | `V5__organization_analytics_labels.sql` | Подписи на английском, русском, узбекском и французском; ключи старых статусов отключены |
+| reference-service | `V6__reminder_list_labels.sql` | Подписи для длинного списка напоминаний |
 
 Миграции только добавляют таблицы, индексы и подписи. Существующие таблицы и данные не удаляются.
 

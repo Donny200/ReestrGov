@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BellIcon, CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,6 +14,8 @@ import { localizedText } from '../../utils/translations';
 import { useAcknowledgeReminder, useReminders } from './queries';
 import { editorPath, issueLabel } from './qualityIssues';
 
+const PREVIEW = 10;
+
 interface RemindersSectionProps {
   organizationId?: number;
   categoryId?: number;
@@ -23,17 +26,20 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
   const { hasPermission } = useAuth();
   const reminders = useReminders({ organizationId, categoryId });
   const acknowledge = useAcknowledgeReminder();
-  const items = reminders.data ?? [];
+  const [expanded, setExpanded] = useState(false);
+  const items = reminders.data?.items ?? [];
+  const total = reminders.data?.total ?? 0;
+  const visible = expanded ? items : items.slice(0, PREVIEW);
   const canOpenEditor = hasPermission('FUNCTIONS_VIEW');
 
-  if (!reminders.isPending && !reminders.error && items.length === 0) return null;
+  if (!reminders.isPending && !reminders.error && total === 0) return null;
 
   return (
     <section id="reminders" aria-label={t('reminders.title', 'Reminders')} className="scroll-mt-24">
       <Card>
         <CardHeader
           icon={<BellIcon />}
-          title={t('reminders.title', 'Reminders')}
+          title={`${t('reminders.title', 'Reminders')}${total > 0 ? ` (${total})` : ''}`}
           description={t('reminders.subtitle', 'Created by a daily check. An acknowledged reminder returns after 14 days if the issue is still open.')}
         />
         {reminders.isPending ? (
@@ -42,7 +48,7 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
           <ErrorState error={reminders.error} onRetry={() => void reminders.refetch()} />
         ) : (
           <ul className="divide-y divide-line">
-            {items.map((reminder) => {
+            {visible.map((reminder) => {
               const name = localizedText(reminder.functionName, reminder.functionNameTranslations ?? undefined, locale) ?? reminder.functionName ?? `#${reminder.functionId}`;
               return (
                 <li key={reminder.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -80,6 +86,18 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
               );
             })}
           </ul>
+        )}
+        {(items.length > visible.length || total > items.length) && (
+          <div className="flex flex-col gap-3 border-t border-line px-5 py-4 sm:flex-row sm:items-center">
+            {total > items.length && (
+              <p className="text-sm text-secondary">{t('reminders.limited', 'Only the 200 newest reminders are listed. Narrow the filters to see the others.')}</p>
+            )}
+            {items.length > visible.length && (
+              <Button variant="outline" size="sm" className="sm:ms-auto" onClick={() => setExpanded(true)}>
+                {t('reminders.showAll', 'Show all reminders')}
+              </Button>
+            )}
+          </div>
         )}
       </Card>
     </section>

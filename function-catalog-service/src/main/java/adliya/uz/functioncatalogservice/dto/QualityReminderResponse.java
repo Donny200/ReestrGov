@@ -7,6 +7,7 @@ import adliya.uz.functioncatalogservice.entity.QualityReminder;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public record QualityReminderResponse(Long id, Long functionId, String functionName, Map<String, TranslatedText> functionNameTranslations,
@@ -19,4 +20,6 @@ public record QualityReminderResponse(Long id, Long functionId, String functionN
                 function == null ? null : function.getStatus(), reminder.getOrganizationId(), reminder.getIssue(),
                 reminder.getDetectedAt(), reminder.getNotifiedAt());
     }
+
+    public record Page(long total, List<QualityReminderResponse> items) {}
 }
