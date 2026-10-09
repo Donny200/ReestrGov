@@ -12,6 +12,8 @@ import {
   transitionFunction,
   translateFunction,
   updateFunction,
+  verifyFunction,
+  type FunctionTranslationBody,
 } from '../../services/adminFunctionService';
 import { getFunction, getFunctions, updateFunctionRequirements } from '../../services/functionService';
 import { getPublicOrganizations } from '../../services/organizationService';
@@ -96,8 +98,10 @@ export const useDeactivateFunction = (id: number) =>
   });
 
 export const useSaveFunctionTranslation = (id: number) =>
-  useFunctionMutation(({ language, name, description }: { language: string; name: string; description: string }) =>
-    saveFunctionTranslation(id, language, { name, description }));
+  useFunctionMutation(({ language, ...body }: FunctionTranslationBody & { language: string }) =>
+    saveFunctionTranslation(id, language, body));
+
+export const useVerifyFunction = (id: number) => useFunctionMutation(() => verifyFunction(id));
 
 export const useAutoTranslateFunction = (id: number) =>
   useFunctionMutation(({ languages, overwriteMachine }: { languages: string[]; overwriteMachine: boolean }) =>

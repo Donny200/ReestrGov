@@ -1,0 +1,18 @@
+package adliya.uz.functioncatalogservice.dto;
+
+import adliya.uz.functioncatalogservice.entity.*;
+
+import java.time.Instant;
+
+public record ReportResponse(
+        Long id, ReportEntityType entityType, Long entityId, String entityLabel, Long organizationId,
+        ReportCategory category, String description, String contact, String language, ReportStatus status,
+        String resolutionNote, Long handledByUserId, Instant createdAt, Instant updatedAt
+) {
+    public static ReportResponse from(InformationReport report) {
+        return new ReportResponse(report.getId(), report.getEntityType(), report.getEntityId(), report.getEntityLabel(),
+                report.getOrganizationId(), report.getCategory(), report.getDescription(), report.getContact(),
+                report.getLanguage(), report.getStatus(), report.getResolutionNote(), report.getHandledByUserId(),
+                report.getCreatedAt(), report.getUpdatedAt());
+    }
+}

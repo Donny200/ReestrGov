@@ -49,6 +49,12 @@ public class OrganizationController {
         return ResponseEntity.ok(OrganizationResponse.from(organizationService.update(id, request)));
     }
 
+    @PostMapping("/{id}/verify")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_EDIT') or hasAuthority('ORGANIZATIONS_EDIT_OWN')")
+    public ResponseEntity<OrganizationResponse> verify(@PathVariable Long id) {
+        return ResponseEntity.ok(OrganizationResponse.from(organizationService.verify(id)));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ORGANIZATIONS_DEACTIVATE')")
     public ResponseEntity<String> deactivate(@PathVariable Long id) {

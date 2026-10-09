@@ -4,7 +4,7 @@ import type { RoleName } from '../../types/api';
 export interface AdminNavItem {
   to: string;
   labelKey: string;
-  icon: 'dashboard' | 'building' | 'shield' | 'users' | 'key' | 'globe' | 'legacy' | 'lock' | 'functions';
+  icon: 'dashboard' | 'building' | 'shield' | 'users' | 'key' | 'globe' | 'legacy' | 'lock' | 'functions' | 'reports';
   roles: RoleName[];
   anyPermissions?: readonly string[];
   end?: boolean;
@@ -13,6 +13,7 @@ export interface AdminNavItem {
 
 export const adminNav: AdminNavItem[] = [
 { to: '/admin/functions', labelKey: 'nav.functions', icon: 'functions', roles: [], anyPermissions: FUNCTION_PERMISSIONS },
+{ to: '/admin/reports', labelKey: 'nav.reports', icon: 'reports', roles: [], anyPermissions: ['REPORTS_VIEW'] },
 {
   to: '/admin',
   labelKey: 'nav.dashboard',

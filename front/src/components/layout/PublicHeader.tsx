@@ -10,11 +10,14 @@ import { buttonVariants } from '../ui/buttonVariants';
 import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
+import { useSavedServices } from '../../features/saved/useSavedServices';
 
 const links = [
-  { to: '/', key: 'nav.home' },
-  { to: '/#organizations', key: 'nav.organizations' },
-  { to: '/#functions', key: 'nav.functions' },
+  { to: '/', key: 'nav.home', fallback: 'Home' },
+  { to: '/#organizations', key: 'nav.organizations', fallback: 'Organizations' },
+  { to: '/#functions', key: 'nav.functions', fallback: 'Services' },
+  { to: '/finder', key: 'nav.finder', fallback: 'Service finder' },
+  { to: '/saved', key: 'nav.saved', fallback: 'Saved' },
 ] as const;
 
 const STAGGER_MS = 45;
@@ -63,11 +66,18 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
     };
   }, [open]);
 
+  const savedCount = useSavedServices().items.length;
+
   const isActive = (to: (typeof links)[number]['to']) => {
+    const target = new URL(to, window.location.origin);
+    if (target.pathname !== '/') return location.pathname === target.pathname;
     if (location.pathname !== '/') return false;
     if (to === '/') return !location.hash;
-    return location.hash === new URL(to, window.location.origin).hash;
+    return location.hash === target.hash;
   };
+
+  const linkLabel = (link: (typeof links)[number]) =>
+    link.to === '/saved' && savedCount > 0 ? `${t(link.key, link.fallback)} (${savedCount})` : t(link.key, link.fallback);
 
   const closeOverlay = () => {
     setOpen(false);
@@ -97,7 +107,7 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
     <>
       <header
         className={cn(
-          'z-40 w-full',
+          'z-40 w-full print:hidden',
           transparent ? 'absolute inset-x-0 top-0 bg-transparent' : 'sticky top-0 border-b border-line bg-background',
         )}
       >
@@ -117,7 +127,7 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
                     active ? 'bg-ink text-ink-fg' : 'text-secondary fine:hover:bg-surface fine:hover:text-foreground',
                   )}
                 >
-                  {t(link.key)}
+                  {linkLabel(link)}
                 </Link>
               );
             })}
@@ -176,7 +186,7 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
                         active ? 'bg-ink-hover' : 'fine:hover:bg-ink-hover',
                       )}
                     >
-                      {t(link.key)}
+                      {linkLabel(link)}
                       <ArrowUpRightIcon className="h-5 w-5 shrink-0 text-ink-secondary rtl:-scale-x-100" aria-hidden="true" />
                     </Link>
                   </li>

@@ -2,6 +2,8 @@ package adliya.uz.task1.service;
 
 import adliya.uz.task1.config.security.SystemRole;
 import adliya.uz.task1.dto.CreateOrganizationRequest;
+import adliya.uz.task1.dto.OfficialLink;
+import adliya.uz.task1.dto.OrganizationContact;
 import adliya.uz.task1.dto.UpdateOrganizationRequest;
 import adliya.uz.task1.entity.Organization;
 import adliya.uz.task1.entity.User;
@@ -10,16 +12,20 @@ import adliya.uz.task1.exception.OrganizationHasActiveMembersException;
 import adliya.uz.task1.exception.ResourceNotFoundException;
 import adliya.uz.task1.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrganizationService {
 
     private static final String ORGANIZATIONS_CREATE = "ORGANIZATIONS_CREATE";
@@ -40,11 +46,14 @@ public class OrganizationService {
         if (organizationRepository.existsByName(request.getName())) {
             throw new OrganizationAlreadyExistsException("Organization already exists with name: " + request.getName());
         }
-        return organizationRepository.save(Organization.builder()
+        Organization organization = Organization.builder()
                 .name(request.getName())
                 .description(request.getDescription())
+                .officialSourceUrl(OfficialLink.normalize(request.getOfficialSourceUrl()))
                 .enabled(true)
-                .build());
+                .build();
+        applyContact(organization, request.getContact());
+        return organizationRepository.save(organization);
     }
 
     public Organization getById(Long id) {
@@ -74,7 +83,31 @@ public class OrganizationService {
         if (descriptionChanged) {
             org.setDescription(request.getDescription());
         }
+        boolean contactChanged = applyContact(org, request.getContact());
+        boolean sourceChanged = false;
+        if (request.getOfficialSourceUrl() != null) {
+            String officialSourceUrl = OfficialLink.normalize(request.getOfficialSourceUrl());
+            sourceChanged = !Objects.equals(officialSourceUrl, org.getOfficialSourceUrl());
+            org.setOfficialSourceUrl(officialSourceUrl);
+        }
+        if ((nameChanged || contactChanged || sourceChanged) && org.getLastVerifiedAt() != null) {
+            org.setVerificationOutdated(true);
+        }
         translationStateService.invalidateMachineTranslations(org, nameChanged, descriptionChanged);
+        return organizationRepository.save(org);
+    }
+
+    @Transactional
+    public Organization verify(Long id) {
+        User current = requireUpdateAccess(id);
+        Organization org = getById(id);
+        if (!StringUtils.hasText(org.getOfficialSourceUrl())) {
+            throw new IllegalStateException("Add the official source link before verifying this organization");
+        }
+        org.setLastVerifiedAt(Instant.now());
+        org.setVerifiedByUserId(current.getId());
+        org.setVerificationOutdated(false);
+        log.info("Organization {} verified by user {}", id, current.getId());
         return organizationRepository.save(org);
     }
 
@@ -115,10 +148,10 @@ public class OrganizationService {
         return org;
     }
 
-    private void requireUpdateAccess(Long organizationId) {
+    private User requireUpdateAccess(Long organizationId) {
         User current = requireEnabledUser();
         if (hasPermission(current, ORGANIZATIONS_EDIT)) {
-            return;
+            return current;
         }
         boolean canEditOwn = hasPermission(current, ORGANIZATIONS_EDIT_OWN)
                 && current.getOrganizations().stream()
@@ -127,6 +160,29 @@ public class OrganizationService {
         if (!canEditOwn) {
             throw new AccessDeniedException("You can only edit your own organization");
         }
+        return current;
+    }
+
+    private static boolean applyContact(Organization organization, OrganizationContact contact) {
+        if (contact == null) {
+            return false;
+        }
+        if ((contact.latitude() == null) != (contact.longitude() == null)) {
+            throw new IllegalArgumentException("Latitude and longitude must be provided together");
+        }
+        OrganizationContact before = OrganizationContact.of(organization);
+        organization.setAddress(text(contact.address()));
+        organization.setPhone(text(contact.phone()));
+        organization.setWorkingHours(text(contact.workingHours()));
+        organization.setLatitude(contact.latitude());
+        organization.setLongitude(contact.longitude());
+        organization.setMapUrl(OfficialLink.normalize(contact.mapUrl()));
+        organization.setRegionCode(text(contact.regionCode()));
+        return !before.equals(OrganizationContact.of(organization));
+    }
+
+    private static String text(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 
     private void requirePermission(String permissionCode) {

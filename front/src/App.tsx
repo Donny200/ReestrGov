@@ -18,6 +18,9 @@ import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const OrganizationDetail = lazy(() => import('./pages/OrganizationDetail').then((module) => ({ default: module.OrganizationDetail })));
 const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module) => ({ default: module.FunctionDetail })));
+const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
+const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
+const Reports = lazy(() => import('./pages/admin/Reports').then((module) => ({ default: module.Reports })));
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings').then((module) => ({ default: module.SecuritySettings })));
@@ -65,6 +68,8 @@ export function App() {
                       <Route path="/" element={<PageBoundary><Home /></PageBoundary>} />
                       <Route path="/organizations/:id" element={<PageBoundary><OrganizationDetail /></PageBoundary>} />
                       <Route path="/functions/:id" element={<PageBoundary><FunctionDetail /></PageBoundary>} />
+                      <Route path="/finder" element={<PageBoundary><ServiceFinder /></PageBoundary>} />
+                      <Route path="/saved" element={<PageBoundary><SavedServices /></PageBoundary>} />
                       <Route path="*" element={<PageBoundary><NotFound /></PageBoundary>} />
                     </Route>
 
@@ -81,6 +86,9 @@ export function App() {
                         <Route element={<RequireAuth anyPermissions={['FUNCTIONS_VIEW']} />}>
                           <Route path="/admin/functions/:id" element={<PageBoundary><EditFunctionPage /></PageBoundary>} />
                           <Route path="/admin/functions/:id/edit" element={<PageBoundary><LegacyFunctionEditorRedirect /></PageBoundary>} />
+                        </Route>
+                        <Route element={<RequireAuth anyPermissions={['REPORTS_VIEW']} />}>
+                          <Route path="/admin/reports" element={<PageBoundary><Reports /></PageBoundary>} />
                         </Route>
                         <Route path="/admin" element={<PageBoundary><Dashboard /></PageBoundary>} />
                         <Route path="/admin/organizations" element={<PageBoundary><Organizations /></PageBoundary>} />

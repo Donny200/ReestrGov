@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.*;
 import org.springframework.web.context.request.*;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.NoSuchElementException;
 
 @Component
 public class IdentityOrganizationClient {
@@ -35,5 +36,20 @@ public class IdentityOrganizationClient {
                     "Could not verify organization with identity-service; retry with a current session");
         }
     }
+    public PublicOrganization requirePublic(Long id) {
+        try {
+            PublicOrganization organization = client.get().uri("/api/public/organizations/{id}", id)
+                    .retrieve().body(PublicOrganization.class);
+            if (organization == null || !id.equals(organization.id())) {
+                throw new NoSuchElementException("Organization not found: " + id);
+            }
+            return organization;
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new NoSuchElementException("Organization not found: " + id);
+        } catch (RestClientException exception) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Organization directory is temporarily unavailable");
+        }
+    }
     public record Organization(Long id, String name, Boolean enabled) {}
+    public record PublicOrganization(Long id, String name) {}
 }

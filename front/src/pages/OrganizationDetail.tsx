@@ -1,9 +1,11 @@
 import { useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
 import { FunctionListRow } from '../components/catalog/FunctionListRow';
+import { OrganizationContactDetails } from '../components/catalog/OrganizationContactDetails';
+import { VerificationNotice } from '../components/catalog/VerificationNotice';
 import { SectionHeading } from '../components/home/SectionHeading';
 import { StatusPill } from '../components/ui/Badge';
-import { Card } from '../components/ui/Card';
+import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Eyebrow } from '../components/ui/Eyebrow';
 import { Reveal } from '../components/ui/Reveal';
 import { SkeletonList, SkeletonText } from '../components/ui/Skeleton';
@@ -11,6 +13,7 @@ import { EmptyState, ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicOrganization } from '../features/organizations/queries';
 import { usePublicFunctions } from '../features/functions/queries';
+import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { organizationInitials } from '../utils/format';
 import { localizedText } from '../utils/translations';
 
@@ -52,10 +55,30 @@ export function OrganizationDetail() {
               <div className="mt-8 border-t border-line pt-7">
                 <p lang={locale} className="max-w-3xl text-lg leading-8 text-foreground wrap-anywhere">{organizationDescription ?? '—'}</p>
               </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <ReportProblemButton entityType="ORGANIZATION" entityId={organization.data.id} entityName={organizationName ?? organization.data.name} />
+              </div>
             </div>
           ) : null}
         </Card>
       </Reveal>
+
+      {organization.data && (
+        <Reveal className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start">
+          <Card>
+            <CardHeader title={t('contact.title', 'Contact and visiting information')} />
+            <CardBody>
+              <OrganizationContactDetails contact={organization.data.contact} />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title={t('verification.title', 'Information check')} />
+            <CardBody>
+              <VerificationNotice info={organization.data} />
+            </CardBody>
+          </Card>
+        </Reveal>
+      )}
 
       <section className="mt-14">
         <Reveal>

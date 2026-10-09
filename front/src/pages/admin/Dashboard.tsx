@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BuildingIcon, FileTextIcon, PlusIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import { BuildingIcon, FileTextIcon, FlagIcon, PlusIcon, ShieldAlertIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge, FunctionStatusBadge, StatusBadge } from '../../components/ui/Badge';
@@ -12,6 +12,8 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useOrganizations } from '../../features/organizations/queries';
 import { useAdminFunctions } from '../../features/functions/queries';
+import { useReports } from '../../features/reports/queries';
+import { needsRecheck } from '../../utils/verification';
 import { staffKeys } from '../../features/queryKeys';
 import { getModerators, getOrgAdmins } from '../../services/staffService';
 import { useAuth } from '../../contexts/auth';
@@ -27,11 +29,13 @@ export function Dashboard() {
   const canSeeOrgAdmins = isSuperAdmin;
   const canSeeModerators = hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN');
   const canSeeFunctions = hasPermission('FUNCTIONS_VIEW');
+  const canSeeReports = hasPermission('REPORTS_VIEW');
 
   const organizations = useOrganizations();
   const functions = useAdminFunctions(canSeeFunctions);
   const orgAdmins = useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins, enabled: canSeeOrgAdmins });
   const moderators = useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators, enabled: canSeeModerators });
+  const openReports = useReports({ status: 'OPEN' }, canSeeReports);
 
   const orgList = useMemo(() => organizations.data ?? [], [organizations.data]);
   const fnList = useMemo(() => functions.data ?? [], [functions.data]);
@@ -78,6 +82,36 @@ export function Dashboard() {
       to: '/admin/functions',
       loading: functions.isPending,
       visible: canSeeFunctions,
+    },
+    {
+      key: 'functions-recheck',
+      label: t('verification.dashboardServices', 'Services to verify'),
+      value: fnList.filter((item) => item.status === 'PUBLISHED' && needsRecheck(item.verificationStatus)).length,
+      hint: t('verification.dashboardServicesHint', 'Published, need a check'),
+      icon: ShieldAlertIcon,
+      to: '/admin/functions?status=PUBLISHED&verification=due',
+      loading: functions.isPending,
+      visible: canSeeFunctions,
+    },
+    {
+      key: 'organizations-recheck',
+      label: t('verification.dashboardOrganizations', 'Organizations to verify'),
+      value: orgList.filter((item) => item.enabled && needsRecheck(item.verificationStatus)).length,
+      hint: t('verification.dashboardOrganizationsHint', 'Active, need a check'),
+      icon: ShieldAlertIcon,
+      to: '/admin/organizations?verification=due',
+      loading: organizations.isPending,
+      visible: true,
+    },
+    {
+      key: 'reports',
+      label: t('reports.dashboardTitle', 'Open reports'),
+      value: (openReports.data ?? []).length,
+      hint: `${(openReports.data ?? []).filter((item) => item.status === 'NEW').length} ${t('reports.status.NEW', 'New').toLowerCase()}`,
+      icon: FlagIcon,
+      to: '/admin/reports',
+      loading: openReports.isPending,
+      visible: canSeeReports,
     },
   ].filter((card) => card.visible);
 

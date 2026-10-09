@@ -13,6 +13,7 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor
 public class AuditWriter {
+    private static final String REPORT_ENTITY = "INFORMATION_REPORT";
     private final AuditLogRepository repository;
     private final CatalogAccess access;
 
@@ -71,6 +72,23 @@ public class AuditWriter {
         write("FUNCTION", function.getId(), AuditAction.TRANSLATION_EDIT,
                 "Generated missing en/uz translations through Azure Translator",
                 new Actor(null, "system:editorial-seed"), Set.of(function.getId()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reportReceived(InformationReport report) {
+        write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_RECEIVED,
+                report.getEntityType() + " #" + report.getEntityId() + "; category=" + report.getCategory(),
+                new Actor(null, "public:anonymous"), relatedFunctions(report));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reportStatusChanged(InformationReport report, ReportStatus previous) {
+        write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_STATUS_CHANGE,
+                "Report #" + report.getId() + ": " + previous + " -> " + report.getStatus(), actor(), relatedFunctions(report));
+    }
+
+    private static Set<Long> relatedFunctions(InformationReport report) {
+        return report.getEntityType() == ReportEntityType.FUNCTION ? Set.of(report.getEntityId()) : Set.of();
     }
 
     private void write(String type, Long id, AuditAction action, String details, Actor actor, Set<Long> ids) {

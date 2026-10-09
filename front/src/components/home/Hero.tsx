@@ -21,7 +21,10 @@ export function Hero() {
               {t('nav.catalog')}
               <ArrowBadge arrow="right" variant="dark" />
             </Link>
-            <Link to="/#organizations" className={buttonVariants({ variant: 'outline' })}>
+            <Link to="/finder" className={buttonVariants({ variant: 'outline' })}>
+              {t('finder.cta', 'Find a service step by step')}
+            </Link>
+            <Link to="/#organizations" className={buttonVariants({ variant: 'ghost' })}>
               {t('nav.organizations')}
             </Link>
           </div>

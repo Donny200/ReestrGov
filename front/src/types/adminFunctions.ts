@@ -1,14 +1,15 @@
-import type { CatalogFunction, TranslatedText } from './api';
+import type { CatalogFunction, ServiceInstructions, TranslatedText } from './api';
 
 export type FunctionStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'DEACTIVATED';
 
 export type FunctionTransition = 'submit-for-review' | 'reject' | 'publish' | 'reactivate';
 
-export interface AdminFunction extends Omit<CatalogFunction, 'organizationId'> {
+export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 'categoryId' | 'sourceLanguage'> {
   organizationId: number | null;
   categoryId: number | null;
   status: FunctionStatus;
   sourceLanguage: string;
+  verifiedByUserId?: number | null;
 }
 
 export interface FunctionCategory {
@@ -29,6 +30,13 @@ export interface FunctionFormValues {
   organizationId: string;
   categoryId: string;
   sourceLanguage: string;
+  whoCanUse: string;
+  steps: string;
+  requiredDocuments: string;
+  whereHowToApply: string;
+  processingTime: string;
+  fee: string;
+  officialSourceUrl: string;
 }
 
 export interface CreateFunctionRequest {
@@ -38,6 +46,8 @@ export interface CreateFunctionRequest {
   organizationId: number;
   categoryId?: number;
   sourceLanguage: string;
+  instructions: ServiceInstructions;
+  officialSourceUrl: string;
 }
 
 export interface UpdateFunctionRequest extends CreateFunctionRequest {

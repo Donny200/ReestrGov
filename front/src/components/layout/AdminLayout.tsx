@@ -5,6 +5,7 @@ import {
   BuildingIcon,
   DatabaseIcon,
   FileTextIcon,
+  FlagIcon,
   GlobeIcon,
   KeyIcon,
   LayoutDashboardIcon,
@@ -40,6 +41,7 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
   globe: GlobeIcon,
   legacy: DatabaseIcon,
   lock: LockIcon,
+  reports: FlagIcon,
 };
 
 const TOP_BAR_HEIGHT = '4.5rem';

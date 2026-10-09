@@ -38,7 +38,7 @@ export function PublicLayout() {
     <div className="flex min-h-dvh w-full flex-col bg-background text-foreground">
       <a
         href="#main-content"
-        className="fixed start-5 top-3 z-[90] -translate-y-24 rounded-pill bg-ink px-5 py-3 text-sm font-medium text-ink-fg transition-transform focus:translate-y-0"
+        className="fixed start-5 top-3 z-[90] -translate-y-24 rounded-pill bg-ink px-5 py-3 text-sm font-medium text-ink-fg transition-transform focus:translate-y-0 print:hidden"
       >
         {t('a11y.skipToContent', 'Skip to main content')}
       </a>

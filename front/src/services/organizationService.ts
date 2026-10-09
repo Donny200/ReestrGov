@@ -17,3 +17,6 @@ export const deactivateOrganization = (id: number) => apiRequest<void>(`/api/org
 
 export const reactivateOrganization = (id: number) =>
   apiRequest<Organization>(`/api/organizations/${id}/reactivate`, { method: 'POST' });
+
+export const verifyOrganization = (id: number) =>
+  apiRequest<Organization>(`/api/organizations/${id}/verify`, { method: 'POST' });

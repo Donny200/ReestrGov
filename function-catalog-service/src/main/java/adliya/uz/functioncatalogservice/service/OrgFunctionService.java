@@ -4,10 +4,13 @@ import adliya.uz.functioncatalogservice.dto.AuditLogResponse;
 import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.FunctionTranslationsRequest;
 import adliya.uz.functioncatalogservice.dto.LanguageTranslationRequest;
+import adliya.uz.functioncatalogservice.dto.OfficialSourceUrl;
+import adliya.uz.functioncatalogservice.dto.ServiceInstructions;
 import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
 import adliya.uz.functioncatalogservice.entity.FunctionCategory;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
+import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
@@ -19,12 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static adliya.uz.functioncatalogservice.entity.FunctionStatus.DEACTIVATED;
@@ -40,6 +45,7 @@ public class OrgFunctionService {
     private static final int LANGUAGE_CODE_MAX_LENGTH = 35;
     private static final int REJECTION_REASON_MAX_LENGTH = 2000;
     private static final Pattern LANGUAGE_CODE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]{2,8})*");
+    private static final Set<String> VERIFIED_FIELDS = Set.of("name", "description", "organizationId", "requirements", "officialSourceUrl");
 
     private final OrgFunctionRepository orgFunctionRepository;
     private final OrgFunctionTranslationService translationService;
@@ -105,7 +111,7 @@ public class OrgFunctionService {
         if (request.organizationId() != null) {
             organizations.requireExisting(request.organizationId());
         }
-        return OrgFunction.builder()
+        OrgFunction function = OrgFunction.builder()
                 .name(request.name())
                 .description(request.description())
                 .organizationId(request.organizationId())
@@ -114,8 +120,11 @@ public class OrgFunctionService {
                 .sourceLanguage(request.sourceLanguage() == null
                         ? DEFAULT_SOURCE_LANGUAGE
                         : request.sourceLanguage().toLowerCase(Locale.ROOT))
+                .officialSourceUrl(OfficialSourceUrl.normalize(request.officialSourceUrl()))
                 .status(DRAFT)
                 .build();
+        applyInstructions(function, request.instructions());
+        return function;
     }
 
     @Transactional
@@ -144,6 +153,15 @@ public class OrgFunctionService {
             function.setRequirements(request.requirements());
             changed.add("requirements");
         }
+        Set<InstructionField> instructionsChanged = applyInstructions(function, request.instructions());
+        instructionsChanged.forEach(field -> changed.add(field.key()));
+        if (request.officialSourceUrl() != null) {
+            String officialSourceUrl = OfficialSourceUrl.normalize(request.officialSourceUrl());
+            if (!Objects.equals(officialSourceUrl, function.getOfficialSourceUrl())) {
+                function.setOfficialSourceUrl(officialSourceUrl);
+                changed.add("officialSourceUrl");
+            }
+        }
         if (request.categoryId() != null || request.category() != null) {
             changeCategory(function, categories.resolve(request.categoryId(), request.category()));
         }
@@ -156,6 +174,7 @@ public class OrgFunctionService {
 
         translationService.invalidateMachineTranslations(function,
                 nameChanged || languageChanged, descriptionChanged || languageChanged);
+        translationService.invalidateInstructionTranslations(function, instructionsChanged, languageChanged);
         if (nameChanged || languageChanged) {
             function.setNameTranslations(
                     withSourceMirror(function.getNameTranslations(), function.getSourceLanguage(), function.getName()));
@@ -165,7 +184,7 @@ public class OrgFunctionService {
                     withSourceMirror(function.getDescriptionTranslations(), function.getSourceLanguage(), function.getDescription()));
         }
         if (!changed.isEmpty()) {
-            audit.function(function, AuditAction.UPDATE, "Changed fields: " + String.join(", ", changed));
+            recordChange(function, changed);
         }
         return orgFunctionRepository.saveAndFlush(function);
     }
@@ -176,7 +195,7 @@ public class OrgFunctionService {
         requireEditable(function);
         if (!Objects.equals(requirements, function.getRequirements())) {
             function.setRequirements(requirements);
-            audit.function(function, AuditAction.UPDATE, "Changed fields: requirements");
+            recordChange(function, List.of("requirements"));
         }
         return orgFunctionRepository.saveAndFlush(function);
     }
@@ -230,9 +249,12 @@ public class OrgFunctionService {
         if (request.description() != null) {
             descriptions.put(code, new TranslatedText(request.description(), TranslatedText.HUMAN));
         }
-        if (!names.equals(function.getNameTranslations()) || !descriptions.equals(function.getDescriptionTranslations())) {
+        Map<String, Map<String, TranslatedText>> instructions = translatedInstructions(function, code, request.instructions());
+        if (!names.equals(function.getNameTranslations()) || !descriptions.equals(function.getDescriptionTranslations())
+                || !instructions.equals(currentInstructionTranslations(function))) {
             function.setNameTranslations(names);
             function.setDescriptionTranslations(descriptions);
+            function.setInstructionTranslations(instructions);
             audit.function(function, AuditAction.TRANSLATION_EDIT, "Manual translation: " + code);
         }
         return orgFunctionRepository.saveAndFlush(function);
@@ -288,6 +310,61 @@ public class OrgFunctionService {
             function.setFunctionCategory(category);
             audit.function(function, AuditAction.CATEGORY_CHANGE, "categoryId: " + previousId + " -> " + nextId);
         }
+    }
+
+    private Set<InstructionField> applyInstructions(OrgFunction function, ServiceInstructions instructions) {
+        Set<InstructionField> changed = EnumSet.noneOf(InstructionField.class);
+        if (instructions == null) {
+            return changed;
+        }
+        for (InstructionField field : InstructionField.values()) {
+            String value = InstructionText.normalize(field, instructions.value(field));
+            if (!Objects.equals(value, field.get(function))) {
+                field.set(function, value);
+                changed.add(field);
+            }
+        }
+        return changed;
+    }
+
+    private void recordChange(OrgFunction function, List<String> changed) {
+        String details = "Changed fields: " + String.join(", ", changed);
+        boolean verifiedContent = changed.stream()
+                .anyMatch(field -> VERIFIED_FIELDS.contains(field) || InstructionField.byKey(field).isPresent());
+        if (verifiedContent && function.markVerificationOutdated()) {
+            details += "; verification outdated";
+        }
+        audit.function(function, AuditAction.UPDATE, details);
+    }
+
+    private static Map<String, Map<String, TranslatedText>> currentInstructionTranslations(OrgFunction function) {
+        return function.getInstructionTranslations() == null ? Map.of() : function.getInstructionTranslations();
+    }
+
+    private static Map<String, Map<String, TranslatedText>> translatedInstructions(OrgFunction function, String code,
+                                                                                   Map<String, String> values) {
+        Map<String, Map<String, TranslatedText>> result = new LinkedHashMap<>();
+        currentInstructionTranslations(function).forEach((key, translations) -> result.put(key, new LinkedHashMap<>(translations)));
+        if (values == null) {
+            return result;
+        }
+        values.forEach((key, raw) -> {
+            InstructionField field = InstructionField.byKey(key)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown instruction field: " + key));
+            String text = InstructionText.normalize(field, raw);
+            Map<String, TranslatedText> translations = result.computeIfAbsent(field.key(), ignored -> new LinkedHashMap<>());
+            if (text == null) {
+                translations.remove(code);
+            } else if (field.get(function) == null) {
+                throw new IllegalArgumentException(field.key() + ": add the original text before translating it");
+            } else {
+                translations.put(code, new TranslatedText(text, TranslatedText.HUMAN));
+            }
+            if (translations.isEmpty()) {
+                result.remove(field.key());
+            }
+        });
+        return result;
     }
 
     private OrgFunction scoped(Long id) {

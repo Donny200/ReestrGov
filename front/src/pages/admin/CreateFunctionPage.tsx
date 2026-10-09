@@ -18,7 +18,7 @@ import { useCreateFunction, useFunctionOptions } from '../../features/functions/
 import { emptyFunctionForm, functionFormSchema, toCreateRequest } from '../../features/functions/schema';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { useI18n } from '../../contexts/i18n';
-import { applyServerErrors } from '../../lib/forms';
+import { applyServerErrors, withoutPrefix } from '../../lib/forms';
 import type { FunctionFormValues } from '../../types/adminFunctions';
 
 export function CreateFunctionPage() {
@@ -44,7 +44,7 @@ export function CreateFunctionPage() {
       toast.success(t('fnAdmin.createSuccess'));
       navigate(`/admin/functions/${created.id}`, { replace: true, state: { created: true } });
     } catch (error) {
-      applyServerErrors(error, setError, setFormError, t);
+      applyServerErrors(error, setError, setFormError, t, withoutPrefix('instructions'));
     }
   });
 

@@ -29,22 +29,37 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
-export interface Organization {
-  id: number;
-  name: string;
-  description: string | null;
-  nameTranslations?: Record<string, TranslatedText>;
-  descriptionTranslations?: Record<string, TranslatedText>;
-  enabled: boolean;
-  createdAt: string;
+export type VerificationStatus = 'UNVERIFIED' | 'VERIFIED' | 'DUE' | 'OUTDATED';
+
+export interface OrganizationContact {
+  address: string | null;
+  phone: string | null;
+  workingHours: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  mapUrl: string | null;
+  regionCode: string | null;
 }
 
-export interface PublicOrganization {
+export interface VerificationInfo {
+  officialSourceUrl?: string | null;
+  lastVerifiedAt?: string | null;
+  verificationStatus?: VerificationStatus;
+}
+
+export interface PublicOrganization extends VerificationInfo {
   id: number;
   name: string;
   description: string | null;
   nameTranslations?: Record<string, TranslatedText>;
   descriptionTranslations?: Record<string, TranslatedText>;
+  contact?: OrganizationContact | null;
+}
+
+export interface Organization extends PublicOrganization {
+  enabled: boolean;
+  createdAt: string;
+  verifiedByUserId?: number | null;
 }
 
 export interface TranslatedText {
@@ -55,11 +70,15 @@ export interface TranslatedText {
 export interface CreateOrganizationRequest {
   name: string;
   description: string | null;
+  contact?: OrganizationContact;
+  officialSourceUrl?: string;
 }
 
 export interface UpdateOrganizationRequest {
   name?: string | null;
   description?: string | null;
+  contact?: OrganizationContact;
+  officialSourceUrl?: string;
 }
 
 export interface StaffUser {
@@ -170,15 +189,32 @@ export interface LanguageSearchResult {
   alreadyAdded: boolean;
 }
 
-export interface CatalogFunction {
+export interface ServiceInstructions {
+  whoCanUse: string | null;
+  steps: string | null;
+  requiredDocuments: string | null;
+  whereHowToApply: string | null;
+  processingTime: string | null;
+  fee: string | null;
+}
+
+export type InstructionField = keyof ServiceInstructions;
+
+export type InstructionTranslations = Partial<Record<InstructionField, Record<string, TranslatedText>>>;
+
+export interface CatalogFunction extends VerificationInfo {
   id: number;
   name: string;
   description: string | null;
   organizationId: number;
   requirements: string | null;
   category: string | null;
+  categoryId?: number | null;
+  sourceLanguage?: string;
   nameTranslations?: Record<string, TranslatedText>;
   descriptionTranslations?: Record<string, TranslatedText>;
+  instructions?: ServiceInstructions | null;
+  instructionTranslations?: InstructionTranslations;
 }
 
 export interface UpdateFunctionRequirementsRequest {

@@ -1,4 +1,5 @@
 import type { FunctionQuery } from '../types/api';
+import type { ReportQuery } from '../types/reports';
 
 export const organizationKeys = {
   all: ['organizations'] as const,
@@ -46,4 +47,9 @@ export const functionKeys = {
   publicList: (query: FunctionQuery) => [...functionKeys.all, 'public', query] as const,
   publicDetail: (id: number) => [...functionKeys.all, 'public-detail', id] as const,
   options: (global: boolean, userId: number | null) => [...functionKeys.all, 'options', global, userId] as const,
+};
+
+export const reportKeys = {
+  all: ['reports'] as const,
+  list: (query: ReportQuery) => [...reportKeys.all, 'list', query] as const,
 };

@@ -4,6 +4,7 @@ import type { CatalogFunction } from '../../types/api';
 import { truncate } from '../../utils/format';
 import { useI18n } from '../../contexts/i18n';
 import { localizedText } from '../../utils/translations';
+import { SaveServiceButton } from '../../features/saved/SaveServiceButton';
 
 interface FunctionListRowProps {
   item: CatalogFunction;
@@ -29,6 +30,7 @@ export function FunctionListRow({ item, index, organizationName }: FunctionListR
           {item.category && <Badge size="sm" tone="accent">{item.category}</Badge>}
         </>
       }
+      action={<SaveServiceButton compact service={{ id: item.id, name }} />}
     />
   );
 }

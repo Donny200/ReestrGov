@@ -15,6 +15,10 @@ import { Field } from '../ui/Field';
 import { Input, Textarea } from '../ui/Input';
 import { Tabs } from '../ui/Tabs';
 import type { AdminFunction } from '../../types/adminFunctions';
+import type { InstructionField } from '../../types/api';
+import { INSTRUCTION_FIELDS } from '../../utils/instructions';
+import { truncate } from '../../utils/format';
+import { hasFunctionTranslation, translatableInstructions } from '../../utils/functionLocalization';
 
 interface Props {
   record: AdminFunction;
@@ -26,12 +30,16 @@ interface Props {
 interface TranslationForm {
   name: string;
   description: string;
+  instructions: Partial<Record<InstructionField, string>>;
 }
 
 function baselineOf(record: AdminFunction, language: string): TranslationForm {
   return {
     name: record.nameTranslations?.[language]?.text || record.name,
     description: record.descriptionTranslations?.[language]?.text || record.description || '',
+    instructions: Object.fromEntries(
+      translatableInstructions(record).map((key) => [key, record.instructionTranslations?.[key]?.[language]?.text ?? '']),
+    ),
   };
 }
 
@@ -46,8 +54,8 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
 
   const original = language === record.sourceLanguage;
   const editable = record.status === 'DRAFT' && !original;
-  const missing =
-    !record.nameTranslations?.[language]?.text || Boolean(record.description && !record.descriptionTranslations?.[language]?.text);
+  const missing = !hasFunctionTranslation(record, language);
+  const instructionFields = INSTRUCTION_FIELDS.filter((field) => translatableInstructions(record).includes(field.key));
   const dirty = JSON.stringify(form) !== baselineKey;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
@@ -87,7 +95,14 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
     if (busy || blocked || !editable) return;
     setError(null);
     try {
-      await save.mutateAsync({ language, name: form.name.trim(), description: form.description.trim() });
+      await save.mutateAsync({
+        language,
+        name: form.name.trim(),
+        description: form.description.trim(),
+        instructions: Object.fromEntries(
+          Object.entries(form.instructions).map(([key, value]) => [key, (value ?? '').trim()]),
+        ),
+      });
       toast.success(t('fnAdmin.translationSuccess'));
     } catch (failure) {
       setError(failure);
@@ -95,8 +110,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
   }
 
   const errors = fieldErrorsOf(error);
-  const sourceBadge = (field: 'nameTranslations' | 'descriptionTranslations') => {
-    const source = record[field]?.[language]?.source;
+  const badge = (source: 'human' | 'machine' | undefined) => {
     if (!source) return null;
     return (
       <Badge size="sm" tone={source === 'human' ? 'accent' : 'neutral'}>
@@ -105,6 +119,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
       </Badge>
     );
   };
+  const sourceBadge = (field: 'nameTranslations' | 'descriptionTranslations') => badge(record[field]?.[language]?.source);
   const saveDisabled =
     busy || blocked || (!dirty && !missing) || !form.name.trim() || (Boolean(record.description) && !form.description.trim());
 
@@ -165,6 +180,26 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
                 )}
               </Field>
               {sourceBadge('descriptionTranslations')}
+              {instructionFields.map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <Field
+                    label={t(field.labelKey, field.label)}
+                    error={errors[`instructions.${field.key}`] ?? errors[field.key]}
+                    hint={`${t('fnAdmin.originalText', 'Original')}: ${truncate(record.instructions?.[field.key], 240)}`}
+                  >
+                    {(control) => (
+                      <Textarea
+                        {...control}
+                        rows={field.list ? 4 : 2}
+                        maxLength={field.max}
+                        value={form.instructions[field.key] ?? ''}
+                        onChange={(event) => setForm({ ...form, instructions: { ...form.instructions, [field.key]: event.target.value } })}
+                      />
+                    )}
+                  </Field>
+                  {badge(record.instructionTranslations?.[field.key]?.[language]?.source)}
+                </div>
+              ))}
             </fieldset>
             {Boolean(error) && Object.keys(errors).length === 0 && <InlineAlert tone="danger">{errorMessage(error, t)}</InlineAlert>}
             {editable && (

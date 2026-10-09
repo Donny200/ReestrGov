@@ -60,6 +60,24 @@ class OrgFunctionControllerSecurityTest {
     }
 
     @Test
+    void publicResponsesExposeInstructionsButNotTheVerifyingStaffMember() throws Exception {
+        OrgFunction verified = function(4L, true);
+        verified.setFee("Free of charge");
+        verified.setOfficialSourceUrl("https://gov.example/service");
+        verified.setLastVerifiedAt(java.time.Instant.now());
+        verified.setVerifiedByUserId(42L);
+        when(orgFunctionService.getById(4L)).thenReturn(verified);
+
+        mockMvc.perform(get("/api/functions/4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.instructions.fee").value("Free of charge"))
+                .andExpect(jsonPath("$.instructions.steps").doesNotExist())
+                .andExpect(jsonPath("$.verificationStatus").value("VERIFIED"))
+                .andExpect(jsonPath("$.officialSourceUrl").value("https://gov.example/service"))
+                .andExpect(jsonPath("$.verifiedByUserId").doesNotExist());
+    }
+
+    @Test
     void adminListIsNotMadePublicByBroadGetMatcher() throws Exception {
         mockMvc.perform(get("/api/functions/admin"))
                 .andExpect(status().isForbidden());

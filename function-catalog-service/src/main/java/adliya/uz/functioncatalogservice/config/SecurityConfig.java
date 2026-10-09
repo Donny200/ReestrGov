@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/functions/translation-capabilities", "/api/functions/admin", "/api/functions/*/admin", "/api/functions/pending-review", "/api/functions/*/audit").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/functions/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/reports").permitAll()
                         .requestMatchers("/swagger", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 );

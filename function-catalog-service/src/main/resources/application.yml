@@ -38,3 +38,12 @@ azure:
 springdoc:
   swagger-ui:
     path: /swagger
+
+catalog:
+  reports:
+    client-address-header: X-Real-IP
+    per-client-limit: 5
+    per-client-window: 15m
+    global-limit: 200
+    global-window: 1h
+    per-entity-daily-limit: 30

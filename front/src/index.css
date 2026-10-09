@@ -324,3 +324,62 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 }
+
+@media print {
+  :root,
+  .dark {
+    color-scheme: light;
+    --background: #ffffff;
+    --foreground: #000000;
+    --secondary: rgba(0, 0, 0, 0.72);
+    --subtle: #8a8a8a;
+    --line: #c8c8c8;
+    --line-strong: rgba(0, 0, 0, 0.4);
+    --surface: #ffffff;
+    --surface-2: #f2f2f2;
+    --surface-field: #ffffff;
+    --ink: #000000;
+    --on-ink: #ffffff;
+    --accent-text: #000000;
+    --status-draft-fg: #000000;
+    --status-draft-bg: #ffffff;
+    --status-pending-fg: #000000;
+    --status-pending-bg: #ffffff;
+    --status-published-fg: #000000;
+    --status-published-bg: #ffffff;
+    --status-danger-fg: #000000;
+    --status-danger-bg: #ffffff;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    font-size: 11pt;
+  }
+
+  .reveal,
+  .js .reveal:not(.is-visible) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .watermark,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid-page;
+  }
+}

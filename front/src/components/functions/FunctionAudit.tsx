@@ -7,6 +7,7 @@ import { StatusPill, type StatusTone } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonText } from '../ui/Skeleton';
 import { EmptyState } from '../ui/States';
+import { formatDateTime } from '../../utils/format';
 
 const tones: Record<string, StatusTone> = {
   PUBLISH: 'published',
@@ -25,16 +26,6 @@ function normalizeAction(action: string): string {
 function humanize(action: string): string {
   const words = action.toLowerCase().split('_').join(' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function formatTimestamp(value: string, locale: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-  } catch {
-    return date.toLocaleString();
-  }
 }
 
 export function FunctionAudit({ functionId }: { functionId: number }) {
@@ -67,7 +58,7 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
                   <span className="absolute -start-[1.95rem] top-1.5 h-3 w-3 rounded-pill bg-ink ring-4 ring-background" aria-hidden="true" />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone={tones[action] ?? 'draft'}>{t(`fnAdmin.action.${action}`, humanize(action))}</StatusPill>
-                    <time className="text-xs tabular-nums text-secondary" dateTime={entry.performedAt}>{formatTimestamp(entry.performedAt, locale)}</time>
+                    <time className="text-xs tabular-nums text-secondary" dateTime={entry.performedAt}>{formatDateTime(entry.performedAt, locale)}</time>
                   </div>
                   <p className="mt-1.5 text-sm text-foreground wrap-anywhere">{t('fnAdmin.actor')}: {entry.performedBy}</p>
                   {entry.details && <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-secondary wrap-anywhere">{entry.details}</p>}

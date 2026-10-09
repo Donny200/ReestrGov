@@ -25,12 +25,12 @@ public class OrgFunctionController {
             @RequestParam(required = false) Long organizationId,
             @RequestParam(required = false) String category) {
         if (organizationId != null) {
-            return ResponseEntity.ok(orgFunctionService.getByOrganizationId(organizationId).stream().map(OrgFunctionResponse::from).toList());
+            return ResponseEntity.ok(orgFunctionService.getByOrganizationId(organizationId).stream().map(OrgFunctionResponse::publicFrom).toList());
         }
         if (category != null) {
-            return ResponseEntity.ok(orgFunctionService.getByCategory(category).stream().map(OrgFunctionResponse::from).toList());
+            return ResponseEntity.ok(orgFunctionService.getByCategory(category).stream().map(OrgFunctionResponse::publicFrom).toList());
         }
-        return ResponseEntity.ok(orgFunctionService.getAll().stream().map(OrgFunctionResponse::from).toList());
+        return ResponseEntity.ok(orgFunctionService.getAll().stream().map(OrgFunctionResponse::publicFrom).toList());
     }
 
     @GetMapping("/admin")
@@ -47,7 +47,7 @@ public class OrgFunctionController {
 
     @GetMapping("/{id}")
     public ResponseEntity<OrgFunctionResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.getById(id)));
+        return ResponseEntity.ok(OrgFunctionResponse.publicFrom(orgFunctionService.getById(id)));
     }
 
     @PostMapping

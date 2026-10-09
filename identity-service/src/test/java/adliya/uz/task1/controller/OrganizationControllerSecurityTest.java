@@ -123,6 +123,47 @@ class OrganizationControllerSecurityTest {
     }
 
     @Test
+    @WithMockUser(authorities = "ORGANIZATIONS_EDIT_OWN")
+    void editOwnPermissionReachesVerificationWhereScopeIsChecked() throws Exception {
+        when(organizationService.verify(7L)).thenReturn(organization(true));
+
+        mockMvc.perform(post("/api/organizations/7/verify"))
+                .andExpect(status().isOk());
+
+        verify(organizationService).verify(7L);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ORGANIZATIONS_VIEW")
+    void viewPermissionCannotVerify() throws Exception {
+        mockMvc.perform(post("/api/organizations/7/verify"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(organizationService);
+    }
+
+    @Test
+    @WithMockUser(authorities = "ORGANIZATIONS_EDIT")
+    void invalidContactDetailsAreRejectedWithFieldErrors() throws Exception {
+        for (String contact : java.util.List.of(
+                "{\"phone\":\"call me maybe\"}",
+                "{\"latitude\":95,\"longitude\":10}",
+                "{\"mapUrl\":\"javascript:alert(1)\"}",
+                "{\"regionCode\":\"<script>\"}")) {
+            mockMvc.perform(put("/api/organizations/7")
+                            .contentType("application/json")
+                            .content("{\"contact\":" + contact + "}"))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(put("/api/organizations/7")
+                        .contentType("application/json")
+                        .content("{\"officialSourceUrl\":\"ftp://gov.example\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(organizationService);
+    }
+
+    @Test
     @WithMockUser(authorities = "REPORTS_VIEW")
     void unrelatedPermissionCannotMutateOrganizations() throws Exception {
         mockMvc.perform(post("/api/organizations")
@@ -136,6 +177,8 @@ class OrganizationControllerSecurityTest {
         mockMvc.perform(delete("/api/organizations/7"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/organizations/7/reactivate"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/organizations/7/verify"))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(organizationService);

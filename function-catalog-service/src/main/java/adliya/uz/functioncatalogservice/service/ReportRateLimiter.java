@@ -1,0 +1,90 @@
+package adliya.uz.functioncatalogservice.service;
+
+import adliya.uz.functioncatalogservice.config.ReportProperties;
+import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.Map;
+
+@Component
+public class ReportRateLimiter {
+
+    private final ReportProperties properties;
+    private final Clock clock;
+    private final byte[] salt = new byte[16];
+    private final Map<String, Window> clients = new HashMap<>();
+    private Window global;
+
+    @Autowired
+    public ReportRateLimiter(ReportProperties properties) {
+        this(properties, Clock.systemUTC());
+    }
+
+    ReportRateLimiter(ReportProperties properties, Clock clock) {
+        this.properties = properties;
+        this.clock = clock;
+        new SecureRandom().nextBytes(salt);
+    }
+
+    public synchronized void acquire(String clientAddress) {
+        Instant now = clock.instant();
+        String key = fingerprint(clientAddress);
+        Window existing = clients.get(key);
+        Window client = active(existing, now) ? existing : null;
+        if (client == null && !hasCapacity(now)) {
+            throw new RateLimitExceededException(properties.getPerClientWindow());
+        }
+        if (client == null) {
+            client = new Window(now.plus(properties.getPerClientWindow()), 0);
+        }
+        if (client.count() >= properties.getPerClientLimit()) {
+            throw new RateLimitExceededException(client.remaining(now));
+        }
+        if (!active(global, now)) {
+            global = new Window(now.plus(properties.getGlobalWindow()), 0);
+        }
+        if (global.count() >= properties.getGlobalLimit()) {
+            throw new RateLimitExceededException(global.remaining(now));
+        }
+        clients.put(key, client.increment());
+        global = global.increment();
+    }
+
+    private boolean hasCapacity(Instant now) {
+        if (clients.size() < properties.getMaxTrackedClients()) {
+            return true;
+        }
+        clients.values().removeIf(window -> !active(window, now));
+        return clients.size() < properties.getMaxTrackedClients();
+    }
+
+    private static boolean active(Window window, Instant now) {
+        return window != null && window.end().isAfter(now);
+    }
+
+    private String fingerprint(String clientAddress) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(salt);
+            digest.update(String.valueOf(clientAddress).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private record Window(Instant end, int count) {
+        Window increment() { return new Window(end, count + 1); }
+        Duration remaining(Instant now) { return Duration.between(now, end); }
+    }
+}

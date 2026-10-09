@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { LanguagesIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -8,7 +8,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Badge, FunctionStatusBadge } from '../../components/ui/Badge';
+import { Badge, FunctionStatusBadge, VerificationBadge } from '../../components/ui/Badge';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -19,7 +19,8 @@ import { useAuth } from '../../contexts/auth';
 import { ApiError } from '../../services/http';
 import { functionText, hasFunctionTranslation } from '../../utils/functionLocalization';
 import { localizedText } from '../../utils/translations';
-import { FUNCTION_STATUSES, statusLabels, type AdminFunction } from '../../types/adminFunctions';
+import { FUNCTION_STATUSES, statusLabels, type AdminFunction, type FunctionStatus } from '../../types/adminFunctions';
+import { matchesVerification, parseVerificationFilter, type VerificationFilter } from '../../utils/verification';
 
 const PAGE_SIZE = 50;
 
@@ -29,7 +30,10 @@ export function AdminFunctionsPage() {
   const canView = hasPermission('FUNCTIONS_VIEW');
   const functions = useAdminFunctions(canView);
   const options = useFunctionOptions();
-  const [status, setStatus] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status');
+  const [status, setStatus] = useState(FUNCTION_STATUSES.includes(initialStatus as FunctionStatus) ? (initialStatus as string) : '');
+  const [verification, setVerification] = useState<VerificationFilter>(parseVerificationFilter(searchParams.get('verification')));
   const [organization, setOrganization] = useState('');
   const [category, setCategory] = useState('');
   const [language, setLanguage] = useState(locale);
@@ -52,10 +56,11 @@ export function AdminFunctionsPage() {
           (!status || row.status === status) &&
           (!organization || (organization === 'unassigned' ? row.organizationId === null : row.organizationId === Number(organization))) &&
           (!category || row.categoryId === Number(category)) &&
+          matchesVerification(row.verificationStatus, verification) &&
           functionText(row, 'name', language).toLocaleLowerCase().includes(term),
       )
       .sort((a, b) => b.id - a.id);
-  }, [functions.data, status, organization, category, language, search]);
+  }, [functions.data, status, organization, category, verification, language, search]);
 
   const columns = useMemo<ColumnDef<AdminFunction>[]>(
     () => [
@@ -100,6 +105,13 @@ export function AdminFunctionsPage() {
         accessorKey: 'status',
         header: t('field.status'),
         cell: ({ row }) => <FunctionStatusBadge status={row.original.status} />,
+      },
+      {
+        id: 'verification',
+        header: t('verification.column', 'Verification'),
+        enableSorting: false,
+        meta: { hideBelow: 'lg' },
+        cell: ({ row }) => <VerificationBadge status={row.original.verificationStatus} />,
       },
       {
         id: 'languages',
@@ -153,7 +165,7 @@ export function AdminFunctionsPage() {
       <Card className="mb-6">
         <CardBody>
           <p className="micro mb-4 text-secondary">{t('fnAdmin.filters', 'Filters')}</p>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
             <Field label={t('field.status')}>
               {(control) => (
                 <Select
@@ -196,6 +208,21 @@ export function AdminFunctionsPage() {
                       value: String(item.id),
                       label: localizedText(item.name, item.nameTranslations, language) ?? item.name,
                     })),
+                  ]}
+                />
+              )}
+            </Field>
+            <Field label={t('verification.column', 'Verification')}>
+              {(control) => (
+                <Select
+                  {...control}
+                  size="sm"
+                  value={verification}
+                  onValueChange={(value) => setVerification(parseVerificationFilter(value))}
+                  options={[
+                    { value: '', label: t('status.all') },
+                    { value: 'due', label: t('verification.filterDue', 'Needs recheck') },
+                    { value: 'verified', label: t('verification.status.VERIFIED', 'Verified') },
                   ]}
                 />
               )}

@@ -1,4 +1,5 @@
 import { apiRequest } from './http';
+import type { InstructionField } from '../types/api';
 import type {
   AdminFunction,
   CreateFunctionRequest,
@@ -32,8 +33,16 @@ export const deactivateFunction = (id: number) => apiRequest<void>(`/api/functio
 
 export const getFunctionAudit = (id: number) => apiRequest<FunctionAuditEntry[]>(`/api/functions/${id}/audit`);
 
-export const saveFunctionTranslation = (id: number, language: string, body: { name: string; description: string }) =>
+export interface FunctionTranslationBody {
+  name: string;
+  description: string;
+  instructions?: Partial<Record<InstructionField, string>>;
+}
+
+export const saveFunctionTranslation = (id: number, language: string, body: FunctionTranslationBody) =>
   apiRequest<AdminFunction>(`/api/functions/${id}/translations/${encodeURIComponent(language)}`, { method: 'PUT', body });
+
+export const verifyFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/verify`, { method: 'POST' });
 
 export const getTranslationCapabilities = () =>
   apiRequest<{ available: boolean }>('/api/functions/translation-capabilities');

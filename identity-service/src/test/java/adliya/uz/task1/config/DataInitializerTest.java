@@ -60,7 +60,8 @@ class DataInitializerTest {
 
         new DataInitializer(roleRepository, permissionRepository).run();
 
-        assertThat(catalogue).hasSize(47);
+        assertThat(catalogue).hasSize(48);
+        assertThat(catalogue.get("REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
         assertThat(catalogue.values().stream().filter(p -> p.getCategory().equals("Function Management")).map(Permission::getCode))
                 .contains("FUNCTIONS_CREATE", "FUNCTIONS_EDIT", "FUNCTIONS_DEACTIVATE",
                         "FUNCTIONS_SUBMIT_REVIEW", "FUNCTIONS_REVIEW", "FUNCTIONS_PUBLISH",

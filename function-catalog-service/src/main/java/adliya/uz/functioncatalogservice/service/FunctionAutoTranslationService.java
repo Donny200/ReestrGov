@@ -3,6 +3,7 @@ package adliya.uz.functioncatalogservice.service;
 import adliya.uz.functioncatalogservice.dto.AutoTranslateRequest;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
+import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.exception.TranslationUnavailableException;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -61,23 +63,42 @@ public class FunctionAutoTranslationService {
                 snapshot.language(), request.overwriteMachine(), NAME_MAX_LENGTH);
         Map<String, String> descriptions = generate(snapshot.description(), snapshot.descriptions(), targets,
                 snapshot.language(), request.overwriteMachine(), DESCRIPTION_MAX_LENGTH);
+        Map<InstructionField, Map<String, String>> instructions = new EnumMap<>(InstructionField.class);
+        for (InstructionField field : InstructionField.values()) {
+            Map<String, String> generated = generate(snapshot.instructions().get(field),
+                    snapshot.instructionTranslations().getOrDefault(field, Map.of()), targets,
+                    snapshot.language(), request.overwriteMachine(), field.maxLength());
+            Map<String, String> normalized = new LinkedHashMap<>();
+            generated.forEach((code, text) -> normalized.put(code, normalizedTranslation(field, text)));
+            if (!normalized.isEmpty()) {
+                instructions.put(field, normalized);
+            }
+        }
 
-        return Objects.requireNonNull(transaction.execute(status -> apply(id, snapshot, targets, names, descriptions)));
+        return Objects.requireNonNull(transaction.execute(status -> apply(id, snapshot, targets, names, descriptions, instructions)));
     }
 
-    private OrgFunction apply(Long id, Snapshot snapshot, List<String> targets,
-                              Map<String, String> names, Map<String, String> descriptions) {
+    private OrgFunction apply(Long id, Snapshot snapshot, List<String> targets, Map<String, String> names,
+                              Map<String, String> descriptions, Map<InstructionField, Map<String, String>> instructions) {
         OrgFunction function = findFunction(id);
         entityManager.refresh(function);
         access.requireOrganization(function.getOrganizationId());
         if (!Objects.equals(snapshot.version(), function.getVersion()) || function.getStatus() != FunctionStatus.DRAFT) {
             throw new WorkflowConflictException("Card changed while translating; reload and retry");
         }
-        if (names.isEmpty() && descriptions.isEmpty()) {
+        if (names.isEmpty() && descriptions.isEmpty() && instructions.isEmpty()) {
             return function;
         }
         function.setNameTranslations(merged(function.getNameTranslations(), names));
         function.setDescriptionTranslations(merged(function.getDescriptionTranslations(), descriptions));
+        Map<String, Map<String, TranslatedText>> instructionTranslations = new LinkedHashMap<>();
+        for (InstructionField field : InstructionField.values()) {
+            Map<String, TranslatedText> values = merged(function.instructionTranslationsOf(field), instructions.getOrDefault(field, Map.of()));
+            if (!values.isEmpty()) {
+                instructionTranslations.put(field.key(), values);
+            }
+        }
+        function.setInstructionTranslations(instructionTranslations);
         functions.saveAndFlush(function);
         audit.function(function, AuditAction.TRANSLATION_EDIT, "Machine translation: " + String.join(", ", targets));
         return function;
@@ -122,6 +143,19 @@ public class FunctionAutoTranslationService {
         return checked;
     }
 
+    private static String normalizedTranslation(InstructionField field, String text) {
+        try {
+            String value = InstructionText.normalize(field, text);
+            if (value == null) {
+                throw new IllegalArgumentException(field.key() + ": empty translation");
+            }
+            return value;
+        } catch (IllegalArgumentException exception) {
+            throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY,
+                    "Translation is incomplete or too long; try a manual translation");
+        }
+    }
+
     private static Map<String, TranslatedText> merged(Map<String, TranslatedText> existing, Map<String, String> generated) {
         Map<String, TranslatedText> result = new LinkedHashMap<>(existing);
         generated.forEach((code, text) -> result.put(code, new TranslatedText(text, TranslatedText.MACHINE)));
@@ -129,10 +163,21 @@ public class FunctionAutoTranslationService {
     }
 
     private static Snapshot snapshotOf(OrgFunction function) {
+        Map<InstructionField, String> instructions = new EnumMap<>(InstructionField.class);
+        Map<InstructionField, Map<String, TranslatedText>> instructionTranslations = new EnumMap<>(InstructionField.class);
+        for (InstructionField field : InstructionField.values()) {
+            if (field.get(function) != null) {
+                instructions.put(field, field.get(function));
+            }
+            instructionTranslations.put(field, new LinkedHashMap<>(function.instructionTranslationsOf(field)));
+        }
         return new Snapshot(function.getVersion(), function.getName(), function.getDescription(), function.getSourceLanguage(),
-                new LinkedHashMap<>(function.getNameTranslations()), new LinkedHashMap<>(function.getDescriptionTranslations()));
+                new LinkedHashMap<>(function.getNameTranslations()), new LinkedHashMap<>(function.getDescriptionTranslations()),
+                instructions, instructionTranslations);
     }
 
     private record Snapshot(Long version, String name, String description, String language,
-                            Map<String, TranslatedText> names, Map<String, TranslatedText> descriptions) {}
+                            Map<String, TranslatedText> names, Map<String, TranslatedText> descriptions,
+                            Map<InstructionField, String> instructions,
+                            Map<InstructionField, Map<String, TranslatedText>> instructionTranslations) {}
 }

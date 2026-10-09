@@ -3,6 +3,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../contexts/i18n';
 import { statusLabels, type FunctionStatus } from '../../types/adminFunctions';
+import type { VerificationStatus } from '../../types/api';
+import { verificationLabels } from '../../utils/verification';
 
 const badgeVariants = cva(
   'inline-flex max-w-full items-center gap-1.5 rounded-pill border px-4 py-2 text-sm font-medium leading-5 [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:shrink-0',
@@ -66,4 +68,17 @@ const functionTones: Record<FunctionStatus, StatusTone> = {
 export function FunctionStatusBadge({ status }: { status: FunctionStatus }) {
   const { t } = useI18n();
   return <StatusPill tone={functionTones[status]}>{t(`fnAdmin.status.${status}`, statusLabels[status])}</StatusPill>;
+}
+
+const verificationTones: Record<VerificationStatus, StatusTone> = {
+  UNVERIFIED: 'draft',
+  VERIFIED: 'published',
+  DUE: 'pending',
+  OUTDATED: 'danger',
+};
+
+export function VerificationBadge({ status }: { status: VerificationStatus | undefined }) {
+  const { t } = useI18n();
+  const value = status ?? 'UNVERIFIED';
+  return <StatusPill tone={verificationTones[value]}>{t(`verification.status.${value}`, verificationLabels[value])}</StatusPill>;
 }

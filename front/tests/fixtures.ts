@@ -1,7 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFunctions';
+import type { Organization, Region } from '../src/types/api';
+import type { InformationReport } from '../src/types/reports';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
+
+const MIGRATIONS = '../reference-service/src/main/resources/db/migration';
 
 export const allPermissions = [...FUNCTION_PERMISSIONS, 'FUNCTIONS_MANAGE_ANY_ORGANIZATION'];
 export const organization = { id: 10, name: 'zafar', enabled: true, createdAt: '2026-09-01T00:00:00' };
@@ -13,15 +17,14 @@ export const languages = [
 ];
 function dictionary(language: string) {
   const values: Record<string, string> = {};
-  const original = readFileSync('../reference-service/src/main/resources/db/migration/V1__normalize_interface_translations.sql', 'utf8');
-  const added = readFileSync('../reference-service/src/main/resources/db/migration/V2__admin_function_labels.sql', 'utf8');
-  for (const line of original.split('\n').filter(line => line.startsWith("('"))) {
-    const parts = [...line.matchAll(/'((?:[^']|'')*)'/g)].map(part => part[1].replace(/''/g, "'"));
-    if (parts.length === 2) values[parts[0]] = parts[1];
-  }
-  for (const line of added.split('\n').filter(line => line.startsWith("('"))) {
-    const parts = [...line.matchAll(/'((?:[^']|'')*)'/g)].map(part => part[1].replace(/''/g, "'"));
-    if (parts.length === 3 && parts[1] === language) values[parts[0]] = parts[2];
+  const files = readdirSync(MIGRATIONS).filter(name => /^V\d+__.*\.sql$/.test(name))
+    .sort((a, b) => Number(a.slice(1, a.indexOf('__'))) - Number(b.slice(1, b.indexOf('__'))));
+  for (const file of files) {
+    for (const line of readFileSync(`${MIGRATIONS}/${file}`, 'utf8').split('\n').filter(line => line.startsWith("('"))) {
+      const parts = [...line.matchAll(/'((?:[^']|'')*)'/g)].map(part => part[1].replace(/''/g, "'"));
+      if (parts.length === 2) values[parts[0]] = parts[1];
+      if (parts.length === 3 && parts[1] === language) values[parts[0]] = parts[2];
+    }
   }
   return values;
 }
@@ -40,6 +43,7 @@ export function card(id = 1, status: AdminFunction['status'] = 'DRAFT'): AdminFu
 export interface FixtureOptions {
   records?: AdminFunction[]; permissions?: string[]; role?: string;
   autoAvailable?: boolean; realBackend?: string; token?: string;
+  organizations?: Organization[]; regions?: Region[]; reports?: InformationReport[]; anonymous?: boolean;
 }
 export async function setup(page: Page, options: FixtureOptions = {}) {
   const records = structuredClone(options.records ?? Array.from({ length: 11 }, (_, i) => card(i + 1, i < 3 ? 'PUBLISHED' : 'DRAFT')));
@@ -47,7 +51,10 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
   const role = options.role ?? 'ROLE_SUPER_ADMIN';
   const user = { id: 42, firstName: 'Editor', lastName: 'Test', email: 'editor@example.test', phone: null,
     role, enabled: true, mustChangePassword: false, organizationIds: [10], organizations: [organization], permissions };
-  type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean };
+  type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
+    status?: InformationReport['status']; note?: string; instructions?: Record<string, string> };
+  const organizations = structuredClone(options.organizations ?? [organization as Organization]);
+  const reports = structuredClone(options.reports ?? []);
   const requests: { method: string; path: string; body: Payload }[] = [];
   const failures = new Map<string, number>();
   const audits: { id: number; functionId: number; performedBy: string; performedAt: string; action: string; details: string }[] = [];
@@ -69,12 +76,42 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         headers: { ...request.headers(), cookie: 'accessToken=' + options.token } });
       return route.fulfill({ response });
     }
-    if (path === '/api/auth/me' || path === '/api/auth/login') return reply(user);
+    if (path === '/api/auth/me') return options.anonymous ? reply({ message: 'Authentication is required' }, 401) : reply(user);
+    if (path === '/api/auth/refresh') return reply({}, 401);
+    if (path === '/api/auth/login') return reply(user);
     if (path === '/api/auth/logout') return reply({});
     if (path === '/api/languages') return reply(languages);
     if (path.startsWith('/api/interface-translations/')) return reply(dictionary(path.split('/').at(-1) ?? 'en'));
-    if (path === '/api/public/organizations' || path === '/api/organizations') return reply([organization]);
-    if (path.startsWith('/api/admin/') || path === '/api/regions') return reply([]);
+    if (path === '/api/public/organizations' || path === '/api/organizations') return reply(organizations);
+    const organizationMatch = path.match(/^\/api\/(?:public\/)?organizations\/(\d+)(?:\/(verify))?$/);
+    if (organizationMatch) {
+      const found = organizations.find(item => item.id === Number(organizationMatch[1]));
+      if (!found) return reply({ message: 'Organization not found' }, 404);
+      if (method === 'POST' && organizationMatch[2] === 'verify') {
+        Object.assign(found, { lastVerifiedAt: new Date().toISOString(), verificationStatus: 'VERIFIED', verifiedByUserId: user.id });
+      } else if (method === 'PUT') {
+        Object.assign(found, body);
+      }
+      return reply(found);
+    }
+    if (path === '/api/regions') return reply(options.regions ?? []);
+    if (path.startsWith('/api/admin/')) return reply([]);
+    if (path === '/api/reports' && method === 'POST') return reply({ received: true }, 202);
+    if (path === '/api/reports' && method === 'GET') {
+      if (!permissions.includes('REPORTS_VIEW')) return reply({ message: 'Forbidden' }, 403);
+      const query = new URL(request.url()).searchParams;
+      const status = query.get('status') ?? 'OPEN';
+      return reply(reports.filter(item => status === 'ALL' || (status === 'OPEN' ? ['NEW', 'IN_REVIEW'].includes(item.status) : item.status === status)));
+    }
+    const reportMatch = path.match(/^\/api\/reports\/(\d+)\/status$/);
+    if (reportMatch && method === 'PUT') {
+      if (!permissions.includes('REPORTS_MANAGE')) return reply({ message: 'Forbidden' }, 403);
+      const found = reports.find(item => item.id === Number(reportMatch[1]));
+      if (!found || !body.status) return reply({ message: 'Not found' }, 404);
+      Object.assign(found, { status: body.status, resolutionNote: body.note || found.resolutionNote, handledByUserId: user.id,
+        contact: ['RESOLVED', 'DISMISSED'].includes(body.status) ? null : found.contact });
+      return reply(found);
+    }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
     if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false });
     if (path === '/api/functions/admin') return permissions.includes('FUNCTIONS_VIEW') ? reply(records) : reply({}, 403);
@@ -92,6 +129,11 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     if (!record) return reply({ message: 'Not found' }, 404);
     const action = match[2];
     if (action === 'admin') return reply(record);
+    if (action === 'verify' && method === 'POST') {
+      if (!record.officialSourceUrl) return reply({ message: 'Add the official source link before verifying this service' }, 409);
+      Object.assign(record, { lastVerifiedAt: new Date().toISOString(), verificationStatus: 'VERIFIED', verifiedByUserId: user.id });
+      return reply(record);
+    }
     if (action === 'audit') return reply(audits.filter(entry => entry.functionId === record.id));
     if (method === 'GET') return record.status === 'PUBLISHED' ? reply(record) : reply({}, 404);
     if (method === 'PUT' && !action) Object.assign(record, body);
@@ -102,6 +144,14 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       record.nameTranslations[language] = { text: body.name ?? '', source: 'human' };
       record.descriptionTranslations ??= {};
       record.descriptionTranslations[language] = { text: body.description ?? '', source: 'human' };
+      for (const [field, text] of Object.entries(body.instructions ?? {})) {
+        const key = field as keyof NonNullable<AdminFunction['instructionTranslations']>;
+        record.instructionTranslations ??= {};
+        const values = { ...(record.instructionTranslations[key] ?? {}) };
+        if (text) values[language] = { text, source: 'human' };
+        else delete values[language];
+        record.instructionTranslations[key] = values;
+      }
     } else if (action === 'translate') {
       for (const language of body.languages ?? []) {
         for (const field of ['nameTranslations', 'descriptionTranslations'] as const) {
@@ -122,5 +172,5 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits };
+  return { records, requests, failures, audits, organizations, reports };
 }

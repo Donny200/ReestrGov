@@ -17,6 +17,7 @@ import { FunctionFields } from '../../components/functions/FunctionFields';
 import { FunctionPreview } from '../../components/functions/FunctionPreview';
 import { FunctionRequirementsEditor } from '../../components/functions/FunctionRequirementsEditor';
 import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
+import { FunctionVerification } from '../../components/functions/FunctionVerification';
 import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
 import { InlineAlert } from '../../features/functions/InlineAlert';
@@ -25,7 +26,7 @@ import { formOf, functionFormSchema, toUpdateRequest } from '../../features/func
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
-import { applyServerErrors } from '../../lib/forms';
+import { applyServerErrors, withoutPrefix } from '../../lib/forms';
 import { functionText } from '../../utils/functionLocalization';
 import type { AdminFunction, FunctionFormValues } from '../../types/adminFunctions';
 
@@ -100,7 +101,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
       reset(formOf(saved));
       toast.success(t('fnAdmin.saved'));
     } catch (error) {
-      applyServerErrors(error, setError, setFormError, t);
+      applyServerErrors(error, setError, setFormError, t, withoutPrefix('instructions'));
     }
   });
 
@@ -188,6 +189,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
 
         <aside className="space-y-6 lg:sticky lg:top-24">
           <FunctionWorkflow record={record} dirty={isDirty || secondaryDirty} busy={busy} />
+          <FunctionVerification record={record} dirty={isDirty || secondaryDirty} busy={busy} />
           <FunctionPreview record={record} />
         </aside>
       </div>

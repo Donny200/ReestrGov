@@ -11,7 +11,7 @@ export function PublicFooter() {
   const { user } = useAuth();
 
   return (
-    <footer className="ink relative mt-8 overflow-hidden rounded-t-card bg-ink text-ink-fg">
+    <footer className="ink relative mt-8 overflow-hidden rounded-t-card bg-ink text-ink-fg print:hidden">
       <span className="watermark" aria-hidden="true">{t('app.name')}</span>
       <div className="shell relative grid gap-10 py-14 sm:py-16 md:grid-cols-[minmax(0,1.5fr)_1fr_1fr]">
         <div className="max-w-md">
@@ -25,6 +25,8 @@ export function PublicFooter() {
             <li><Link to="/" className={linkClass}>{t('nav.home')}</Link></li>
             <li><Link to="/#organizations" className={linkClass}>{t('nav.organizations')}</Link></li>
             <li><Link to="/#functions" className={linkClass}>{t('nav.functions')}</Link></li>
+            <li><Link to="/finder" className={linkClass}>{t('nav.finder', 'Service finder')}</Link></li>
+            <li><Link to="/saved" className={linkClass}>{t('nav.saved', 'Saved')}</Link></li>
           </ul>
         </nav>
 

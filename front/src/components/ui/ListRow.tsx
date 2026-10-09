@@ -11,14 +11,15 @@ interface ListRowProps {
   meta?: ReactNode;
   lang?: string;
   className?: string;
+  action?: ReactNode;
 }
 
-export function ListRow({ to, index, title, secondary, meta, lang, className }: ListRowProps) {
+export function ListRow({ to, index, title, secondary, meta, lang, className, action }: ListRowProps) {
   return (
-    <li className={cn('border-t border-line', className)}>
+    <li className={cn('border-t border-line', action && 'flex items-center gap-2 sm:gap-3', className)}>
       <Link
         to={to}
-        className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 py-5 ps-0 pe-0 transition-[background-color,padding] duration-snap ease-snap fine:hover:bg-surface fine:hover:ps-6 fine:hover:pe-5 sm:gap-6 sm:py-6 sm:ps-6 sm:pe-6 sm:fine:hover:ps-8"
+        className="group grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 py-5 ps-0 pe-0 transition-[background-color,padding] duration-snap ease-snap fine:hover:bg-surface fine:hover:ps-6 fine:hover:pe-5 sm:gap-6 sm:py-6 sm:ps-6 sm:pe-6 sm:fine:hover:ps-8"
       >
         <span className="micro w-8 pt-1 text-secondary tabular-nums sm:w-10" aria-hidden="true">
           {String(index).padStart(2, '0')}
@@ -37,6 +38,7 @@ export function ListRow({ to, index, title, secondary, meta, lang, className }: 
           <ArrowUpRightIcon className="h-5 w-5 rtl:-scale-x-100" strokeWidth={2} />
         </span>
       </Link>
+      {action && <div className="shrink-0 pe-1 sm:pe-2">{action}</div>}
     </li>
   );
 }

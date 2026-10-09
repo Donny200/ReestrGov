@@ -9,6 +9,16 @@ export function formatDate(value: string | null | undefined, locale = 'uz-UZ'): 
   }
 }
 
+export function formatDateTime(value: string, locale: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
 export function roleLabel(role: string, t?: (key: string, fallback?: string) => string): string {
   switch (role) {
     case 'ROLE_SUPER_ADMIN':
