@@ -47,3 +47,12 @@ catalog:
     global-limit: 200
     global-window: 1h
     per-entity-daily-limit: 30
+  analytics:
+    zone: Asia/Tashkent
+    retention: 730d
+    default-period-days: 30
+    max-period-days: 366
+    per-client-limit: 120
+    per-client-window: 10m
+    global-limit: 20000
+    global-window: 1h

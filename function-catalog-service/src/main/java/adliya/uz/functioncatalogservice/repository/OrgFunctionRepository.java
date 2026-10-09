@@ -12,5 +12,6 @@ public interface OrgFunctionRepository extends JpaRepository<OrgFunction, Long> 
     List<OrgFunction> findAllByOrganizationIdIn(Collection<Long> organizationIds);
     List<OrgFunction> findAllByStatusAndOrganizationIdIn(FunctionStatus status, Collection<Long> organizationIds);
     boolean existsByFunctionCategory_Id(Long categoryId);
+    boolean existsByOrganizationIdAndStatus(Long organizationId, FunctionStatus status);
     Optional<OrgFunction> findBySeedKey(String seedKey);
 }

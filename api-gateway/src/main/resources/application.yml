@@ -35,7 +35,7 @@ spring:
             - id: function-catalog-service
               uri: lb://function-catalog-service
               predicates:
-                - Path=/api/functions/**,/api/reports/**
+                - Path=/api/functions/**,/api/reports/**,/api/analytics/**
             - id: identity-service
               uri: lb://identity-service
               predicates:

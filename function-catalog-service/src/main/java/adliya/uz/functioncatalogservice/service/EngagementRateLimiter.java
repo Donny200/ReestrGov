@@ -1,20 +1,20 @@
 package adliya.uz.functioncatalogservice.service;
 
-import adliya.uz.functioncatalogservice.config.ReportProperties;
+import adliya.uz.functioncatalogservice.config.AnalyticsProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 
 @Component
-public class ReportRateLimiter extends ClientRateLimiter {
+public class EngagementRateLimiter extends ClientRateLimiter {
 
     @Autowired
-    public ReportRateLimiter(ReportProperties properties) {
+    public EngagementRateLimiter(AnalyticsProperties properties) {
         this(properties, Clock.systemUTC());
     }
 
-    ReportRateLimiter(ReportProperties properties, Clock clock) {
+    EngagementRateLimiter(AnalyticsProperties properties, Clock clock) {
         super(new Limits(properties.getPerClientLimit(), properties.getPerClientWindow(), properties.getGlobalLimit(),
                 properties.getGlobalWindow(), properties.getMaxTrackedClients()), clock);
     }
