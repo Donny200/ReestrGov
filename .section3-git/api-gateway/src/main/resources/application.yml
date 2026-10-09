@@ -1,0 +1,45 @@
+server:
+  port: 8082
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin, RETAIN_FIRST
+          routes:
+            - id: identity-language-service
+              uri: lb://identity-service
+              predicates:
+                - Path=/api/languages,/api/languages/**
+            - id: reference-service
+              uri: lb://reference-service
+              predicates:
+                - Path=/api/regions/**,/api/interface-translations/**
+            - id: function-catalog-service
+              uri: lb://function-catalog-service
+              predicates:
+                - Path=/api/functions/**
+            - id: identity-service
+              uri: lb://identity-service
+              predicates:
+                - Path=/api/**
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+security:
+  introspection:
+    base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8081}
+    client-key: ${INTERNAL_GATEWAY_KEY:?INTERNAL_GATEWAY_KEY is required}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    prefer-ip-address: true

@@ -1,0 +1,22 @@
+package adliya.uz.task1.dto;
+
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class UpdateOrganizationRequest {
+
+    @Size(max = 150, message = "Name must be at most 150 characters")
+    private String name;
+
+    @Size(max = 500, message = "Description must be at most 500 characters")
+    private String description;
+}
