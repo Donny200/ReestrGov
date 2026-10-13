@@ -112,19 +112,14 @@ class OrganizationServiceSecurityTest {
     }
 
     @Test
-    void verificationRequiresAnOfficialSourceAndRecordsTheVerifier() {
+    void verificationWorksWithoutAnExternalSourceAndRecordsTheVerifier() {
         Organization ownOrganization = organization(10L, true);
+        ownOrganization.setOfficialSourceUrl(null);
         User actor = user(7L, "ORGANIZATIONS_EDIT_OWN", ownOrganization);
         when(userService.getCurrentUser()).thenReturn(actor);
         when(organizationRepository.findById(10L)).thenReturn(Optional.of(ownOrganization));
-
-        assertThatThrownBy(() -> organizationService.verify(10L))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("official source");
-        verify(organizationRepository, never()).save(any());
-
-        ownOrganization.setOfficialSourceUrl("https://gov.example/justice");
         when(organizationRepository.save(ownOrganization)).thenReturn(ownOrganization);
+
         organizationService.verify(10L);
 
         assertThat(ownOrganization.getVerifiedByUserId()).isEqualTo(7L);

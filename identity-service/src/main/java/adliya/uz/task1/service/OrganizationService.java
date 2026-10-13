@@ -97,13 +97,11 @@ public class OrganizationService {
         return organizationRepository.save(org);
     }
 
+    /** Internal check by the responsible staff member; an external source link is optional supporting information. */
     @Transactional
     public Organization verify(Long id) {
         User current = requireUpdateAccess(id);
         Organization org = getById(id);
-        if (!StringUtils.hasText(org.getOfficialSourceUrl())) {
-            throw new IllegalStateException("Add the official source link before verifying this organization");
-        }
         org.setLastVerifiedAt(Instant.now());
         org.setVerifiedByUserId(current.getId());
         org.setVerificationOutdated(false);

@@ -4,7 +4,7 @@ export const VERIFICATION_STATUSES: VerificationStatus[] = ['UNVERIFIED', 'VERIF
 
 export const verificationLabels: Record<VerificationStatus, string> = {
   UNVERIFIED: 'Not verified',
-  VERIFIED: 'Verified',
+  VERIFIED: 'Verified by organization',
   DUE: 'Recheck due',
   OUTDATED: 'Changed since verification',
 };

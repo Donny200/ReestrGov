@@ -81,9 +81,11 @@ public class ServiceQualityService {
         if (scope.empty()) {
             return List.of();
         }
-        List<OrgFunction> cards = scope.allOrganizations()
+        List<OrgFunction> cards = (scope.allOrganizations()
                 ? functions.findAll()
-                : functions.findAllByOrganizationIdIn(scope.organizationIds());
+                : functions.findAllByOrganizationIdIn(scope.organizationIds())).stream()
+                .filter(card -> !card.isRevision())
+                .toList();
         return categoryId == null ? cards : cards.stream()
                 .filter(card -> card.getFunctionCategory() != null && categoryId.equals(card.getFunctionCategory().getId()))
                 .toList();

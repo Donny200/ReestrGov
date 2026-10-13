@@ -36,7 +36,7 @@ const queue: QualityQueue = {
       verificationStatus: 'DUE', lastVerifiedAt: '2026-01-02T10:00:00Z', verificationDueAt: '2026-07-01T10:00:00Z', officialSourceUrl: null,
       issues: [
         { type: 'VERIFICATION_OVERDUE', reason: 'RECHECK_DUE', details: [] },
-        { type: 'SOURCE_MISSING', reason: 'MISSING', details: [] },
+        { type: 'SOURCE_MISSING', reason: 'UNUSABLE', details: ['www.gov.uz'] },
         { type: 'TRANSLATIONS_MISSING', reason: 'LANGUAGES', details: ['ru', 'uz'] },
       ] },
     { functionId: 4, name: 'Service 4', nameTranslations: null, status: 'DRAFT', organizationId: 10, categoryId: null, category: null,
@@ -124,7 +124,7 @@ test('organization staff see the current snapshot, quality queue, reminders, rep
   expect(lastRequest(fixture.requests, '/api/analytics/quality-queue/export').query.get('delimiter')).toBe('COMMA');
 
   const reminders = page.getByRole('region', { name: 'Reminders' });
-  await expect(reminders).toContainText('Official source missing');
+  await expect(reminders).toContainText('External source link unusable');
   await reminders.getByRole('button', { name: /^Acknowledge\s*: Service 1$/ }).click();
   await expect(page.getByRole('region', { name: 'Reminders' })).toHaveCount(0);
   expect(fixture.requests.some(request => request.method === 'POST' && request.path === '/api/analytics/reminders/7/acknowledge')).toBe(true);

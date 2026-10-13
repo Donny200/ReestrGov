@@ -29,6 +29,17 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+export interface PasswordResetOptions {
+  selfServiceAvailable: boolean;
+}
+
+/** Returned once to the SUPER_ADMIN who started a reset; the token inside the path is never shown again. */
+export interface PasswordResetLink {
+  userId: number;
+  resetPath: string;
+  expiresAt: string;
+}
+
 export type VerificationStatus = 'UNVERIFIED' | 'VERIFIED' | 'DUE' | 'OUTDATED';
 
 export interface OrganizationContact {

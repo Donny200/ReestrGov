@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { useAuth } from '../../contexts/auth';
 import {
   createFunction,
+  createFunctionRevision,
   deactivateFunction,
+  discardFunctionRevision,
   getAdminFunction,
   getAdminFunctions,
   getFunctionAudit,
@@ -72,10 +74,15 @@ export function useFunctionOptions() {
 
 async function storeFunction(client: QueryClient, record: AdminFunction) {
   client.setQueryData(functionKeys.detail(record.id), record);
+  const related = [record.id, record.revisionOfId ?? null, record.revision?.id ?? null].filter((id): id is number => id !== null);
   await Promise.all([
     client.invalidateQueries({ queryKey: functionKeys.admin() }),
     client.invalidateQueries({ queryKey: [...functionKeys.all, 'public'] }),
-    client.invalidateQueries({ queryKey: functionKeys.audit(record.id) }),
+    // Workflow responses do not embed the pending-revision summary; refetch the detail and every related record.
+    ...related.flatMap((id) => [
+      client.invalidateQueries({ queryKey: functionKeys.detail(id) }),
+      client.invalidateQueries({ queryKey: functionKeys.audit(id) }),
+    ]),
   ]);
 }
 
@@ -102,6 +109,15 @@ export const useSaveFunctionTranslation = (id: number) =>
     saveFunctionTranslation(id, language, body));
 
 export const useVerifyFunction = (id: number) => useFunctionMutation(() => verifyFunction(id));
+
+export const useCreateFunctionRevision = (id: number) => useFunctionMutation(() => createFunctionRevision(id));
+
+/** Discards the draft revision of published service {id} and reloads the published record. */
+export const useDiscardFunctionRevision = (id: number) =>
+  useFunctionMutation(async () => {
+    await discardFunctionRevision(id);
+    return getAdminFunction(id);
+  });
 
 export const useAutoTranslateFunction = (id: number) =>
   useFunctionMutation(({ languages, overwriteMachine }: { languages: string[]; overwriteMachine: boolean }) =>

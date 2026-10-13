@@ -4,6 +4,7 @@ import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.OrgFunctionResponse;
 import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.UpdateRequirementsRequest;
+import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.service.OrgFunctionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/functions")
@@ -36,13 +38,32 @@ public class OrgFunctionController {
     @GetMapping("/admin")
     @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
     public ResponseEntity<List<OrgFunctionResponse>> getAllForAdmin() {
-        return ResponseEntity.ok(orgFunctionService.getAllForAdmin().stream().map(OrgFunctionResponse::from).toList());
+        List<OrgFunction> functions = orgFunctionService.getAllForAdmin();
+        Map<Long, OrgFunction> revisions = orgFunctionService.draftRevisionsOf(functions);
+        return ResponseEntity.ok(functions.stream()
+                .map(function -> OrgFunctionResponse.from(function, revisions.get(function.getId())))
+                .toList());
     }
 
     @GetMapping("/{id}/admin")
     @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
     public OrgFunctionResponse getForAdmin(@PathVariable Long id) {
-        return OrgFunctionResponse.from(orgFunctionService.getForAdmin(id));
+        OrgFunction function = orgFunctionService.getForAdmin(id);
+        return OrgFunctionResponse.from(function, orgFunctionService.draftRevisionsOf(List.of(function)).get(function.getId()));
+    }
+
+    /** Opens (or returns) the draft revision through which a published card is edited; the public version stays as is. */
+    @PostMapping("/{id}/revisions")
+    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT')")
+    public ResponseEntity<OrgFunctionResponse> createRevision(@PathVariable Long id) {
+        return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.createRevision(id)));
+    }
+
+    @DeleteMapping("/{id}/revision")
+    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT')")
+    public ResponseEntity<Void> discardRevision(@PathVariable Long id) {
+        orgFunctionService.discardRevision(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")

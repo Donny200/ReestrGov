@@ -3,11 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircleIcon, ArrowLeftIcon } from 'lucide-react';
+import { AlertCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Logo } from '../components/layout/Logo';
-import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { useQuery } from '@tanstack/react-query';
+import { AuthShell } from '../components/layout/AuthShell';
 import { Button } from '../components/ui/Button';
 import { Eyebrow } from '../components/ui/Eyebrow';
 import { Field } from '../components/ui/Field';
@@ -15,6 +14,7 @@ import { Input } from '../components/ui/Input';
 import { homeRouteForRole, useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
 import { emailPattern } from '../lib/validation';
+import { getPasswordResetOptions } from '../services/authService';
 import { errorMessage, fieldErrorsOf, statusOf, type Translate } from '../utils/errors';
 
 const loginSchema = (t: Translate) =>
@@ -31,6 +31,7 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [formError, setFormError] = useState<string | null>(null);
+  const resetOptions = useQuery({ queryKey: ['auth', 'password-reset-options'], queryFn: getPasswordResetOptions, staleTime: 60_000, retry: false });
   const schema = useMemo(() => loginSchema(t), [t]);
   const {
     register,
@@ -69,71 +70,36 @@ export function Login() {
   });
 
   return (
-    <div className="flex min-h-dvh w-full bg-surface text-foreground">
-      <a
-        href="#login-main"
-        className="fixed start-5 top-3 z-50 -translate-y-24 rounded-pill bg-ink px-5 py-3 text-sm font-medium text-ink-fg transition-transform focus:translate-y-0"
-      >
-        {t('a11y.skipToContent', 'Skip to main content')}
-      </a>
+    <AuthShell>
+      <Eyebrow>{t('nav.admin')}</Eyebrow>
+      <h1 className="mt-4 text-4xl font-semibold text-foreground">{t('login.title')}</h1>
+      <p className="mt-2 text-base leading-6 text-secondary">{t('login.subtitle')}</p>
 
-      <aside className="ink relative hidden w-[44%] shrink-0 overflow-hidden bg-ink text-ink-fg lg:block">
-        <span className="watermark" aria-hidden="true">{t('app.name')}</span>
-        <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
-          <Logo onInk />
-          <div className="max-w-md">
-            <Eyebrow onInk>{t('nav.admin')}</Eyebrow>
-            <p className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] xl:text-4xl">{t('home.ctaText')}</p>
-          </div>
-          <p className="max-w-md text-sm leading-6 text-ink-secondary">{t('app.demoNotice')}</p>
+      {formError && (
+        <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-control bg-status-danger-bg px-4 py-3 text-sm font-medium leading-5 text-status-danger">
+          <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          {formError}
         </div>
-      </aside>
+      )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-20 items-center justify-between gap-3 px-5 sm:px-8">
-          <div className="min-w-0 lg:hidden">
-            <Logo />
-          </div>
-          <div className="ms-auto flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSwitcher compact />
-          </div>
-        </header>
-
-        <main id="login-main" tabIndex={-1} className="flex flex-1 items-center justify-center px-5 py-10 focus:outline-none sm:px-8 sm:py-14">
-          <div className="w-full max-w-md">
-            <div className="rounded-card border border-line bg-background p-6 sm:p-8">
-              <Eyebrow>{t('nav.admin')}</Eyebrow>
-              <h1 className="mt-4 text-4xl font-semibold text-foreground">{t('login.title')}</h1>
-              <p className="mt-2 text-base leading-6 text-secondary">{t('login.subtitle')}</p>
-
-              {formError && (
-                <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-control bg-status-danger-bg px-4 py-3 text-sm font-medium leading-5 text-status-danger">
-                  <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  {formError}
-                </div>
-              )}
-
-              <form className="mt-6 space-y-5" onSubmit={submit} noValidate>
-                <Field label={t('field.email')} error={errors.email?.message} required>
-                  {(control) => <Input {...control} type="email" autoComplete="email" inputMode="email" {...register('email')} />}
-                </Field>
-                <Field label={t('field.password')} error={errors.password?.message} required>
-                  {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('password')} />}
-                </Field>
-                <Button type="submit" variant="dark" size="lg" className="w-full" loading={isSubmitting}>
-                  {t('action.login')}
-                </Button>
-              </form>
-            </div>
-
-            <Link to="/" className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-pill text-sm font-medium text-secondary transition-colors duration-snap fine:hover:text-foreground">
-              <ArrowLeftIcon className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
-              {t('nav.backToSite')}
-            </Link>
-          </div>
-        </main>
-      </div>
-    </div>
+      <form className="mt-6 space-y-5" onSubmit={submit} noValidate>
+        <Field label={t('field.email')} error={errors.email?.message} required>
+          {(control) => <Input {...control} type="email" autoComplete="email" inputMode="email" {...register('email')} />}
+        </Field>
+        <Field label={t('field.password')} error={errors.password?.message} required>
+          {(control) => <Input {...control} type="password" autoComplete="current-password" {...register('password')} />}
+        </Field>
+        <Button type="submit" variant="dark" size="lg" className="w-full" loading={isSubmitting}>
+          {t('action.login')}
+        </Button>
+      </form>
+      {resetOptions.data?.selfServiceAvailable && (
+        <p className="mt-5 text-sm">
+          <Link to="/forgot-password" className="rounded-sm font-medium text-accent-text underline-offset-4 fine:hover:underline">
+            {t('login.forgotPassword', 'Forgot password?')}
+          </Link>
+        </p>
+      )}
+    </AuthShell>
   );
 }

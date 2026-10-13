@@ -13,21 +13,22 @@ function report(id: number, status: InformationReport['status'], contact: string
   };
 }
 
-test('editor stores structured instructions and verifies only with an official source', async ({ page }) => {
+test('editor stores structured instructions and verifies without an external source link', async ({ page }) => {
   const fixture = await setup(page, { records: [card()] });
   await page.goto('/admin/functions/1');
-  const verify = page.getByRole('button', { name: 'Mark as verified' });
-  await expect(verify).toBeDisabled();
-  await expect(page.getByText('Add the official source link before verifying.')).toBeVisible();
+  const verify = page.getByRole('button', { name: 'Mark as verified by organization' });
+  await expect(verify).toBeEnabled();
+  await expect(page.getByText('No external link; not required')).toBeVisible();
+  await expect(page.getByText('Add the official source link before verifying.')).toHaveCount(0);
 
   await page.getByLabel('Step-by-step procedure').fill('Apply online\n\nCollect the certificate');
   await page.getByLabel('Official fee').fill('Free of charge');
-  await page.getByLabel('Official source link').fill('not a link');
-  await page.getByRole('button', { name: 'Save', exact: true }).first().click();
+  await page.getByLabel('External source link (optional)').fill('not a link');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
   await expect(page.getByText('Enter a full link that starts with https://')).toBeVisible();
-  await page.getByLabel('Official source link').fill('https://gov.example/service/1');
-  await page.getByRole('button', { name: 'Save', exact: true }).first().click();
-  await expect(verify).toBeEnabled();
+  await page.getByLabel('External source link (optional)').fill('https://gov.example/service/1');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeDisabled();
 
   const saved = fixture.requests.filter(request => request.method === 'PUT' && request.path === '/api/functions/1').at(-1);
   expect(saved?.body.instructions).toEqual({
@@ -38,8 +39,19 @@ test('editor stores structured instructions and verifies only with an official s
 
   await verify.click();
   const verification = page.getByRole('heading', { name: 'Information check' }).locator('xpath=ancestor::section');
-  await expect(verification.getByText('Verified', { exact: true })).toBeVisible();
+  await expect(verification.getByText('Verified by organization', { exact: true })).toBeVisible();
   await expect(verification.getByText('Verified by: you')).toBeVisible();
+});
+
+test('a service without any link is verified and the verification wording stays internal', async ({ page }) => {
+  const fixture = await setup(page, { records: [{ ...card(1, 'PUBLISHED'), officialSourceUrl: null }] });
+  await page.goto('/admin/functions/1');
+  await page.getByRole('button', { name: 'Mark as verified by organization' }).click();
+  const verification = page.getByRole('heading', { name: 'Information check' }).locator('xpath=ancestor::section');
+  await expect(verification.getByText('Verified by organization', { exact: true })).toBeVisible();
+  await expect(verification.getByText('not an official confirmation', { exact: false })).toBeVisible();
+  expect(fixture.requests.some(request => request.method === 'POST' && request.path === '/api/functions/1/verify')).toBe(true);
+  expect(fixture.records[0].verificationStatus).toBe('VERIFIED');
 });
 
 test('instruction translations are edited per language and keep their source flags', async ({ page }) => {
@@ -140,7 +152,7 @@ test('report handlers without the legacy view permission still reach the reports
   expect([exported.get('category'), exported.get('from'), exported.get('to')]).toEqual(['FEES_OR_TIMING', '2026-10-01', '2026-10-31']);
 });
 
-test('organization editor validates contact details and verifies against the official source', async ({ page }) => {
+test('organization editor validates contact details and verifies without requiring an external source', async ({ page }) => {
   const editable: Organization = { ...organization, description: null, contact: null, officialSourceUrl: null, verificationStatus: 'UNVERIFIED' };
   const fixture = await setup(page, {
     permissions: [...allPermissions, 'ORGANIZATIONS_EDIT'],
@@ -161,14 +173,13 @@ test('organization editor validates contact details and verifies against the off
   await dialog.getByLabel('Longitude').fill('69.27');
   await dialog.getByLabel('Address').fill('Tashkent, Sayilgoh street 5');
   await chooseOption(dialog.getByLabel('Region'), '1726');
-  await dialog.getByLabel('Official source link').fill('https://gov.example/justice');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toHaveCount(0);
   expect(fixture.requests.find(request => request.method === 'PUT' && request.path === '/api/organizations/10')?.body).toEqual({
-    name: 'zafar', description: null, officialSourceUrl: 'https://gov.example/justice',
+    name: 'zafar', description: null, officialSourceUrl: '',
     contact: { address: 'Tashkent, Sayilgoh street 5', phone: '+998 71 200-00-00', workingHours: null, regionCode: '1726', latitude: 41.31, longitude: 69.27, mapUrl: null },
   });
   await page.getByRole('button', { name: 'Actions: zafar' }).click();
-  await page.getByRole('menuitem', { name: 'Mark as verified' }).click();
-  await expect(page.getByRole('main').getByRole('table').getByText('Verified', { exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Mark as verified by organization' }).click();
+  await expect(page.getByRole('main').getByRole('table').getByText('Verified by organization', { exact: true })).toBeVisible();
 });

@@ -16,12 +16,14 @@ import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
 import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
+import adliya.uz.functioncatalogservice.repository.QualityReminderRepository;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,8 +31,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static adliya.uz.functioncatalogservice.entity.FunctionStatus.DEACTIVATED;
 import static adliya.uz.functioncatalogservice.entity.FunctionStatus.DRAFT;
@@ -53,6 +58,7 @@ public class OrgFunctionService {
     private final CatalogAccess access;
     private final AuditWriter audit;
     private final AuditLogRepository auditLogs;
+    private final QualityReminderRepository reminders;
     private final IdentityOrganizationClient organizations;
     private final ReportReviewService reports;
 
@@ -80,6 +86,16 @@ public class OrgFunctionService {
 
     public OrgFunction getForAdmin(Long id) {
         return scoped(id);
+    }
+
+    /** Pending draft revisions keyed by the id of the published card they belong to. */
+    public Map<Long, OrgFunction> draftRevisionsOf(Collection<OrgFunction> functions) {
+        List<Long> ids = functions.stream().filter(function -> !function.isRevision()).map(OrgFunction::getId).toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return orgFunctionRepository.findAllByRevisionOfIdIn(ids).stream()
+                .collect(Collectors.toMap(OrgFunction::getRevisionOfId, Function.identity(), (first, second) -> first));
     }
 
     public List<OrgFunction> pendingReview() {
@@ -128,6 +144,48 @@ public class OrgFunctionService {
         return function;
     }
 
+    /**
+     * Opens (or returns the existing) draft revision of a published card. The published row is never changed here:
+     * visitors keep seeing it until the revision is reviewed and published.
+     */
+    @Transactional
+    public OrgFunction createRevision(Long id) {
+        OrgFunction published = scoped(id);
+        if (published.isRevision()) {
+            throw new WorkflowConflictException("This card is already a draft revision; edit it directly");
+        }
+        if (published.getStatus() != PUBLISHED) {
+            throw new WorkflowConflictException("Only PUBLISHED cards are edited through a revision; found " + published.getStatus());
+        }
+        Optional<OrgFunction> existing = orgFunctionRepository.findByRevisionOfId(id);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        OrgFunction revision = new OrgFunction();
+        revision.copyContentFrom(published);
+        revision.setStatus(DRAFT);
+        revision.setRevisionOfId(published.getId());
+        orgFunctionRepository.saveAndFlush(revision);
+        audit.revision(published, revision, AuditAction.REVISION_CREATE,
+                "Draft revision #" + revision.getId() + " opened for published card #" + published.getId() + "; public content unchanged");
+        return revision;
+    }
+
+    /** Drops the pending draft revision of a published card; the published content is untouched. */
+    @Transactional
+    public void discardRevision(Long publishedId) {
+        OrgFunction published = scoped(publishedId);
+        OrgFunction revision = orgFunctionRepository.findByRevisionOfId(published.getId())
+                .orElseThrow(() -> new NoSuchElementException("Card " + publishedId + " has no draft revision"));
+        access.requireOrganization(revision.getOrganizationId());
+        if (revision.getStatus() != DRAFT) {
+            throw new WorkflowConflictException("Withdraw the revision from review before discarding it");
+        }
+        removeRevisionRow(revision, published);
+        audit.function(published, AuditAction.REVISION_DISCARD,
+                "Draft revision #" + revision.getId() + " discarded; public content unchanged");
+    }
+
     @Transactional
     public OrgFunction update(Long id, UpdateOrgFunctionRequest request) {
         OrgFunction function = scoped(id);
@@ -148,7 +206,9 @@ public class OrgFunctionService {
             access.requireOrganization(request.organizationId());
             organizations.requireExisting(request.organizationId());
             function.setOrganizationId(request.organizationId());
-            reports.reassignFunctionReports(function.getId(), request.organizationId());
+            if (!function.isRevision()) {
+                reports.reassignFunctionReports(function.getId(), request.organizationId());
+            }
             changed.add("organizationId");
         }
         if (request.requirements() != null && !request.requirements().equals(function.getRequirements())) {
@@ -235,9 +295,7 @@ public class OrgFunctionService {
     public OrgFunction updateLanguageTranslation(Long id, String language, LanguageTranslationRequest request) {
         requireTranslationEditor();
         OrgFunction function = scoped(id);
-        if (function.getStatus() != DRAFT) {
-            throw new WorkflowConflictException("Translation editing requires DRAFT");
-        }
+        requireEditable(function);
         String code = language.toLowerCase(Locale.ROOT);
         if (code.length() > LANGUAGE_CODE_MAX_LENGTH || !LANGUAGE_CODE.matcher(code).matches()) {
             throw new IllegalArgumentException("Invalid language code");
@@ -262,9 +320,16 @@ public class OrgFunctionService {
         return orgFunctionRepository.saveAndFlush(function);
     }
 
+    /** Drafts and deactivated cards enter review directly; nothing becomes public without a reviewer publishing it. */
     @Transactional
     public OrgFunction submitForReview(Long id) {
-        return transition(id, DRAFT, PENDING_REVIEW, AuditAction.SUBMIT_REVIEW, null);
+        return transition(id, EnumSet.of(DRAFT, DEACTIVATED), PENDING_REVIEW, AuditAction.SUBMIT_REVIEW, null);
+    }
+
+    /** The submitting side takes a card back from the review queue without a reviewer. */
+    @Transactional
+    public OrgFunction withdraw(Long id) {
+        return transition(id, EnumSet.of(PENDING_REVIEW), DRAFT, AuditAction.WITHDRAW, null);
     }
 
     @Transactional
@@ -272,29 +337,60 @@ public class OrgFunctionService {
         if (reason == null || reason.isBlank() || reason.length() > REJECTION_REASON_MAX_LENGTH) {
             throw new IllegalArgumentException("A rejection reason of 1-2000 characters is required");
         }
-        return transition(id, PENDING_REVIEW, DRAFT, AuditAction.REJECT, reason);
+        return transition(id, EnumSet.of(PENDING_REVIEW), DRAFT, AuditAction.REJECT, reason);
     }
 
+    /**
+     * Publishes a reviewed card. A reviewed draft revision is merged into its published card, which keeps its id
+     * and history, and the revision row disappears; the public version changes only at this moment.
+     */
     @Transactional
     public OrgFunction publish(Long id) {
-        return transition(id, PENDING_REVIEW, PUBLISHED, AuditAction.PUBLISH, null);
+        OrgFunction function = scoped(id);
+        if (function.getStatus() != PENDING_REVIEW) {
+            throw new WorkflowConflictException(
+                    "Expected PENDING_REVIEW, found " + function.getStatus() + "; cannot transition to PUBLISHED");
+        }
+        if (!function.isRevision()) {
+            return transition(id, EnumSet.of(PENDING_REVIEW), PUBLISHED, AuditAction.PUBLISH, null);
+        }
+        organizations.requireExisting(function.getOrganizationId());
+        OrgFunction published = orgFunctionRepository.findById(function.getRevisionOfId())
+                .orElseThrow(() -> new WorkflowConflictException("The published card of this revision no longer exists"));
+        access.requireOrganization(published.getOrganizationId());
+        if (published.getStatus() != PUBLISHED && published.getStatus() != DEACTIVATED) {
+            throw new WorkflowConflictException("The published card is " + published.getStatus() + "; the revision cannot replace it");
+        }
+        Long previousOrganization = published.getOrganizationId();
+        FunctionStatus previousStatus = published.getStatus();
+        published.copyContentFrom(function);
+        published.setStatus(PUBLISHED);
+        orgFunctionRepository.saveAndFlush(published);
+        if (!Objects.equals(previousOrganization, published.getOrganizationId())) {
+            reports.reassignFunctionReports(published.getId(), published.getOrganizationId());
+        }
+        removeRevisionRow(function, published);
+        audit.function(published, AuditAction.PUBLISH,
+                "Revision #" + function.getId() + " approved: public content replaced (" + previousStatus + " -> PUBLISHED)");
+        return published;
     }
 
     @Transactional
     public OrgFunction reactivate(Long id) {
-        return transition(id, DEACTIVATED, PENDING_REVIEW, AuditAction.REACTIVATE, null);
+        return transition(id, EnumSet.of(DEACTIVATED), PENDING_REVIEW, AuditAction.REACTIVATE, null);
     }
 
     @Transactional
     public void deactivate(Long id) {
-        transition(id, PUBLISHED, DEACTIVATED, AuditAction.DEACTIVATE, null);
+        transition(id, EnumSet.of(PUBLISHED), DEACTIVATED, AuditAction.DEACTIVATE, null);
     }
 
-    private OrgFunction transition(Long id, FunctionStatus from, FunctionStatus to, AuditAction action, String reason) {
+    private OrgFunction transition(Long id, Set<FunctionStatus> allowed, FunctionStatus to, AuditAction action, String reason) {
         OrgFunction function = scoped(id);
-        if (function.getStatus() != from) {
+        FunctionStatus from = function.getStatus();
+        if (!allowed.contains(from)) {
             throw new WorkflowConflictException(
-                    "Expected " + from + ", found " + function.getStatus() + "; cannot transition to " + to);
+                    "Expected " + describe(allowed) + ", found " + from + "; cannot transition to " + to);
         }
         if (to == PENDING_REVIEW || to == PUBLISHED) {
             organizations.requireExisting(function.getOrganizationId());
@@ -303,6 +399,20 @@ public class OrgFunctionService {
         orgFunctionRepository.saveAndFlush(function);
         audit.function(function, action, reason == null ? from + " -> " + to : reason);
         return function;
+    }
+
+    /** Moves the revision's history onto the published card and deletes the revision row (same transaction). */
+    private void removeRevisionRow(OrgFunction revision, OrgFunction published) {
+        auditLogs.flush();
+        auditLogs.copyFunctionLinks(revision.getId(), published.getId());
+        auditLogs.deleteFunctionLinks(revision.getId());
+        reminders.deleteAllByFunctionId(revision.getId());
+        orgFunctionRepository.delete(revision);
+        orgFunctionRepository.flush();
+    }
+
+    private static String describe(Set<FunctionStatus> statuses) {
+        return statuses.stream().map(FunctionStatus::name).collect(Collectors.joining(" or "));
     }
 
     private void changeCategory(OrgFunction function, FunctionCategory category) {
@@ -375,9 +485,14 @@ public class OrgFunctionService {
         return function;
     }
 
-    private void requireEditable(OrgFunction function) {
-        if (function.getStatus() != DRAFT && function.getStatus() != DEACTIVATED) {
-            throw new WorkflowConflictException("Editing requires DRAFT or DEACTIVATED; reject/deactivate the card first");
+    private static void requireEditable(OrgFunction function) {
+        if (function.getStatus() == PUBLISHED) {
+            throw new WorkflowConflictException(
+                    "Published cards are edited through a draft revision (POST /api/functions/{id}/revisions); the public version is never changed in place");
+        }
+        if (!function.isEditable()) {
+            throw new WorkflowConflictException(
+                    "Editing requires DRAFT or DEACTIVATED; a card under review must be withdrawn or returned to draft first");
         }
     }
 

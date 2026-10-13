@@ -1,4 +1,4 @@
-import type { CreateLegacyUserRequest, LegacyUser, LegacyUserApi, UpdateLegacyUserRequest } from '../types/api';
+import type { CreateLegacyUserRequest, LegacyUser, LegacyUserApi, PasswordResetLink, UpdateLegacyUserRequest } from '../types/api';
 import { apiRequest } from './http';
 
 function normalize(user: LegacyUserApi): LegacyUser {
@@ -39,3 +39,7 @@ export const updateLegacyUser = async (id: number, payload: UpdateLegacyUserRequ
   normalize(await apiRequest<LegacyUserApi>(`/api/user/${id}`, { method: 'PUT', body: payload }));
 
 export const deactivateLegacyUser = (id: number) => apiRequest<void>(`/api/user/${id}`, { method: 'DELETE' });
+
+/** SUPER_ADMIN only: issues a single-use reset link. Passwords are never returned or displayed. */
+export const initiatePasswordReset = (id: number) =>
+  apiRequest<PasswordResetLink>(`/api/user/${id}/password-reset`, { method: 'POST' });

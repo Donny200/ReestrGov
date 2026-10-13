@@ -104,8 +104,8 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
           </Field>
         ))}
         <Field
-          label={t('verification.officialSourceUrl', 'Official source link')}
-          hint={t('verification.officialSourceHint', 'Link to the government page that confirms this information. Required before verification.')}
+          label={t('verification.officialSourceUrl', 'External source link (optional)')}
+          hint={t('verification.officialSourceHint', 'Optional. Add a link to an official page only if a useful source exists; this site is where the information is maintained.')}
           error={errors.officialSourceUrl?.message}
         >
           {(fieldControl) => (

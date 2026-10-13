@@ -40,7 +40,8 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.getPassword(),
                 authorities,
                 Boolean.TRUE.equals(user.getEnabled()),
-                Boolean.TRUE.equals(user.getMustChangePassword())
+                Boolean.TRUE.equals(user.getMustChangePassword()),
+                user.getCredentialsUpdatedAt()
         );
     }
 }

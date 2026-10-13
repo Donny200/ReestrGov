@@ -1,8 +1,10 @@
 package adliya.uz.task1.controller;
 
 import adliya.uz.task1.dto.CreateUserRequest;
+import adliya.uz.task1.dto.PasswordResetLinkResponse;
 import adliya.uz.task1.dto.UpdateUserRequest;
 import adliya.uz.task1.dto.UserResponse;
+import adliya.uz.task1.service.PasswordResetService;
 import adliya.uz.task1.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('USERS_CREATE')")
@@ -52,6 +55,16 @@ public class UserController {
             @Valid @RequestBody UpdateUserRequest request
     ) {
         return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    /**
+     * SUPER_ADMIN only: issues a single-use reset link for the user. The raw token is returned exactly once and
+     * never stored or logged; the user chooses the new password through the link. Passwords are never displayed.
+     */
+    @PostMapping("/{id}/password-reset")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public ResponseEntity<PasswordResetLinkResponse> initiatePasswordReset(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(passwordResetService.initiateByAdmin(id));
     }
 
     @DeleteMapping("/{id}")

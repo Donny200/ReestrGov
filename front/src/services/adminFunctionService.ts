@@ -31,6 +31,14 @@ export const transitionFunction = (id: number, action: FunctionTransition, reaso
 
 export const deactivateFunction = (id: number) => apiRequest<void>(`/api/functions/${id}`, { method: 'DELETE' });
 
+/** Opens (or returns the existing) draft revision of a published service; the public version stays unchanged. */
+export const createFunctionRevision = (id: number) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}/revisions`, { method: 'POST' });
+
+/** Drops the draft revision of published service {id}. */
+export const discardFunctionRevision = (id: number) =>
+  apiRequest<void>(`/api/functions/${id}/revision`, { method: 'DELETE' });
+
 export const getFunctionAudit = (id: number) => apiRequest<FunctionAuditEntry[]>(`/api/functions/${id}/audit`);
 
 export interface FunctionTranslationBody {

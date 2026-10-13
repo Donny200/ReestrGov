@@ -152,10 +152,9 @@ class OrganizationDashboardPostgresTest {
                 .andExpect(jsonPath("$.items.length()").value(3))
                 .andExpect(jsonPath("$.items[0].name").value("Bare"))
                 .andExpect(jsonPath("$.items[0].issues[*].type").value(containsInAnyOrder(
-                        "VERIFICATION_OVERDUE", "SOURCE_MISSING", "TRANSLATIONS_MISSING")))
+                        "VERIFICATION_OVERDUE", "TRANSLATIONS_MISSING")))
                 .andExpect(jsonPath("$.items[0].issues[0].reason").value("NEVER_VERIFIED"))
-                .andExpect(jsonPath("$.items[0].issues[1].reason").value("MISSING"))
-                .andExpect(jsonPath("$.items[0].issues[2].details[0]").value("ru"))
+                .andExpect(jsonPath("$.items[0].issues[1].details[0]").value("ru"))
                 .andExpect(jsonPath("$.items[1].name").value("Overdue"))
                 .andExpect(jsonPath("$.items[1].verificationStatus").value("DUE"))
                 .andExpect(jsonPath("$.items[1].verificationDueAt").isNotEmpty())
@@ -167,7 +166,8 @@ class OrganizationDashboardPostgresTest {
                 .andExpect(jsonPath("$.items[2].issues[1].details[0]").value("description"));
 
         mvc.perform(get("/api/analytics/quality-queue").param("issue", "SOURCE_MISSING").with(authentication(ANALYST_10)))
-                .andExpect(jsonPath("$.items.length()").value(2));
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("Legacy link"));
         mvc.perform(get("/api/analytics/quality-queue").param("status", "DRAFT").with(authentication(ANALYST_10)))
                 .andExpect(jsonPath("$.items.length()").value(1));
         mvc.perform(get("/api/analytics/quality-queue").param("issue", "NOT_A_TYPE").with(authentication(ANALYST_10)))
@@ -176,7 +176,7 @@ class OrganizationDashboardPostgresTest {
         mvc.perform(get("/api/analytics/summary").with(authentication(ANALYST_10)))
                 .andExpect(jsonPath("$.servicesNeedingAttention").value(3))
                 .andExpect(jsonPath("$.attention.VERIFICATION_OVERDUE").value(2))
-                .andExpect(jsonPath("$.attention.SOURCE_MISSING").value(2))
+                .andExpect(jsonPath("$.attention.SOURCE_MISSING").value(1))
                 .andExpect(jsonPath("$.attention.INFORMATION_INCOMPLETE").value(1))
                 .andExpect(jsonPath("$.attention.TRANSLATIONS_MISSING").value(1))
                 .andExpect(jsonPath("$.translationsChecked").value(true));
@@ -230,15 +230,16 @@ class OrganizationDashboardPostgresTest {
 
     @Test void remindersAreDeduplicatedThrottledAndResolvedWhenTheIssueIsFixed() throws Exception {
         OrgFunction card = published("No source", 10L, null, null);
+        jdbc.update("UPDATE org_functions SET official_source_url = 'www.gov.uz/page' WHERE id = ?", card.getId());
         translate(card, "ru");
         verifiedDaysAgo(card, 1);
         published("Foreign", 20L, null, null);
         draft("Unassigned", null, null);
         Instant start = Instant.now();
 
-        assertThat(reminders.scan(start).created()).isEqualTo(4);
+        assertThat(reminders.scan(start).created()).isEqualTo(3);
         assertThat(reminders.scan(start.plus(Duration.ofHours(1))).created()).isZero();
-        assertThat(reminderRows.findAll()).hasSize(4).noneMatch(row -> row.getOrganizationId() == null);
+        assertThat(reminderRows.findAll()).hasSize(3).noneMatch(row -> row.getOrganizationId() == null);
 
         mvc.perform(get("/api/analytics/reminders").with(authentication(ANALYST_10)))
                 .andExpect(jsonPath("$.total").value(1))
@@ -268,10 +269,12 @@ class OrganizationDashboardPostgresTest {
         assertThat(reminderRows.findById(reminderId).orElseThrow().getResolvedAt()).isNotNull();
 
         jdbc.update("UPDATE org_functions SET official_source_url = NULL WHERE id = ?", card.getId());
-        assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(16))).created()).isEqualTo(1);
+        assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(16))).created()).isZero();
+        jdbc.update("UPDATE org_functions SET official_source_url = 'javascript:alert(1)' WHERE id = ?", card.getId());
+        assertThat(reminders.scan(acknowledged.plus(Duration.ofDays(17))).created()).isEqualTo(1);
         assertThat(reminderRows.findAll()).filteredOn(row -> row.getFunctionId().equals(card.getId())).hasSize(2);
 
-        mvc.perform(get("/api/analytics/reminders").with(authentication(ADMIN))).andExpect(jsonPath("$.total").value(4));
+        mvc.perform(get("/api/analytics/reminders").with(authentication(ADMIN))).andExpect(jsonPath("$.total").value(3));
         mvc.perform(get("/api/analytics/reminders").param("categoryId", "999").with(authentication(ADMIN)))
                 .andExpect(jsonPath("$.total").value(0));
         mvc.perform(get("/api/analytics/reminders").param("organizationId", "20").with(authentication(ANALYST_10)))
@@ -323,8 +326,9 @@ class OrganizationDashboardPostgresTest {
                 .andExpect(status().isForbidden());
 
         String queue = csv(get("/api/analytics/quality-queue/export").with(authentication(ANALYST_10)));
-        assertThat(queue).contains("Own card", "/admin/functions/" + own.getId(), "SOURCE_MISSING,MISSING").doesNotContain("Foreign card");
-        assertThat(queue.split("\r\n")).hasSize(4);
+        assertThat(queue).contains("Own card", "/admin/functions/" + own.getId(), "VERIFICATION_OVERDUE,NEVER_VERIFIED")
+                .doesNotContain("Foreign card", "SOURCE_MISSING");
+        assertThat(queue.split("\r\n")).hasSize(3);
         mvc.perform(get("/api/analytics/quality-queue/export").param("organizationId", "20").with(authentication(ANALYST_10)))
                 .andExpect(status().isForbidden());
 

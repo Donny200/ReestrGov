@@ -31,6 +31,12 @@ public class AuditWriter {
         write("FUNCTION", function.getId(), action, details, actor(), Set.of(function.getId()));
     }
 
+    /** One history entry attached to both the published card and its draft revision. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void revision(OrgFunction published, OrgFunction revision, AuditAction action, String details) {
+        write("FUNCTION", published.getId(), action, details, actor(), Set.of(published.getId(), revision.getId()));
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void category(Long id, AuditAction action, String details) {
         write("FUNCTION_CATEGORY", id, action, details, actor(), Set.of());

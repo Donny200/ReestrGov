@@ -47,9 +47,14 @@ test('draft editor, required rejection reason, publication, deactivation and re-
   await page.goto('/admin/functions/1');
   await page.getByLabel('Name', { exact: false }).first().fill('Edited service');
   await expect(page.getByRole('button', { name: 'Submit for review', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Save', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
   await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
   await expect(page.getByLabel('Name', { exact: false }).first()).toBeDisabled();
+  await expect(page.getByText('Under review: fields are locked so the reviewed text cannot change', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Withdraw from review', exact: true }).click();
+  await expect(page.getByLabel('Name', { exact: false }).first()).toBeEnabled();
+  expect(fixture.records[0].status).toBe('DRAFT');
+  await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
   await page.getByRole('button', { name: 'Return to draft', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Return to draft', exact: true })).toBeDisabled();
@@ -61,12 +66,69 @@ test('draft editor, required rejection reason, publication, deactivation and re-
   expect(fixture.records[0].status).toBe('PUBLISHED');
   await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Deactivate', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Return to review', exact: true })).toBeVisible();
   expect(fixture.records[0].status).toBe('DEACTIVATED');
-  await page.getByRole('button', { name: 'Return to review', exact: true }).click();
+  await expect(page.getByText('Deactivated and hidden from visitors. Edit it here', { exact: false })).toBeVisible();
+  await expect(page.getByLabel('Name', { exact: false }).first()).toBeEnabled();
+  await page.getByLabel('Description', { exact: false }).first().fill('Corrected after deactivation');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
   expect(fixture.records[0].status).toBe('PENDING_REVIEW');
+  expect(fixture.records[0].description).toBe('Corrected after deactivation');
   await expect(page.getByText('Clarify documents', { exact: true })).toBeVisible();
+});
+
+test('published service is edited through a draft revision that replaces the public version only on approval', async ({ page }) => {
+  const fixture = await setup(page, { records: [card(1, 'PUBLISHED')] });
+  await page.goto('/admin/functions/1');
+  await expect(page.getByLabel('Name', { exact: false }).first()).toBeDisabled();
+  await expect(page.getByText('Use “Edit” to open a draft revision', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/functions\/2$/);
+  await expect(page.getByText('Draft revision of service #1', { exact: false })).toBeVisible();
+  await page.getByLabel('Description', { exact: false }).first().fill('Revised public text');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  expect(fixture.records[0].description).toBe('Description 1');
+  expect(fixture.records[1]).toMatchObject({ id: 2, status: 'DRAFT', revisionOfId: 1, description: 'Revised public text' });
+
+  await page.getByRole('link', { name: 'Open published version', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/functions\/1$/);
+  await expect(page.getByText('A draft revision of this service is in progress', { exact: false })).toBeVisible();
+  await expect(page.getByLabel('Description', { exact: false }).first()).toHaveValue('Description 1');
+  await page.getByRole('button', { name: 'Open draft revision', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/functions\/2$/);
+  await page.getByRole('button', { name: 'Submit for review', exact: true }).click();
+  await expect(page.getByText('Publishing replaces the public version', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/functions\/2$/);
+  expect(fixture.records).toHaveLength(1);
+  expect(fixture.records[0]).toMatchObject({ id: 1, status: 'PUBLISHED', description: 'Revised public text' });
+
+  await page.goto('/admin/functions');
+  const table = page.getByRole('main').getByRole('table');
+  await expect(table.getByRole('row')).toHaveCount(2);
+  await expect(table.getByText('Revised public text')).toBeVisible();
+});
+
+test('a draft revision can be discarded without touching the published service', async ({ page }) => {
+  const fixture = await setup(page, { records: [card(1, 'PUBLISHED'), { ...card(2), revisionOfId: 1, description: 'Pending change' }] });
+  await page.goto('/admin/functions');
+  await expect(page.getByRole('main').getByText('Draft revision', { exact: true })).toBeVisible();
+  await page.goto('/admin/functions/2');
+  await page.getByRole('button', { name: 'Discard revision', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard revision', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/functions\/1$/);
+  expect(fixture.records).toHaveLength(1);
+  expect(fixture.records[0].description).toBe('Description 1');
+  expect(fixture.requests.some(request => request.method === 'DELETE' && request.path === '/api/functions/1/revision')).toBe(true);
+});
+
+test('without edit permission a published service offers no revision and no edit controls', async ({ page }) => {
+  await setup(page, { records: [card(1, 'PUBLISHED')], permissions: ['FUNCTIONS_VIEW', 'FUNCTIONS_SUBMIT_REVIEW'], role: 'ROLE_MODERATOR' });
+  await page.goto('/admin/functions/1');
+  await expect(page.getByText('Service editor access is required to open a draft revision', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toHaveCount(0);
 });
 
 test('manual translation retry preserves input and other language sources', async ({ page }) => {

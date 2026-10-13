@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -38,6 +40,7 @@ public class AuthService {
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setMustChangePassword(false);
+        user.setCredentialsUpdatedAt(Instant.now());
         return userService.save(user);
     }
 }

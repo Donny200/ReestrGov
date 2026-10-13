@@ -14,7 +14,7 @@ import { Card, CardBody, CardHeader } from '../ui/Card';
 import { Field } from '../ui/Field';
 import { Input, Textarea } from '../ui/Input';
 import { Tabs } from '../ui/Tabs';
-import type { AdminFunction } from '../../types/adminFunctions';
+import { isEditableStatus, type AdminFunction } from '../../types/adminFunctions';
 import type { InstructionField } from '../../types/api';
 import { INSTRUCTION_FIELDS } from '../../utils/instructions';
 import { truncate } from '../../utils/format';
@@ -53,7 +53,7 @@ export function FunctionTranslations({ record, busy, blocked, onDirty }: Props) 
   const [error, setError] = useState<unknown>(null);
 
   const original = language === record.sourceLanguage;
-  const editable = record.status === 'DRAFT' && !original;
+  const editable = isEditableStatus(record.status) && !original;
   const missing = !hasFunctionTranslation(record, language);
   const instructionFields = INSTRUCTION_FIELDS.filter((field) => translatableInstructions(record).includes(field.key));
   const dirty = JSON.stringify(form) !== baselineKey;

@@ -142,6 +142,64 @@ class OrgFunctionControllerSecurityTest {
     }
 
     @Test
+    @WithMockUser(authorities = "FUNCTIONS_EDIT")
+    void functionsEditOpensAndDiscardsDraftRevisions() throws Exception {
+        OrgFunction revision = function(9L, false);
+        revision.setStatus(adliya.uz.functioncatalogservice.entity.FunctionStatus.DRAFT);
+        revision.setRevisionOfId(3L);
+        when(orgFunctionService.createRevision(3L)).thenReturn(revision);
+
+        mockMvc.perform(post("/api/functions/3/revisions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(9))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.revisionOfId").value(3));
+        mockMvc.perform(delete("/api/functions/3/revision"))
+                .andExpect(status().isNoContent());
+
+        verify(orgFunctionService).createRevision(3L);
+        verify(orgFunctionService).discardRevision(3L);
+    }
+
+    @Test
+    @WithMockUser(authorities = {"FUNCTIONS_VIEW", "FUNCTIONS_SUBMIT_REVIEW", "FUNCTIONS_PUBLISH"})
+    void revisionsRequireTheEditPermissionNotJustWorkflowRights() throws Exception {
+        mockMvc.perform(post("/api/functions/3/revisions")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/functions/3/revision")).andExpect(status().isForbidden());
+        verify(orgFunctionService, never()).createRevision(any());
+        verify(orgFunctionService, never()).discardRevision(any());
+    }
+
+    @Test
+    void revisionEndpointsAreNotPublic() throws Exception {
+        mockMvc.perform(post("/api/functions/3/revisions")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/functions/3/revision")).andExpect(status().isForbidden());
+        verifyNoInteractions(orgFunctionService);
+    }
+
+    @Test
+    @WithMockUser(authorities = "FUNCTIONS_VIEW")
+    void adminDetailCarriesThePendingRevisionWhilePublicDetailDoesNot() throws Exception {
+        OrgFunction published = function(4L, true);
+        OrgFunction revision = function(8L, false);
+        revision.setStatus(adliya.uz.functioncatalogservice.entity.FunctionStatus.PENDING_REVIEW);
+        revision.setRevisionOfId(4L);
+        when(orgFunctionService.getForAdmin(4L)).thenReturn(published);
+        when(orgFunctionService.draftRevisionsOf(List.of(published))).thenReturn(java.util.Map.of(4L, revision));
+        when(orgFunctionService.getById(4L)).thenReturn(published);
+
+        mockMvc.perform(get("/api/functions/4/admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revision.id").value(8))
+                .andExpect(jsonPath("$.revision.status").value("PENDING_REVIEW"))
+                .andExpect(jsonPath("$.revisionOfId").doesNotExist());
+        mockMvc.perform(get("/api/functions/4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revision").doesNotExist())
+                .andExpect(jsonPath("$.revisionOfId").doesNotExist());
+    }
+
+    @Test
     @WithMockUser(authorities = "FUNCTIONS_DEACTIVATE")
     void functionsDeactivateCanDeactivate() throws Exception {
         mockMvc.perform(delete("/api/functions/3"))

@@ -22,8 +22,9 @@
   их могут только SUPER_ADMIN или обладатели `FUNCTIONS_MANAGE_ANY_ORGANIZATION`.
   Перед проверкой и публикацией организация обязательна и проверяется через identity-service.
 - Изменять содержимое/переводы/требования можно в DRAFT или DEACTIVATED.
-  Для PENDING_REVIEW сначала нужен reject; для PUBLISHED — деактивация.
-  Это предотвращает изменение опубликованного текста в обход повторной проверки.
+  PENDING_REVIEW заблокирован до `withdraw` (автор) или `reject` (рецензент).
+  PUBLISHED никогда не меняется на месте: правки идут через черновую редакцию (см. ниже),
+  поэтому опубликованный текст не меняется в обход повторной проверки, а деактивация для правок не нужна.
 - Ранее публичный каталог уже фильтровал `active=true`; утверждение, что он показывал
   абсолютно все записи, не подтвердилось. Теперь все его прежние GET используют строго PUBLISHED.
   Административный список также ограничен организациями пользователя.
@@ -45,15 +46,49 @@
 stateDiagram-v2
     [*] --> DRAFT
     DRAFT --> PENDING_REVIEW: submit-for-review
-    PENDING_REVIEW --> DRAFT: reject + reason
+    PENDING_REVIEW --> DRAFT: reject + reason / withdraw
     PENDING_REVIEW --> PUBLISHED: publish
     PUBLISHED --> DEACTIVATED: DELETE
-    DEACTIVATED --> PENDING_REVIEW: reactivate
+    DEACTIVATED --> PENDING_REVIEW: submit-for-review / reactivate
 ```
+
+### Черновые редакции опубликованных карточек
+
+Редакция — это отдельная строка `org_functions` с `revision_of_id`
+(V7), копирующая всё содержимое опубликованной карточки (текст, переводы, инструкции, организацию,
+категорию, ссылку и отметку проверки). Публичный id, сообщения посетителей, счётчики и история
+остаются у опубликованной строки; редакция никогда не бывает PUBLISHED (CHECK-ограничение) и
+не попадает в публичные GET, очередь качества, напоминания и счётчики панели организации.
+
+- `POST /api/functions/{id}/revisions` (FUNCTIONS_EDIT, в пределах организации) создаёт редакцию
+  DRAFT или возвращает уже существующую (на одну карточку — не более одной, частичный UNIQUE-индекс).
+  `PUT /api/functions/{id}` для PUBLISHED отвечает 409 и указывает на этот endpoint.
+- Редакция редактируется и переводится как обычный черновик, проходит `submit-for-review`,
+  `withdraw`, `reject`; верификация редакции переносится на карточку.
+- `POST /api/functions/{revisionId}/publish` (FUNCTIONS_PUBLISH) копирует содержимое редакции в
+  опубликованную строку (id сохраняется), переносит записи `audit_log_functions` редакции на
+  карточку и удаляет строку редакции в той же транзакции. Если карточка была DEACTIVATED, она
+  снова становится PUBLISHED. Публичная версия меняется только в этот момент.
+- `DELETE /api/functions/{id}/revision` (FUNCTIONS_EDIT) удаляет DRAFT-редакцию карточки {id};
+  редакцию на проверке сначала нужно отозвать.
+- Ответы админских GET содержат `revisionOfId` у редакции и `revision {id, status}` у карточки.
+
+Аудит: `REVISION_CREATE` (прикреплён к обеим строкам), `REVISION_DISCARD`, `WITHDRAW`, а публикация
+редакции записывается как `PUBLISH` с номером редакции. Ограничение по организации то же, что
+для остальных действий: сотрудники видят и редактируют только свои организации,
+`SUPER_ADMIN` и `FUNCTIONS_MANAGE_ANY_ORGANIZATION` — любые.
+
+Внешняя ссылка `officialSourceUrl` необязательна: её отсутствие не блокирует сохранение, проверку,
+верификацию и публикацию, публичная страница скрывает пустую ссылку, а очередь качества помечает
+только непригодное значение (`SOURCE_MISSING` / `UNUSABLE`). Отметка `verify` означает «проверено
+организацией» (сотрудник и дата в аудите), а не официальное подтверждение.
 
 | Метод и путь | Permission |
 |---|---|
-| POST /api/functions/{id}/submit-for-review | FUNCTIONS_SUBMIT_REVIEW |
+| POST /api/functions/{id}/submit-for-review (DRAFT или DEACTIVATED) | FUNCTIONS_SUBMIT_REVIEW |
+| POST /api/functions/{id}/withdraw | FUNCTIONS_SUBMIT_REVIEW |
+| POST /api/functions/{id}/revisions | FUNCTIONS_EDIT |
+| DELETE /api/functions/{id}/revision | FUNCTIONS_EDIT |
 | GET /api/functions/pending-review | FUNCTIONS_REVIEW |
 | POST /api/functions/{id}/reject | FUNCTIONS_REVIEW |
 | POST /api/functions/{id}/publish | FUNCTIONS_PUBLISH |

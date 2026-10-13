@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { GitBranchIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIsMutating } from '@tanstack/react-query';
@@ -29,7 +30,7 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { applyServerErrors, withoutPrefix } from '../../lib/forms';
 import { functionText } from '../../utils/functionLocalization';
-import type { AdminFunction, FunctionFormValues } from '../../types/adminFunctions';
+import { isEditableStatus, type AdminFunction, type FunctionFormValues } from '../../types/adminFunctions';
 
 export function LegacyFunctionEditorRedirect() {
   const { id } = useParams();
@@ -89,8 +90,9 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
     reset(JSON.parse(baselineKey) as FunctionFormValues);
   }, [baselineKey, reset]);
 
-  const editable = record.status === 'DRAFT' && hasPermission('FUNCTIONS_EDIT');
-  const requirementsOnly = record.status === 'DRAFT' && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
+  const editable = isEditableStatus(record.status) && hasPermission('FUNCTIONS_EDIT');
+  const requirementsOnly = isEditableStatus(record.status) && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
+  const isRevision = Boolean(record.revisionOfId);
   const canTranslate = hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT');
 
   useUnsavedChanges(isDirty, t('fnAdmin.discard'));
@@ -118,22 +120,34 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
   const organizationName =
     organizations.find((organization) => organization.id === record.organizationId)?.name ?? t('fnAdmin.unassigned');
   const title = functionText(record, 'name', locale) || record.name;
-  const statusHint = editable || requirementsOnly
-    ? null
-    : t(
-        record.status === 'PENDING_REVIEW'
-          ? 'fnAdmin.reviewHint'
-          : record.status === 'PUBLISHED'
-            ? 'fnAdmin.publishedHint'
-            : record.status === 'DEACTIVATED'
-              ? 'fnAdmin.deactivatedHint'
-              : 'fnAdmin.readOnly',
-      );
+  const statusHint = (() => {
+    if (record.status === 'PENDING_REVIEW') {
+      if (hasPermission('FUNCTIONS_PUBLISH') || hasPermission('FUNCTIONS_REVIEW')) {
+        return t('fnAdmin.reviewHintReviewer', 'Under review: fields are locked so the reviewed text cannot change. Publish it, or return it to draft with a reason.');
+      }
+      if (hasPermission('FUNCTIONS_SUBMIT_REVIEW')) {
+        return t('fnAdmin.reviewHintSubmitter', 'Under review: fields are locked until a reviewer decides. Withdraw it from review to keep editing.');
+      }
+      return t('fnAdmin.reviewHint');
+    }
+    if (record.status === 'PUBLISHED') {
+      return hasPermission('FUNCTIONS_EDIT')
+        ? t('fnAdmin.publishedHint', 'Published and visible to visitors. Use “Edit” to open a draft revision; the public version stays unchanged until the revision is approved.')
+        : t('fnAdmin.publishedReadOnly', 'Published and visible to visitors. Service editor access is required to open a draft revision.');
+    }
+    if (record.status === 'DEACTIVATED') {
+      return editable
+        ? t('fnAdmin.deactivatedHint', 'Deactivated and hidden from visitors. Edit it here and submit it for review to publish it again.')
+        : t('fnAdmin.deactivatedReadOnly', 'Deactivated and hidden from visitors. Service editor access is required to change it.');
+    }
+    if (editable) return isRevision ? null : t('fnAdmin.draftHint', 'Save the draft, then submit it for review. Nothing is public until a reviewer publishes it.');
+    return requirementsOnly ? null : t('fnAdmin.readOnly');
+  })();
 
   return (
     <div>
       <PageHeader
-        eyebrow={t('nav.functions')}
+        eyebrow={isRevision ? `${t('nav.functions')} · ${t('fnAdmin.revisionBadge', 'Draft revision')}` : t('nav.functions')}
         title={title}
         description={`#${record.id} · ${organizationName}`}
         breadcrumbs={[{ label: t('nav.functions'), to: '/admin/functions' }, { label: title }]}
@@ -151,6 +165,37 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
         }
       />
 
+      {isRevision && (
+        <InlineAlert
+          tone="info"
+          className="mb-6"
+          action={
+            <Link to={`/admin/functions/${record.revisionOfId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <GitBranchIcon aria-hidden="true" />
+              {t('fnAdmin.openPublished', 'Open published version')}
+            </Link>
+          }
+        >
+          <span className="font-semibold">{t('fnAdmin.revisionOf', 'Draft revision of service')} #{record.revisionOfId}.</span>{' '}
+          {t('fnAdmin.revisionHint', 'The published version stays visible to visitors until this revision is reviewed and published.')}
+        </InlineAlert>
+      )}
+      {!isRevision && record.revision && (
+        <InlineAlert
+          tone="warning"
+          className="mb-6"
+          action={
+            <Link to={`/admin/functions/${record.revision.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <GitBranchIcon aria-hidden="true" />
+              {t('fnAdmin.openRevision', 'Open draft revision')}
+            </Link>
+          }
+        >
+          {record.revision.status === 'PENDING_REVIEW'
+            ? t('fnAdmin.revisionPending', 'A revision is pending review; the published version stays visible until it is approved.')
+            : t('fnAdmin.revisionExists', 'A draft revision of this service is in progress. Visitors still see the published version.')}
+        </InlineAlert>
+      )}
       {statusHint && <InlineAlert tone="info" className="mb-6">{statusHint}</InlineAlert>}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
@@ -176,7 +221,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
                 {editable && (
                   <ActionBar status={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}>
                     <Button type="submit" variant="dark" loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
-                      {t('action.save')}
+                      {t('fnAdmin.saveDraft', 'Save draft')}
                     </Button>
                   </ActionBar>
                 )}

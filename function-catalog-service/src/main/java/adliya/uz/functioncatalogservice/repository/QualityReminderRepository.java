@@ -11,4 +11,5 @@ public interface QualityReminderRepository extends JpaRepository<QualityReminder
     List<QualityReminder> findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc();
     List<QualityReminder> findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(
             Collection<Long> organizationIds);
+    void deleteAllByFunctionId(Long functionId);
 }

@@ -6,7 +6,9 @@ import adliya.uz.task1.config.security.CookieProperties;
 import adliya.uz.task1.config.security.CustomUserDetailsService;
 import adliya.uz.task1.config.security.JwtAuthenticationFilter;
 import adliya.uz.task1.config.security.JwtService;
+import adliya.uz.task1.dto.PasswordResetLinkResponse;
 import adliya.uz.task1.dto.UserResponse;
+import adliya.uz.task1.service.PasswordResetService;
 import adliya.uz.task1.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,9 @@ class UserControllerSecurityTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -102,6 +107,32 @@ class UserControllerSecurityTest {
                 .andExpect(status().isForbidden());
 
         verify(userService).create(any());
+    }
+
+    @Test
+    @WithMockUser(username = "editor@example.com", authorities = {"USERS_VIEW", "USERS_EDIT", "USERS_CREATE", "USERS_DEACTIVATE", "ROLE_ORG_ADMIN"})
+    void onlySuperAdminCanInitiateAPasswordResetEvenWithEveryUserPermission() throws Exception {
+        mockMvc.perform(post("/api/user/7/password-reset"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(passwordResetService);
+    }
+
+    @Test
+    @WithMockUser(username = "root@example.com", authorities = "ROLE_SUPER_ADMIN")
+    void superAdminReceivesTheResetLinkOnceAndNeverAPassword() throws Exception {
+        when(passwordResetService.initiateByAdmin(7L)).thenReturn(new PasswordResetLinkResponse(7L,
+                "/reset-password?token=raw-token-value", java.time.Instant.parse("2026-10-12T10:00:00Z")));
+
+        var result = mockMvc.perform(post("/api/user/7/password-reset"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(7))
+                .andExpect(jsonPath("$.resetPath").value("/reset-password?token=raw-token-value"))
+                .andExpect(jsonPath("$.expiresAt").value("2026-10-12T10:00:00Z"))
+                .andReturn();
+        org.assertj.core.api.Assertions.assertThat(result.getResponse().getContentAsString().toLowerCase())
+                .doesNotContain("password\"", "hash");
+        verify(passwordResetService).initiateByAdmin(7L);
     }
 
     @Test

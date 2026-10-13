@@ -15,6 +15,8 @@ public class FunctionWorkflowController {
     public OrgFunctionResponse submit(@PathVariable Long id) { return OrgFunctionResponse.from(service.submitForReview(id)); }
     @GetMapping("/pending-review") @PreAuthorize("hasAuthority('FUNCTIONS_REVIEW')")
     public List<OrgFunctionResponse> queue() { return service.pendingReview().stream().map(OrgFunctionResponse::from).toList(); }
+    @PostMapping("/{id}/withdraw") @PreAuthorize("hasAuthority('FUNCTIONS_SUBMIT_REVIEW')")
+    public OrgFunctionResponse withdraw(@PathVariable Long id) { return OrgFunctionResponse.from(service.withdraw(id)); }
     @PostMapping("/{id}/reject") @PreAuthorize("hasAuthority('FUNCTIONS_REVIEW')")
     public OrgFunctionResponse reject(@PathVariable Long id, @Valid @RequestBody RejectFunctionRequest request) {
         return OrgFunctionResponse.from(service.reject(id, request.reason()));

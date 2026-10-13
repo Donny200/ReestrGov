@@ -46,10 +46,12 @@ class ServiceQualityRulesTest {
         assertThat(ServiceQualityRules.evaluate(card, LANGUAGES, NOW)).isEmpty();
     }
 
-    @Test void officialSourceMustBePresentAndAWebLink() {
+    @Test void externalSourceLinkIsOptionalButMustBeAWebLinkWhenPresent() {
         OrgFunction card = complete();
+        card.setOfficialSourceUrl(null);
+        assertThat(ServiceQualityRules.evaluate(card, LANGUAGES, NOW)).isEmpty();
         card.setOfficialSourceUrl("  ");
-        assertThat(issue(card, QualityIssueType.SOURCE_MISSING).reason()).isEqualTo(QualityIssue.MISSING);
+        assertThat(ServiceQualityRules.evaluate(card, LANGUAGES, NOW)).isEmpty();
         card.setOfficialSourceUrl("www.gov.uz/passport");
         QualityIssue unusable = issue(card, QualityIssueType.SOURCE_MISSING);
         assertThat(unusable.reason()).isEqualTo(QualityIssue.UNUSABLE);
@@ -118,7 +120,7 @@ class ServiceQualityRulesTest {
     @Test void issuesAreReportedInAStableOrder() {
         OrgFunction card = complete();
         card.setLastVerifiedAt(null);
-        card.setOfficialSourceUrl(null);
+        card.setOfficialSourceUrl("not a link");
         card.setDescription(null);
         card.getNameTranslations().clear();
         List<QualityIssueType> types = ServiceQualityRules.evaluate(card, LANGUAGES, NOW).stream().map(QualityIssue::type).toList();

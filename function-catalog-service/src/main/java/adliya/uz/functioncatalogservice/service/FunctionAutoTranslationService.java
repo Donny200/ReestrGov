@@ -2,7 +2,6 @@ package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.dto.AutoTranslateRequest;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
-import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
@@ -83,7 +82,7 @@ public class FunctionAutoTranslationService {
         OrgFunction function = findFunction(id);
         entityManager.refresh(function);
         access.requireOrganization(function.getOrganizationId());
-        if (!Objects.equals(snapshot.version(), function.getVersion()) || function.getStatus() != FunctionStatus.DRAFT) {
+        if (!Objects.equals(snapshot.version(), function.getVersion()) || !function.isEditable()) {
             throw new WorkflowConflictException("Card changed while translating; reload and retry");
         }
         if (names.isEmpty() && descriptions.isEmpty() && instructions.isEmpty()) {
@@ -107,8 +106,8 @@ public class FunctionAutoTranslationService {
     private OrgFunction scopedDraft(Long id) {
         OrgFunction function = findFunction(id);
         access.requireOrganization(function.getOrganizationId());
-        if (function.getStatus() != FunctionStatus.DRAFT) {
-            throw new WorkflowConflictException("Translation requires DRAFT");
+        if (!function.isEditable()) {
+            throw new WorkflowConflictException("Translation requires DRAFT or DEACTIVATED; published cards are translated through a draft revision");
         }
         return function;
     }

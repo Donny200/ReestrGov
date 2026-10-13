@@ -60,7 +60,6 @@ export type QualityIssueReason =
   | 'NEVER_VERIFIED'
   | 'RECHECK_DUE'
   | 'CHANGED_SINCE_VERIFICATION'
-  | 'MISSING'
   | 'UNUSABLE'
   | 'REQUIRED_FIELDS'
   | 'LANGUAGES';

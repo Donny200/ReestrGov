@@ -26,6 +26,8 @@ const OrganizationDashboard = lazy(() =>
   import('./pages/admin/OrganizationDashboard').then((module) => ({ default: module.OrganizationDashboard })),
 );
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then((module) => ({ default: module.ForgotPassword })));
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then((module) => ({ default: module.ResetPassword })));
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 const SecuritySettings = lazy(() => import('./pages/SecuritySettings').then((module) => ({ default: module.SecuritySettings })));
 const Dashboard = lazy(() => import('./pages/admin/Dashboard').then((module) => ({ default: module.Dashboard })));
@@ -78,6 +80,8 @@ export function App() {
                     </Route>
 
                     <Route path="/login" element={<PageBoundary><Login /></PageBoundary>} />
+                    <Route path="/forgot-password" element={<PageBoundary><ForgotPassword /></PageBoundary>} />
+                    <Route path="/reset-password" element={<PageBoundary><ResetPassword /></PageBoundary>} />
 
                     <Route element={<RequireAuth />}>
                       <Route element={<AdminLayout />}>

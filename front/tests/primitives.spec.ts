@@ -29,7 +29,7 @@ test('button shows a busy state while loading and exposes disabled state', async
   const fixture = await setup(page, { records: [card()] });
   await page.goto('/admin/functions/1');
   const submit = page.getByRole('button', { name: 'Submit for review', exact: true });
-  const save = page.getByRole('button', { name: 'Save', exact: true }).first();
+  const save = page.getByRole('button', { name: 'Save draft', exact: true });
   await expect(save).toBeDisabled();
   await expect(save).toHaveAttribute('aria-disabled', 'true');
   await page.getByLabel('Name', { exact: false }).first().fill('Edited service');

@@ -47,10 +47,11 @@ public final class ServiceQualityRules {
         return Optional.ofNullable(reason).map(value -> new QualityIssue(QualityIssueType.VERIFICATION_OVERDUE, value, List.of()));
     }
 
+    /** The external source link is optional: only a present but unusable value is flagged. */
     static Optional<QualityIssue> source(OrgFunction function) {
         String url = function.getOfficialSourceUrl();
         if (url == null || url.isBlank()) {
-            return Optional.of(new QualityIssue(QualityIssueType.SOURCE_MISSING, QualityIssue.MISSING, List.of()));
+            return Optional.empty();
         }
         return OfficialSourceUrl.isWebLink(url.trim())
                 ? Optional.empty()

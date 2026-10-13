@@ -59,14 +59,15 @@ test('structured instructions show provided facts, mark unknown ones and keep le
   await expect(main.getByText('Not specified')).toHaveCount(2);
   await expect(main.getByText('Not provided yet. Confirm with the organization before you apply.')).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Additional requirements' })).toBeVisible();
-  await expect(main.getByText('Checked against the official source on', { exact: false })).toBeVisible();
-  await expect(main.getByRole('link', { name: /Official source/ })).toHaveAttribute('href', 'https://gov.example/services/1');
+  await expect(main.getByText('Reviewed by the organization on', { exact: false })).toBeVisible();
+  await expect(main.getByRole('link', { name: /Source link/ })).toHaveAttribute('href', 'https://gov.example/services/1');
   await expect(main.getByText('Tashkent, Sayilgoh street 5')).toBeVisible();
 
   await openPublic(page, '/functions/2');
   await expect(main.getByRole('heading', { name: 'Requirements' })).toBeVisible();
   await expect(main.getByRole('checkbox', { name: 'Passport' })).toBeVisible();
-  await expect(main.getByText('This information has not yet been checked against an official source.')).toBeVisible();
+  await expect(main.getByText('The organization has not yet marked this information as reviewed.')).toBeVisible();
+  await expect(main.getByRole('link', { name: /Source link/ })).toHaveCount(0);
 });
 
 test('machine translated instructions are labelled for visitors', async ({ page }) => {

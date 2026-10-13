@@ -125,9 +125,9 @@ export function OrganizationFormDialog({ open, organization, onClose }: Organiza
             {(fieldControl) => <Input {...fieldControl} type="url" inputMode="url" maxLength={500} placeholder="https://" {...register('mapUrl')} />}
           </Field>
           <Field
-            label={t('verification.officialSourceUrl', 'Official source link')}
+            label={t('verification.officialSourceUrl', 'External source link (optional)')}
             error={errors.officialSourceUrl?.message}
-            hint={t('verification.officialSourceHint', 'Link to the government page that confirms this information. Required before verification.')}
+            hint={t('verification.officialSourceHint', 'Optional. Add a link to an official page only if a useful source exists; this site is where the information is maintained.')}
             className="sm:col-span-2"
           >
             {(fieldControl) => <Input {...fieldControl} type="url" inputMode="url" maxLength={500} placeholder="https://" {...register('officialSourceUrl')} />}

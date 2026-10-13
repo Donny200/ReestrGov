@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpCircleIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
+import { ArrowUpCircleIcon, KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -20,6 +20,7 @@ import { errorMessage } from '../../utils/errors';
 import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 import { useOrganizations } from '../organizations/queries';
+import { PasswordResetDialog } from '../passwordReset/PasswordResetDialog';
 import { PromoteDialog } from './PromoteDialog';
 import { StaffCreateDialog, StaffEditDialog } from './StaffFormDialog';
 import { useStaffMutation } from './queries';
@@ -44,6 +45,7 @@ function matchesFilters(item: StaffUser, term: string, status: StatusFilter, org
 
 export function StaffPage({ config }: { config: StaffConfig }) {
   const { t } = useI18n();
+  const { isSuperAdmin } = useAuth();
   const list = config.useList();
   const organizations = useOrganizations();
   const assignable = useAssignableOrganizations(organizations.data);
@@ -53,6 +55,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
   const [deactivating, setDeactivating] = useState<StaffUser | null>(null);
+  const [resetting, setResetting] = useState<StaffUser | null>(null);
 
   const organizationNames = useMemo(
     () => new Map((organizations.data ?? []).map((item) => [item.id, item.name])),
@@ -149,6 +152,12 @@ export function StaffPage({ config }: { config: StaffConfig }) {
                 <PencilIcon />
                 {t('action.edit')}
               </DropdownMenuItem>
+              {isSuperAdmin && row.original.enabled && (
+                <DropdownMenuItem onSelect={() => setResetting(row.original)}>
+                  <KeyRoundIcon />
+                  {t('users.resetPassword', 'Reset password')}
+                </DropdownMenuItem>
+              )}
               {row.original.enabled && (
                 <DropdownMenuItem destructive onSelect={() => setDeactivating(row.original)}>
                   <PowerOffIcon />
@@ -160,7 +169,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         ),
       },
     ],
-    [t, organizationNames],
+    [t, organizationNames, isSuperAdmin],
   );
 
   return (
@@ -225,6 +234,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         onClose={() => setDialog(null)}
       />
       <PromoteDialog config={config} open={dialog?.mode === 'promote'} organizations={assignable} onClose={() => setDialog(null)} />
+      <PasswordResetDialog user={resetting} onClose={() => setResetting(null)} />
       <ConfirmModal
         open={Boolean(deactivating)}
         title={t('action.deactivate')}

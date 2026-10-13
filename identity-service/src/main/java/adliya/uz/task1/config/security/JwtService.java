@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -65,7 +66,23 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token) && !issuedBeforeCredentialsChange(token, userDetails);
+    }
+
+    /**
+     * A password change or reset invalidates every access token issued before it. JWT timestamps have second
+     * precision, so a token issued within the same second as the change is still accepted.
+     */
+    private boolean issuedBeforeCredentialsChange(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof CustomUserPrincipal principal) || principal.credentialsUpdatedAt() == null) {
+            return false;
+        }
+        Date issuedAt = extractClaim(token, Claims::getIssuedAt);
+        if (issuedAt == null) {
+            return true;
+        }
+        Instant lastAccepted = issuedAt.toInstant().plusSeconds(1);
+        return !lastAccepted.isAfter(principal.credentialsUpdatedAt());
     }
 
     public boolean isTokenExpired(String token) {

@@ -10,7 +10,7 @@ import { hasFunctionTranslation } from '../../utils/functionLocalization';
 import { errorMessage } from '../../utils/errors';
 import { Button } from '../ui/Button';
 import { SkeletonText } from '../ui/Skeleton';
-import type { AdminFunction } from '../../types/adminFunctions';
+import { isEditableStatus, type AdminFunction } from '../../types/adminFunctions';
 
 interface Props {
   record: AdminFunction;
@@ -35,7 +35,7 @@ export function FunctionAutoTranslate({ record, language, blocked, busy }: Props
   const { mutateAsync } = translate;
 
   const canTranslate = capabilities.data?.available === true;
-  const isDraft = record.status === 'DRAFT';
+  const isDraft = isEditableStatus(record.status);
   const missing = available.map((item) => item.code).filter((code) => !hasFunctionTranslation(record, code));
   const machine =
     record.nameTranslations?.[language]?.source === 'machine' || record.descriptionTranslations?.[language]?.source === 'machine';

@@ -3,24 +3,23 @@ import type { Translate } from '../../utils/errors';
 
 export const qualityIssueLabels: Record<QualityIssueType, string> = {
   VERIFICATION_OVERDUE: 'Verification overdue',
-  SOURCE_MISSING: 'Official source missing',
+  SOURCE_MISSING: 'External source link unusable',
   INFORMATION_INCOMPLETE: 'Required information incomplete',
   TRANSLATIONS_MISSING: 'Translations missing',
 };
 
 export const qualityIssueHints: Record<QualityIssueType, string> = {
-  VERIFICATION_OVERDUE: 'Published cards not checked within 180 days',
-  SOURCE_MISSING: 'No usable link to the official source',
+  VERIFICATION_OVERDUE: 'Published cards not reviewed within 180 days',
+  SOURCE_MISSING: 'The optional external link is not a valid web address',
   INFORMATION_INCOMPLETE: 'Fields the editor marks as required are empty',
   TRANSLATIONS_MISSING: 'Not translated into every active language',
 };
 
 const reasonText: Record<QualityIssueReason, string> = {
-  NEVER_VERIFIED: 'Published but never checked against the official source. Check it and mark it as verified.',
-  RECHECK_DUE: 'The last check is more than 180 days old. Check the card against the official source again.',
-  CHANGED_SINCE_VERIFICATION: 'The card changed after its last check. Check it against the official source again.',
-  MISSING: 'Add a link to the official source page (a full https:// address).',
-  UNUSABLE: 'The official source link is not a valid web address. Replace it with a full https:// link.',
+  NEVER_VERIFIED: 'Published but never marked as verified by the organization. Review the card and mark it as verified.',
+  RECHECK_DUE: 'The last review is more than 180 days old. Review the card again.',
+  CHANGED_SINCE_VERIFICATION: 'The card changed after its last review. Review it again.',
+  UNUSABLE: 'The external source link is not a valid web address. Replace it with a full https:// link or remove it.',
   REQUIRED_FIELDS: 'Fill in the required fields:',
   LANGUAGES: 'Add translations for:',
 };

@@ -116,14 +116,17 @@ class CatalogEnhancementsPostgresTest {
         assertThat(functions.count()).isZero();
     }
 
-    @Test void verificationRequiresSourceRecordsReviewerAndCriticalEditsMarkItOutdated() {
+    @Test void verificationWorksWithoutAnExternalSourceRecordsReviewerAndCriticalEditsMarkItOutdated() {
         var card = service.create(new CreateOrgFunctionRequest("Card", "Text", 10L, "Docs", null));
-        assertThatThrownBy(() -> verification.verify(card.getId())).isInstanceOf(WorkflowConflictException.class);
-        service.update(card.getId(), update(null, SOURCE));
+        assertThat(card.getOfficialSourceUrl()).isNull();
         var verified = verification.verify(card.getId());
         assertThat(verified.getVerifiedByUserId()).isEqualTo(42L);
         assertThat(verified.getLastVerifiedAt()).isNotNull();
         assertThat(verified.verificationStatus(java.time.Instant.now())).isEqualTo(VerificationStatus.VERIFIED);
+        assertThat(service.history(card.getId())).extracting(AuditLogResponse::details)
+                .anyMatch(details -> details.startsWith("Verified by organization staff") && details.contains("no external source link"));
+        service.update(card.getId(), update(null, SOURCE));
+        verification.verify(card.getId());
 
         var category = categories.create(new FunctionCategoryRequest("Docs", null));
         service.update(card.getId(), new UpdateOrgFunctionRequest(null, null, null, null, null, category.getId(), null));
@@ -135,7 +138,7 @@ class CatalogEnhancementsPostgresTest {
         assertThat(changed.verificationStatus(java.time.Instant.now())).isEqualTo(VerificationStatus.OUTDATED);
         assertThat(service.history(card.getId())).extracting(AuditLogResponse::details)
                 .anyMatch(details -> details.contains("fee") && details.contains("verification outdated"))
-                .anyMatch(details -> details.startsWith("Verified against"));
+                .anyMatch(details -> details.startsWith("Verified by organization staff") && details.contains(SOURCE));
 
         verification.verify(card.getId());
         assertThat(functions.findById(card.getId()).orElseThrow().isVerificationOutdated()).isFalse();

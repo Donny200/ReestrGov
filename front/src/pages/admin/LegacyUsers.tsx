@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
+import { KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -17,6 +17,8 @@ import { InlineAlert } from '../../features/functions/InlineAlert';
 import { LegacyUserCreateDialog, LegacyUserEditDialog } from '../../features/legacyUsers/LegacyUserDialogs';
 import { useDeactivateLegacyUser, useLegacyUsers } from '../../features/legacyUsers/queries';
 import { useOrganizations } from '../../features/organizations/queries';
+import { PasswordResetDialog } from '../../features/passwordReset/PasswordResetDialog';
+import { useAuth } from '../../contexts/auth';
 import { useRoles } from '../../features/roles/queries';
 import { useI18n } from '../../contexts/i18n';
 import type { LegacyUser } from '../../types/api';
@@ -44,6 +46,8 @@ export function LegacyUsers() {
   const [role, setRole] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
   const [deactivating, setDeactivating] = useState<LegacyUser | null>(null);
+  const [resetting, setResetting] = useState<LegacyUser | null>(null);
+  const { isSuperAdmin } = useAuth();
 
   const organizationNames = useMemo(
     () => new Map((organizations.data ?? []).map((item) => [item.id, item.name])),
@@ -140,6 +144,12 @@ export function LegacyUsers() {
                 <PencilIcon />
                 {t('action.edit')}
               </DropdownMenuItem>
+              {isSuperAdmin && row.original.enabled && (
+                <DropdownMenuItem onSelect={() => setResetting(row.original)}>
+                  <KeyRoundIcon />
+                  {t('users.resetPassword', 'Reset password')}
+                </DropdownMenuItem>
+              )}
               {row.original.enabled && (
                 <DropdownMenuItem destructive onSelect={() => setDeactivating(row.original)}>
                   <PowerOffIcon />
@@ -151,7 +161,7 @@ export function LegacyUsers() {
         ),
       },
     ],
-    [t, organizationNames],
+    [t, organizationNames, isSuperAdmin],
   );
 
   return (
@@ -210,6 +220,7 @@ export function LegacyUsers() {
         onClose={() => setDialog(null)}
       />
       <LegacyUserEditDialog open={dialog?.mode === 'edit'} user={dialog?.mode === 'edit' ? dialog.user : null} onClose={() => setDialog(null)} />
+      <PasswordResetDialog user={resetting} onClose={() => setResetting(null)} />
       <ConfirmModal
         open={Boolean(deactivating)}
         title={t('action.deactivate')}

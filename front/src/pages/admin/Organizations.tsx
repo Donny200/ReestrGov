@@ -166,9 +166,9 @@ export function Organizations() {
                 </DropdownMenuItem>
               )}
               {canEdit(row.original) && (
-                <DropdownMenuItem disabled={!row.original.officialSourceUrl} onSelect={() => verifyOrganization(row.original)}>
+                <DropdownMenuItem onSelect={() => verifyOrganization(row.original)}>
                   <ShieldCheckIcon />
-                  {row.original.officialSourceUrl ? t('verification.verify', 'Mark as verified') : t('verification.sourceRequired', 'Add the official source link before verifying.')}
+                  {t('verification.verify', 'Mark as verified by organization')}
                 </DropdownMenuItem>
               )}
               {row.original.enabled && canDeactivate && (

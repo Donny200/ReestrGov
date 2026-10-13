@@ -21,4 +21,17 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             """)
     boolean existsFunctionChange(@Param("functionId") Long functionId, @Param("actions") Collection<AuditAction> actions,
                                  @Param("since") Instant since);
+
+    /** Re-attaches the history of a draft revision to the published card it was merged into. */
+    @Modifying
+    @Query(value = """
+            INSERT INTO audit_log_functions(audit_log_id, function_id)
+            SELECT audit_log_id, :target FROM audit_log_functions WHERE function_id = :source
+            ON CONFLICT DO NOTHING
+            """, nativeQuery = true)
+    void copyFunctionLinks(@Param("source") Long source, @Param("target") Long target);
+
+    @Modifying
+    @Query(value = "DELETE FROM audit_log_functions WHERE function_id = :source", nativeQuery = true)
+    void deleteFunctionLinks(@Param("source") Long source);
 }

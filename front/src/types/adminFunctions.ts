@@ -2,7 +2,13 @@ import type { CatalogFunction, ServiceInstructions, TranslatedText } from './api
 
 export type FunctionStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'DEACTIVATED';
 
-export type FunctionTransition = 'submit-for-review' | 'reject' | 'publish' | 'reactivate';
+export type FunctionTransition = 'submit-for-review' | 'withdraw' | 'reject' | 'publish' | 'reactivate';
+
+/** Pending draft revision of a published service, as reported on the published record. */
+export interface FunctionRevisionSummary {
+  id: number;
+  status: FunctionStatus;
+}
 
 export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 'categoryId' | 'sourceLanguage'> {
   organizationId: number | null;
@@ -10,6 +16,14 @@ export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 
   status: FunctionStatus;
   sourceLanguage: string;
   verifiedByUserId?: number | null;
+  /** Set when this record is a draft revision: the id of the published service it will replace. */
+  revisionOfId?: number | null;
+  revision?: FunctionRevisionSummary | null;
+}
+
+/** Content can be changed in place only for drafts and deactivated services; published ones go through a revision. */
+export function isEditableStatus(status: FunctionStatus): boolean {
+  return status === 'DRAFT' || status === 'DEACTIVATED';
 }
 
 export interface FunctionCategory {

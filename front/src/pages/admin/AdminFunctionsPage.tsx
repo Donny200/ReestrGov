@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import { LanguagesIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
+import { GitBranchIcon, LanguagesIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody } from '../../components/ui/Card';
 import { DataTable } from '../../components/ui/DataTable';
 import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { Badge, FunctionStatusBadge, VerificationBadge } from '../../components/ui/Badge';
+import { Badge, FunctionStatusBadge, StatusPill, VerificationBadge } from '../../components/ui/Badge';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/auth';
 import { ApiError } from '../../services/http';
 import { functionText, hasFunctionTranslation } from '../../utils/functionLocalization';
 import { localizedText } from '../../utils/translations';
-import { FUNCTION_STATUSES, statusLabels, type AdminFunction, type FunctionStatus } from '../../types/adminFunctions';
+import { FUNCTION_STATUSES, isEditableStatus, statusLabels, type AdminFunction, type FunctionStatus } from '../../types/adminFunctions';
 import { matchesVerification, parseVerificationFilter, type VerificationFilter } from '../../utils/verification';
 
 const PAGE_SIZE = 50;
@@ -74,6 +74,12 @@ export function AdminFunctionsPage() {
               {functionText(row.original, 'name', language)}
             </Link>
             <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-secondary wrap-anywhere">{functionText(row.original, 'description', language)}</p>
+            {row.original.revisionOfId && (
+              <p className="mt-1 inline-flex items-center gap-1 text-xs text-secondary" lang={locale}>
+                <GitBranchIcon className="h-3 w-3" aria-hidden="true" />
+                {t('fnAdmin.revisionOf', 'Draft revision of service')} #{row.original.revisionOfId}
+              </p>
+            )}
             {!hasFunctionTranslation(row.original, language) && (
               <p className="mt-1 inline-flex items-center gap-1 text-xs text-status-pending" lang={locale}>
                 <TriangleAlertIcon className="h-3 w-3" aria-hidden="true" />
@@ -104,7 +110,18 @@ export function AdminFunctionsPage() {
       {
         accessorKey: 'status',
         header: t('field.status'),
-        cell: ({ row }) => <FunctionStatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <FunctionStatusBadge status={row.original.status} />
+            {row.original.revision && (
+              <Link to={`/admin/functions/${row.original.revision.id}`} className="rounded-sm" lang={locale}>
+                <StatusPill tone={row.original.revision.status === 'PENDING_REVIEW' ? 'pending' : 'draft'}>
+                  {t(`fnAdmin.revisionBadge.${row.original.revision.status}`, row.original.revision.status === 'PENDING_REVIEW' ? 'Revision pending review' : 'Draft revision')}
+                </StatusPill>
+              </Link>
+            )}
+          </span>
+        ),
       },
       {
         id: 'verification',
@@ -138,7 +155,7 @@ export function AdminFunctionsPage() {
         meta: { align: 'right', mobileHidden: true },
         cell: ({ row }) => (
           <Link to={`/admin/functions/${row.original.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-            {hasPermission('FUNCTIONS_EDIT') && row.original.status === 'DRAFT' ? t('action.edit') : t('action.details')}
+            {hasPermission('FUNCTIONS_EDIT') && (isEditableStatus(row.original.status) || row.original.status === 'PUBLISHED') ? t('action.edit') : t('action.details')}
           </Link>
         ),
       },

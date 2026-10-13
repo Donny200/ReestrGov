@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFunctions';
-import type { Organization, Region } from '../src/types/api';
+import type { LegacyUserApi, Organization, Region } from '../src/types/api';
 import type { EngagementCounts, EngagementReport, OrganizationSummary, QualityQueue, QualityReminder } from '../src/types/analytics';
 import type { InformationReport, ReportHistoryEntry } from '../src/types/reports';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
@@ -42,7 +42,7 @@ export function card(id = 1, status: AdminFunction['status'] = 'DRAFT'): AdminFu
     descriptionTranslations: { ru: { text: 'Описание ' + id, source: 'human' }, uz: { text: 'Tavsif ' + id, source: 'machine' } } };
 }
 export interface FixtureOptions {
-  records?: AdminFunction[]; permissions?: string[]; role?: string;
+  records?: AdminFunction[]; permissions?: string[]; role?: string; selfServiceReset?: boolean; legacyUsers?: LegacyUserApi[];
   autoAvailable?: boolean; realBackend?: string; token?: string;
   organizations?: Organization[]; regions?: Region[]; reports?: InformationReport[]; anonymous?: boolean;
   summary?: OrganizationSummary; engagement?: EngagementReport; qualityQueue?: QualityQueue; reminders?: QualityReminder[];
@@ -74,7 +74,7 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     role, enabled: true, mustChangePassword: false, organizationIds,
     organizations: organizationIds.map(id => (id === organization.id ? organization : { id, name: 'Organization ' + id })), permissions };
   type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
-    status?: InformationReport['status']; note?: string; instructions?: Record<string, string> };
+    status?: InformationReport['status']; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string };
   const organizations = structuredClone(options.organizations ?? [organization as Organization]);
   const reports = structuredClone(options.reports ?? []);
   const reminders = structuredClone(options.reminders ?? []);
@@ -88,6 +88,13 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
   const requests: { method: string; path: string; query: URLSearchParams; body: Payload }[] = [];
   const failures = new Map<string, number>();
   const audits: { id: number; functionId: number; performedBy: string; performedAt: string; action: string; details: string }[] = [];
+  const legacyUsers = structuredClone(options.legacyUsers ?? []);
+  const resetTokens: { token: string; userId: number; used: boolean }[] = [];
+  /** Admin responses carry the pending-revision summary of a published record, like the backend does. */
+  const withRevision = (item: AdminFunction): AdminFunction => {
+    const revision = records.find(other => other.revisionOfId === item.id);
+    return revision ? { ...item, revision: { id: revision.id, status: revision.status } } : { ...item, revision: null };
+  };
   await page.addInitScript(() => window.localStorage.setItem('reestr-task-locale', 'en'));
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -107,6 +114,26 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         headers: { ...request.headers(), cookie: 'accessToken=' + options.token } });
       return route.fulfill({ response });
     }
+    if (path === '/api/auth/password-reset/options') return reply({ selfServiceAvailable: options.selfServiceReset ?? false });
+    if (path === '/api/auth/password-reset/request' && method === 'POST') {
+      if (!options.selfServiceReset) return reply({ message: 'Self-service password reset is not configured' }, 503);
+      return reply({ accepted: true }, 202);
+    }
+    if (path === '/api/auth/password-reset/complete' && method === 'POST') {
+      const found = resetTokens.find(item => item.token === body.token && !item.used);
+      if (!found || (body.newPassword ?? '').length < 8) return reply({ message: 'This password reset link is invalid or has expired' }, 400);
+      found.used = true;
+      return reply({ reset: true });
+    }
+    const adminReset = path.match(/^\/api\/user\/(\d+)\/password-reset$/);
+    if (adminReset && method === 'POST') {
+      if (role !== 'ROLE_SUPER_ADMIN') return reply({ message: 'Forbidden' }, 403);
+      const token = 'token-' + adminReset[1] + '-' + (resetTokens.length + 1);
+      resetTokens.forEach(item => { if (item.userId === Number(adminReset[1])) item.used = true; });
+      resetTokens.push({ token, userId: Number(adminReset[1]), used: false });
+      return reply({ userId: Number(adminReset[1]), resetPath: '/reset-password?token=' + token, expiresAt: '2026-10-12T12:00:00Z' }, 201);
+    }
+    if (path === '/api/user' && method === 'GET') return reply(legacyUsers);
     if (path === '/api/auth/me') return options.anonymous ? reply({ message: 'Authentication is required' }, 401) : reply(user);
     if (path === '/api/auth/refresh') return reply({}, 401);
     if (path === '/api/auth/login') return reply(user);
@@ -188,7 +215,7 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
     if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false });
-    if (path === '/api/functions/admin') return permissions.includes('FUNCTIONS_VIEW') ? reply(records) : reply({}, 403);
+    if (path === '/api/functions/admin') return permissions.includes('FUNCTIONS_VIEW') ? reply(records.map(withRevision)) : reply({}, 403);
     if (path === '/api/functions' && method === 'GET') return reply(records.filter(item => item.status === 'PUBLISHED'));
     if (path === '/api/functions' && method === 'POST') {
       const created: AdminFunction = { name: body.name ?? '', description: body.description ?? '', requirements: body.requirements ?? '',
@@ -202,11 +229,37 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     const record = records.find(item => item.id === Number(match[1]));
     if (!record) return reply({ message: 'Not found' }, 404);
     const action = match[2];
-    if (action === 'admin') return reply(record);
+    if (action === 'admin') return reply(withRevision(record));
     if (action === 'verify' && method === 'POST') {
-      if (!record.officialSourceUrl) return reply({ message: 'Add the official source link before verifying this service' }, 409);
       Object.assign(record, { lastVerifiedAt: new Date().toISOString(), verificationStatus: 'VERIFIED', verifiedByUserId: user.id });
       return reply(record);
+    }
+    if (action === 'revisions' && method === 'POST') {
+      if (record.status !== 'PUBLISHED') return reply({ message: 'Only PUBLISHED cards are edited through a revision' }, 409);
+      const existing = records.find(item => item.revisionOfId === record.id);
+      if (existing) return reply(existing);
+      const revision: AdminFunction = { ...structuredClone(record), revision: null, id: Math.max(0, ...records.map(item => item.id)) + 1, status: 'DRAFT', revisionOfId: record.id };
+      records.push(revision);
+      audits.push({ id: audits.length + 1, functionId: record.id, performedBy: user.email, performedAt: new Date().toISOString(),
+        action: 'REVISION_CREATE', details: 'Draft revision #' + revision.id + ' opened; public content unchanged' });
+      return reply(revision);
+    }
+    if (action === 'revision' && method === 'DELETE') {
+      const index = records.findIndex(item => item.revisionOfId === record.id);
+      if (index < 0) return reply({ message: 'No draft revision' }, 404);
+      if (records[index].status !== 'DRAFT') return reply({ message: 'Withdraw the revision from review before discarding it' }, 409);
+      records.splice(index, 1);
+      return route.fulfill({ status: 204 });
+    }
+    if (action === 'publish' && record.revisionOfId) {
+      if (record.status !== 'PENDING_REVIEW') return reply({ message: 'Expected PENDING_REVIEW' }, 409);
+      const published = records.find(item => item.id === record.revisionOfId);
+      if (!published) return reply({ message: 'Published card missing' }, 409);
+      Object.assign(published, structuredClone(record), { id: published.id, status: 'PUBLISHED', revisionOfId: undefined, revision: null });
+      records.splice(records.indexOf(record), 1);
+      audits.push({ id: audits.length + 1, functionId: published.id, performedBy: user.email, performedAt: new Date().toISOString(),
+        action: 'PUBLISH', details: 'Revision #' + record.id + ' approved: public content replaced' });
+      return reply(published);
     }
     if (action === 'audit') return reply(audits.filter(entry => entry.functionId === record.id));
     if (method === 'GET') return record.status === 'PUBLISHED' ? reply(record) : reply({}, 404);
@@ -239,12 +292,12 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       }
     } else if (action === 'submit-for-review' || action === 'reactivate') record.status = 'PENDING_REVIEW';
     else if (action === 'publish') record.status = 'PUBLISHED';
-    else if (action === 'reject') record.status = 'DRAFT';
+    else if (action === 'reject' || action === 'withdraw') record.status = 'DRAFT';
     else if (method === 'DELETE') record.status = 'DEACTIVATED';
     else return reply({ message: 'Unexpected action' }, 400);
     audits.push({ id: audits.length + 1, functionId: record.id, performedBy: user.email,
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits, organizations, reports, reminders };
+  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens };
 }

@@ -47,7 +47,7 @@ public class QualityReminderService {
         int created = 0;
         int renotified = 0;
         for (OrgFunction function : functions.findAll()) {
-            if (function.getOrganizationId() == null) {
+            if (function.getOrganizationId() == null || function.isRevision()) {
                 continue;
             }
             for (QualityIssue issue : ServiceQualityRules.evaluate(function, active, now)) {

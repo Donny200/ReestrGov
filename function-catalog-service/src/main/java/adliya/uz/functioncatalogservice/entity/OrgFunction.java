@@ -60,8 +60,42 @@ public class OrgFunction {
     private Long verifiedByUserId;
     @Column(nullable = false) @Builder.Default
     private boolean verificationOutdated = false;
+    /** Set on a draft revision: the id of the published card whose pending edits this row carries. */
+    @Column(name = "revision_of_id")
+    private Long revisionOfId;
 
     public Boolean getActive() { return status == FunctionStatus.PUBLISHED; }
+    public boolean isRevision() { return revisionOfId != null; }
+    /** Content may be changed in place only while the card is not public and not under review. */
+    public boolean isEditable() { return status == FunctionStatus.DRAFT || status == FunctionStatus.DEACTIVATED; }
+
+    /** Copies every editorial field (content, translations, organization, category, verification) but not identity or workflow state. */
+    public void copyContentFrom(OrgFunction source) {
+        name = source.name;
+        description = source.description;
+        nameTranslations = copyTranslations(source.nameTranslations);
+        descriptionTranslations = copyTranslations(source.descriptionTranslations);
+        organizationId = source.organizationId;
+        requirements = source.requirements;
+        functionCategory = source.functionCategory;
+        sourceLanguage = source.sourceLanguage;
+        for (InstructionField field : InstructionField.values()) {
+            field.set(this, field.get(source));
+        }
+        officialSourceUrl = source.officialSourceUrl;
+        Map<String, Map<String, TranslatedText>> instructions = new LinkedHashMap<>();
+        if (source.instructionTranslations != null) {
+            source.instructionTranslations.forEach((key, values) -> instructions.put(key, copyTranslations(values)));
+        }
+        instructionTranslations = instructions;
+        lastVerifiedAt = source.lastVerifiedAt;
+        verifiedByUserId = source.verifiedByUserId;
+        verificationOutdated = source.verificationOutdated;
+    }
+
+    private static Map<String, TranslatedText> copyTranslations(Map<String, TranslatedText> values) {
+        return values == null ? new LinkedHashMap<>() : new LinkedHashMap<>(values);
+    }
     public String getCategory() { return functionCategory == null ? null : functionCategory.getName(); }
 
     public Map<String, TranslatedText> instructionTranslationsOf(InstructionField field) {

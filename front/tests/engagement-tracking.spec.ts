@@ -26,7 +26,7 @@ test('anonymous visitors send minimal engagement events once per page; staff bro
   expect(events()).toHaveLength(1);
 
   const popup = page.waitForEvent('popup');
-  await page.getByRole('link', { name: /Official source/ }).click();
+  await page.getByRole('link', { name: /Source link/ }).click();
   await (await popup).close();
   await page.getByRole('link', { name: '+998 71 200-00-00' }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));

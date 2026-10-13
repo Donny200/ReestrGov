@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -54,6 +55,10 @@ public class User {
     @Column(name = "must_change_password", nullable = false)
     @Builder.Default
     private Boolean mustChangePassword = false;
+
+    /** Access tokens issued before this moment are rejected; set whenever the password changes or is reset. */
+    @Column(name = "credentials_updated_at")
+    private Instant credentialsUpdatedAt;
 
     @Column(nullable = false, updatable = false)
     @Builder.Default
