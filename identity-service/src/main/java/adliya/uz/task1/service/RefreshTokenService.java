@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,20 +29,34 @@ public class RefreshTokenService {
 
     @Transactional
     public String createRefreshToken(User user) {
+        return createSession(user, null).rawToken();
+    }
+
+    /** Starts a new session: a fresh session id that every rotated token of this browser session keeps. */
+    @Transactional
+    public IssuedSession createSession(User user, String userAgent) {
+        return issue(user, UUID.randomUUID().toString(), userAgent);
+    }
+
+    private IssuedSession issue(User user, String sessionId, String userAgent) {
         if (Boolean.TRUE.equals(user.getMustChangePassword())) {
             throw new InvalidRefreshTokenException("Password change is required before issuing a refresh token");
         }
 
         String rawToken = generateRawToken();
+        Instant now = Instant.now();
 
         RefreshToken entity = RefreshToken.builder()
                 .tokenHash(hash(rawToken))
                 .user(user)
-                .expiresAt(Instant.now().plusMillis(jwtProperties.getRefreshExpiration()))
+                .sessionId(sessionId)
+                .userAgent(userAgent)
+                .lastUsedAt(now)
+                .expiresAt(now.plusMillis(jwtProperties.getRefreshExpiration()))
                 .build();
 
         refreshTokenRepository.save(entity);
-        return rawToken;
+        return new IssuedSession(rawToken, sessionId);
     }
 
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
@@ -66,10 +81,13 @@ public class RefreshTokenService {
         }
 
         stored.setRevoked(true);
+        stored.setRevokedAt(Instant.now());
+        stored.setRevokedReason("ROTATED");
         refreshTokenRepository.save(stored);
 
-        String newRawToken = createRefreshToken(stored.getUser());
-        return new RotationResult(stored.getUser(), newRawToken);
+        String sessionId = stored.getSessionId() == null ? UUID.randomUUID().toString() : stored.getSessionId();
+        IssuedSession next = issue(stored.getUser(), sessionId, stored.getUserAgent());
+        return new RotationResult(stored.getUser(), next.rawToken(), sessionId);
     }
 
     @Transactional
@@ -77,6 +95,8 @@ public class RefreshTokenService {
         refreshTokenRepository.findByTokenHash(hash(rawToken))
                 .ifPresent(token -> {
                     token.setRevoked(true);
+                    token.setRevokedAt(Instant.now());
+                    token.setRevokedReason(SessionService.REASON_LOGOUT);
                     refreshTokenRepository.save(token);
                 });
     }
@@ -96,5 +116,11 @@ public class RefreshTokenService {
         }
     }
 
-    public record RotationResult(User user, String rawToken) {}
+    public record RotationResult(User user, String rawToken, String sessionId) {
+        public RotationResult(User user, String rawToken) {
+            this(user, rawToken, null);
+        }
+    }
+
+    public record IssuedSession(String rawToken, String sessionId) {}
 }

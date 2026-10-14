@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/mfa/verify", "/api/auth/mfa/enroll", "/api/auth/mfa/confirm").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/password-reset/options").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/password-reset/request", "/api/auth/password-reset/complete").permitAll()
                         .requestMatchers("/swagger", "/swagger/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()

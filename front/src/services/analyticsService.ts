@@ -4,6 +4,7 @@ import type {
   CsvDelimiter,
   EngagementEvent,
   EngagementReport,
+  FeedbackReport,
   OrganizationSummary,
   QualityQueue,
   QualityQueueFilters,
@@ -22,8 +23,11 @@ export const getEngagement = (filters: AnalyticsFilters) =>
 export const getQualityQueue = (filters: QualityQueueFilters) =>
   apiRequest<QualityQueue>('/api/analytics/quality-queue', { query: { ...filters } });
 
-export const getReminders = (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'>) =>
+export const getReminders = (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'> & { assignee?: 'me' }) =>
   apiRequest<QualityReminderPage>('/api/analytics/reminders', { query: { ...filters } });
+
+export const getFeedback = (filters: AnalyticsFilters) =>
+  apiRequest<FeedbackReport>('/api/analytics/feedback', { query: { ...filters } });
 
 export const acknowledgeReminder = (id: number) =>
   apiRequest<void>(`/api/analytics/reminders/${id}/acknowledge`, { method: 'POST' });

@@ -22,6 +22,8 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class JwtService {
 
+    public static final String SESSION_CLAIM = "sid";
+
     private final JwtProperties jwtProperties;
     private SecretKey secretKey;
 
@@ -31,6 +33,11 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
+        return generateToken(user, null);
+    }
+
+    /** With a session id the token can be rejected as soon as that session is revoked. */
+    public String generateToken(User user, String sessionId) {
         List<Long> organizationIds = user.getOrganizations().stream()
                 .map(Organization::getId)
                 .toList();
@@ -45,6 +52,7 @@ public class JwtService {
                 .claim("organizationIds", organizationIds)
                 .claim("permissions", permissionCodes)
                 .claim("mustChangePassword", Boolean.TRUE.equals(user.getMustChangePassword()))
+                .claim(SESSION_CLAIM, sessionId)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtProperties.getExpiration()))
                 .signWith(secretKey)

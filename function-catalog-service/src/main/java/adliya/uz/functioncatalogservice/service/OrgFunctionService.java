@@ -61,6 +61,7 @@ public class OrgFunctionService {
     private final QualityReminderRepository reminders;
     private final IdentityOrganizationClient organizations;
     private final ReportReviewService reports;
+    private final PublicChangeService publicChanges;
 
     public List<OrgFunction> getAll() {
         return orgFunctionRepository.findAllByStatus(PUBLISHED);
@@ -352,7 +353,10 @@ public class OrgFunctionService {
                     "Expected PENDING_REVIEW, found " + function.getStatus() + "; cannot transition to PUBLISHED");
         }
         if (!function.isRevision()) {
-            return transition(id, EnumSet.of(PENDING_REVIEW), PUBLISHED, AuditAction.PUBLISH, null);
+            FunctionStatus previousPublicStatus = previousPublicStatus(function);
+            OrgFunction published = transition(id, EnumSet.of(PENDING_REVIEW), PUBLISHED, AuditAction.PUBLISH, null);
+            publicChanges.recordPublication(published, previousPublicStatus, java.time.Instant.now());
+            return published;
         }
         organizations.requireExisting(function.getOrganizationId());
         OrgFunction published = orgFunctionRepository.findById(function.getRevisionOfId())
@@ -372,7 +376,19 @@ public class OrgFunctionService {
         removeRevisionRow(function, published);
         audit.function(published, AuditAction.PUBLISH,
                 "Revision #" + function.getId() + " approved: public content replaced (" + previousStatus + " -> PUBLISHED)");
+        publicChanges.recordPublication(published, previousStatus, java.time.Instant.now());
         return published;
+    }
+
+    /** A card re-entering publication after deactivation is reported as republished rather than updated. */
+    private FunctionStatus previousPublicStatus(OrgFunction published) {
+        boolean wasDeactivated = auditLogs.findFunctionHistory(published.getId()).stream()
+                .map(log -> log.getAction())
+                .filter(action -> action == AuditAction.DEACTIVATE || action == AuditAction.REACTIVATE || action == AuditAction.PUBLISH)
+                .reduce((first, second) -> second)
+                .map(action -> action == AuditAction.DEACTIVATE || action == AuditAction.REACTIVATE)
+                .orElse(false);
+        return wasDeactivated ? DEACTIVATED : PENDING_REVIEW;
     }
 
     @Transactional

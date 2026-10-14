@@ -49,6 +49,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, PasswordResetProperties.class})
 class PasswordResetControllerSecurityTest {
 
+    @MockitoBean
+    private adliya.uz.task1.service.SessionService sessionService;
+
     private static final String SECRET_TOKEN = "super-secret-raw-token";
 
     @Autowired

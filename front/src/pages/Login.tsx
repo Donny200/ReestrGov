@@ -15,6 +15,7 @@ import { homeRouteForRole, useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
 import { emailPattern } from '../lib/validation';
 import { getPasswordResetOptions } from '../services/authService';
+import { isLoginOutcome } from '../types/api';
 import { errorMessage, fieldErrorsOf, statusOf, type Translate } from '../utils/errors';
 
 const loginSchema = (t: Translate) =>
@@ -55,11 +56,15 @@ export function Login() {
   const submit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      const authenticated = await signIn(values.email, values.password);
-      toast.success(t('login.success'));
+      const outcome = await signIn(values.email, values.password);
       const from = (location.state as { from?: string } | null)?.from;
       const safeFrom = from?.startsWith('/') && !from.startsWith('//') && !from.includes('\\') ? from : undefined;
-      navigate(authenticated.mustChangePassword ? '/settings/security' : safeFrom ?? homeRouteForRole(authenticated.role), { replace: true });
+      if (isLoginOutcome(outcome)) {
+        navigate('/login/mfa', { replace: true, state: { enrollmentRequired: outcome.enrollmentRequired, expiresAt: outcome.expiresAt, from: safeFrom } });
+        return;
+      }
+      toast.success(t('login.success'));
+      navigate(outcome.mustChangePassword ? '/settings/security' : safeFrom ?? homeRouteForRole(outcome.role), { replace: true });
     } catch (error) {
       const status = statusOf(error);
       Object.entries(fieldErrorsOf(error)).forEach(([field, message]) => {

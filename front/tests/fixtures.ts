@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFunctions';
-import type { LegacyUserApi, Organization, Region } from '../src/types/api';
+import type { LegacyUserApi, Organization, PublicChange, Region, SessionInfo, StaffMember } from '../src/types/api';
 import type { EngagementCounts, EngagementReport, OrganizationSummary, QualityQueue, QualityReminder } from '../src/types/analytics';
 import type { InformationReport, ReportHistoryEntry } from '../src/types/reports';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
@@ -47,6 +47,13 @@ export interface FixtureOptions {
   organizations?: Organization[]; regions?: Region[]; reports?: InformationReport[]; anonymous?: boolean;
   summary?: OrganizationSummary; engagement?: EngagementReport; qualityQueue?: QualityQueue; reminders?: QualityReminder[];
   organizationIds?: number[];
+  /** Public change history per published service id. */
+  history?: Record<number, PublicChange[]>;
+  /** Staff members per organization id for assignment candidates; defaults to the signed-in user plus one colleague. */
+  members?: Record<number, StaffMember[]>;
+  /** Second-factor state of the signed-in user and whether the password step must be followed by a code or enrollment. */
+  mfa?: { enrolled: boolean; required: boolean; loginRequires?: 'verify' | 'enroll'; deadline?: string | null };
+  sessions?: SessionInfo[];
 }
 const csv = (rows: string[]) => '\uFEFF' + rows.join('\r\n') + '\r\n';
 export function counts(values: Partial<EngagementCounts> = {}): EngagementCounts {
@@ -62,7 +69,7 @@ export function summary(overrides: Partial<OrganizationSummary> = {}): Organizat
     attention: { VERIFICATION_OVERDUE: 2, SOURCE_MISSING: 1, INFORMATION_INCOMPLETE: 1, TRANSLATIONS_MISSING: 3 },
     translationsChecked: true, activeLanguages: ['en', 'ru', 'uz'],
     reports: { unresolved: 3, newReports: 2, inProgress: 1, receivedInPeriod: 4, receivedInPreviousPeriod: 2 },
-    openReminders: 1, ...overrides,
+    openReminders: 1, assignedToMe: { services: 0, openReminders: 0, openReports: 0 }, ...overrides,
   };
 }
 export async function setup(page: Page, options: FixtureOptions = {}) {
@@ -70,11 +77,24 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
   const permissions = options.permissions ?? allPermissions;
   const role = options.role ?? 'ROLE_SUPER_ADMIN';
   const organizationIds = options.organizationIds ?? [10];
+  const mfa = options.mfa ?? { enrolled: false, required: false };
   const user = { id: 42, firstName: 'Editor', lastName: 'Test', email: 'editor@example.test', phone: null,
     role, enabled: true, mustChangePassword: false, organizationIds,
-    organizations: organizationIds.map(id => (id === organization.id ? organization : { id, name: 'Organization ' + id })), permissions };
+    organizations: organizationIds.map(id => (id === organization.id ? organization : { id, name: 'Organization ' + id })), permissions,
+    mfa: { required: mfa.required, enrolled: mfa.enrolled, enrollmentDeadline: mfa.deadline ?? null, enrollmentOverdue: mfa.required && !mfa.enrolled && !mfa.deadline } };
+  const members: Record<number, StaffMember[]> = options.members ?? {
+    [organization.id]: [{ id: 42, firstName: 'Editor', lastName: 'Test', email: 'editor@example.test', role },
+      { id: 7, firstName: 'Ann', lastName: 'Lee', email: 'ann@example.test', role: 'ROLE_MODERATOR' }] };
+  const publicHistory = options.history ?? {};
+  const sessions = structuredClone(options.sessions ?? [{ sessionId: 'current', createdAt: '2026-10-12T08:00:00Z', lastUsedAt: '2026-10-12T09:00:00Z',
+    expiresAt: '2026-10-19T08:00:00Z', userAgent: 'Firefox on macOS', current: true }]);
+  const feedbackVotes: { serviceId: number; helpful: boolean }[] = [];
+  let mfaEnrolled = mfa.enrolled;
+  let pendingSecret: string | null = null;
+  let challengePending: 'verify' | 'enroll' | null = null;
   type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
-    status?: InformationReport['status']; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string };
+    status?: InformationReport['status']; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string;
+    code?: string; password?: string; serviceId?: number; helpful?: boolean; userId?: number };
   const organizations = structuredClone(options.organizations ?? [organization as Organization]);
   const reports = structuredClone(options.reports ?? []);
   const reminders = structuredClone(options.reminders ?? []);
@@ -134,10 +154,82 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       return reply({ userId: Number(adminReset[1]), resetPath: '/reset-password?token=' + token, expiresAt: '2026-10-12T12:00:00Z' }, 201);
     }
     if (path === '/api/user' && method === 'GET') return reply(legacyUsers);
-    if (path === '/api/auth/me') return options.anonymous ? reply({ message: 'Authentication is required' }, 401) : reply(user);
+    if (path === '/api/auth/me') return options.anonymous ? reply({ message: 'Authentication is required' }, 401) : reply({ ...user, mfa: { ...user.mfa, enrolled: mfaEnrolled } });
     if (path === '/api/auth/refresh') return reply({}, 401);
-    if (path === '/api/auth/login') return reply(user);
+    if (path === '/api/auth/login') {
+      if (mfa.loginRequires) {
+        challengePending = mfa.loginRequires;
+        return reply({ mfaRequired: true, enrollmentRequired: mfa.loginRequires === 'enroll', expiresAt: '2026-10-12T09:05:00Z' }, 202);
+      }
+      return reply(user);
+    }
     if (path === '/api/auth/logout') return reply({});
+    if (path === '/api/auth/mfa' && method === 'GET') {
+      return reply({ enabled: true, required: mfa.required, enrolled: mfaEnrolled, confirmedAt: mfaEnrolled ? '2026-10-01T00:00:00Z' : null,
+        enrollmentDeadline: mfa.deadline ?? null, enrollmentOverdue: mfa.required && !mfaEnrolled && !mfa.deadline, recoveryCodesRemaining: mfaEnrolled ? 8 : 0 });
+    }
+    if (path === '/api/auth/mfa/verify' && method === 'POST') {
+      if (challengePending !== 'verify') return reply({ message: 'Sign in again' }, 401);
+      if (body.code !== '123456' && body.code !== 'ABCDE-FGHJK') return reply({ message: 'Invalid verification code' }, 401);
+      challengePending = null;
+      return reply({ ...user, mfa: { ...user.mfa, enrolled: true } });
+    }
+    if (path === '/api/auth/mfa/enroll' && method === 'POST') {
+      if (options.anonymous && challengePending !== 'enroll') return reply({ message: 'Sign in again' }, 401);
+      pendingSecret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+      return reply({ secret: pendingSecret, otpauthUri: 'otpauth://totp/ReestrGov:editor%40example.test?secret=' + pendingSecret + '&issuer=ReestrGov', issuer: 'ReestrGov', account: user.email });
+    }
+    if (path === '/api/auth/mfa/confirm' && method === 'POST') {
+      if (!pendingSecret) return reply({ message: 'Start enrollment before confirming it' }, 409);
+      if (body.code !== '123456') return reply({ message: 'Invalid verification code' }, 401);
+      pendingSecret = null; mfaEnrolled = true;
+      const fromChallenge = challengePending === 'enroll';
+      challengePending = null;
+      return reply({ recoveryCodes: ['AAAAA-BBBBB', 'CCCCC-DDDDD', 'EEEEE-FFFFF'], user: fromChallenge ? { ...user, mfa: { ...user.mfa, enrolled: true } } : null });
+    }
+    if (path === '/api/auth/mfa/disable' && method === 'POST') {
+      if (body.password !== 'Password123!' || body.code !== '123456') return reply({ message: 'Invalid verification code' }, 401);
+      mfaEnrolled = false;
+      return reply({ enabled: true, required: mfa.required, enrolled: false, confirmedAt: null, enrollmentDeadline: null, enrollmentOverdue: mfa.required, recoveryCodesRemaining: 0 });
+    }
+    if (path === '/api/auth/sessions' && method === 'GET') return reply(sessions);
+    const ownSession = path.match(/^\/api\/auth\/sessions\/([^/]+)$/);
+    if (ownSession && method === 'DELETE') {
+      const index = sessions.findIndex(item => item.sessionId === ownSession[1]);
+      if (index < 0) return reply({ message: 'Session not found' }, 404);
+      sessions.splice(index, 1);
+      return route.fulfill({ status: 204 });
+    }
+    if (path === '/api/auth/sessions/revoke-others' && method === 'POST') {
+      const removed = sessions.filter(item => !item.current).length;
+      sessions.splice(0, sessions.length, ...sessions.filter(item => item.current));
+      return reply({ revoked: removed });
+    }
+    const userSessions = path.match(/^\/api\/user\/(\d+)\/sessions(?:\/([^/]+))?$/);
+    if (userSessions) {
+      if (role !== 'ROLE_SUPER_ADMIN') return reply({ message: 'Forbidden' }, 403);
+      if (method === 'GET') return reply(sessions.map(item => ({ ...item, current: false })));
+      if (method === 'DELETE' && userSessions[2]) { sessions.splice(sessions.findIndex(item => item.sessionId === userSessions[2]), 1); return route.fulfill({ status: 204 }); }
+      if (method === 'DELETE') { sessions.splice(0, sessions.length); return route.fulfill({ status: 204 }); }
+    }
+    const userMfa = path.match(/^\/api\/user\/(\d+)\/mfa(?:\/(reset))?$/);
+    if (userMfa) {
+      if (role !== 'ROLE_SUPER_ADMIN') return reply({ message: 'Forbidden' }, 403);
+      if (userMfa[2] === 'reset' && method === 'POST') {
+        const found = legacyUsers.find(item => item.id === Number(userMfa[1]));
+        if (found?.mfa) found.mfa = { ...found.mfa, enrolled: false };
+        return route.fulfill({ status: 204 });
+      }
+      return reply({ enabled: true, required: true, enrolled: true, confirmedAt: '2026-10-01T00:00:00Z', enrollmentDeadline: null, enrollmentOverdue: false, recoveryCodesRemaining: 8 });
+    }
+    const orgMembers = path.match(/^\/api\/organizations\/(\d+)\/members$/);
+    if (orgMembers && method === 'GET') return reply(members[Number(orgMembers[1])] ?? []);
+    if (path === '/api/feedback' && method === 'POST') {
+      const target = records.find(item => item.id === body.serviceId && item.status === 'PUBLISHED');
+      if (!target) return reply({ message: 'Service not found' }, 404);
+      feedbackVotes.push({ serviceId: body.serviceId as number, helpful: body.helpful as boolean });
+      return reply({}, 202);
+    }
     if (path === '/api/languages') return reply(languages);
     if (path.startsWith('/api/interface-translations/')) return reply(dictionary(path.split('/').at(-1) ?? 'en'));
     if (path === '/api/public/organizations' || path === '/api/organizations') return reply(organizations);
@@ -166,7 +258,20 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         const status = query.get('status');
         return reply({ ...queue, items: queue.items.filter(item => (!issue || item.issues.some(found => found.type === issue)) && (!status || item.status === status)) });
       }
-      if (path === '/api/analytics/reminders') return reply({ total: reminders.length, items: reminders });
+      if (path === '/api/analytics/reminders') {
+        const mine = query.get('assignee') === 'me' ? reminders.filter(item => item.assignedUserId === user.id) : reminders;
+        return reply({ total: mine.length, items: mine });
+      }
+      if (path === '/api/analytics/feedback') {
+        const totals = (votes: typeof feedbackVotes) => ({ helpful: votes.filter(v => v.helpful).length, notHelpful: votes.filter(v => !v.helpful).length, total: votes.length });
+        const byService = [...new Set(feedbackVotes.map(v => v.serviceId))].map(id => {
+          const record = records.find(item => item.id === id);
+          const own = feedbackVotes.filter(v => v.serviceId === id);
+          return { functionId: id, name: record?.name ?? null, nameTranslations: record?.nameTranslations ?? null, status: record?.status ?? null,
+            organizationId: record?.organizationId ?? null, categoryId: record?.categoryId ?? null, category: record?.category ?? null, ...totals(own) };
+        });
+        return reply({ period: summary().period, totals: totals(feedbackVotes), previousTotals: { helpful: 0, notHelpful: 0, total: 0 }, services: byService });
+      }
       const acknowledged = path.match(/^\/api\/analytics\/reminders\/(\d+)\/acknowledge$/);
       if (acknowledged && method === 'POST') {
         const index = reminders.findIndex(item => item.id === Number(acknowledged[1]));
@@ -214,6 +319,18 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       return reply(visible(found));
     }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
+    if (path === '/api/functions/assignments') {
+      if (!['FUNCTIONS_VIEW', 'FUNCTIONS_ASSIGN', 'ORG_ANALYTICS_VIEW'].some(p => permissions.includes(p))) return reply({ message: 'Forbidden' }, 403);
+      const items = records.filter(item => !item.revisionOfId && item.organizationId !== null).map(item => {
+        const active = (members[item.organizationId ?? 0] ?? []).some(member => member.id === item.assignee?.userId);
+        const state = !item.assignee ? 'UNASSIGNED' : active ? 'ASSIGNED' : 'NEEDS_REASSIGNMENT';
+        return { functionId: item.id, name: item.name, nameTranslations: item.nameTranslations ?? null, status: item.status, organizationId: item.organizationId,
+          categoryId: item.categoryId ?? null, category: item.category ?? null, assignee: item.assignee ?? null, state };
+      });
+      const wanted = query.get('state');
+      return reply({ counts: { assigned: items.filter(i => i.state === 'ASSIGNED').length, unassigned: items.filter(i => i.state === 'UNASSIGNED').length,
+        needsReassignment: items.filter(i => i.state === 'NEEDS_REASSIGNMENT').length }, membersChecked: true, items: items.filter(i => !wanted || i.state === wanted) });
+    }
     if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false });
     if (path === '/api/functions/admin') return permissions.includes('FUNCTIONS_VIEW') ? reply(records.map(withRevision)) : reply({}, 403);
     if (path === '/api/functions' && method === 'GET') return reply(records.filter(item => item.status === 'PUBLISHED'));
@@ -230,6 +347,20 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     if (!record) return reply({ message: 'Not found' }, 404);
     const action = match[2];
     if (action === 'admin') return reply(withRevision(record));
+    if (action === 'history' && method === 'GET') return record.status === 'PUBLISHED' ? reply(publicHistory[record.id] ?? []) : reply({ message: 'Not found' }, 404);
+    if (action === 'assignee/candidates') {
+      if (!permissions.includes('FUNCTIONS_ASSIGN')) return reply({ message: 'Forbidden' }, 403);
+      return reply(members[record.organizationId ?? 0] ?? []);
+    }
+    if (action === 'assignee') {
+      if (!permissions.includes('FUNCTIONS_ASSIGN')) return reply({ message: 'Forbidden' }, 403);
+      if (method === 'DELETE') { record.assignee = null; return reply(withRevision(record)); }
+      const member = (members[record.organizationId ?? 0] ?? []).find(item => item.id === body.userId);
+      if (!member) return reply({ message: 'User ' + body.userId + ' is not an active member of organization ' + record.organizationId }, 400);
+      record.assignee = { userId: member.id, name: [member.firstName, member.lastName].filter(Boolean).join(' '), email: member.email, assignedAt: new Date().toISOString() };
+      audits.push({ id: audits.length + 1, functionId: record.id, performedBy: user.email, performedAt: new Date().toISOString(), action: 'ASSIGNEE_CHANGE', details: 'Responsible staff: nobody -> #' + member.id });
+      return reply(withRevision(record));
+    }
     if (action === 'verify' && method === 'POST') {
       Object.assign(record, { lastVerifiedAt: new Date().toISOString(), verificationStatus: 'VERIFIED', verifiedByUserId: user.id });
       return reply(record);
@@ -299,5 +430,5 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens };
+  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens, feedbackVotes, sessions };
 }

@@ -23,4 +23,6 @@ public class QualityReminder {
     private Instant acknowledgedAt;
     private Long acknowledgedByUserId;
     private Instant resolvedAt;
+    /** Responsible staff member of the card when the reminder was last scanned; null when the card is unassigned. */
+    private Long assignedUserId;
 }

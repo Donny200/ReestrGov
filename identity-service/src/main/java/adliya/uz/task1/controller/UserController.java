@@ -4,7 +4,12 @@ import adliya.uz.task1.dto.CreateUserRequest;
 import adliya.uz.task1.dto.PasswordResetLinkResponse;
 import adliya.uz.task1.dto.UpdateUserRequest;
 import adliya.uz.task1.dto.UserResponse;
+import adliya.uz.task1.dto.MfaStatusResponse;
+import adliya.uz.task1.dto.SessionResponse;
+import adliya.uz.task1.dto.SecurityEventResponse;
+import adliya.uz.task1.service.MfaService;
 import adliya.uz.task1.service.PasswordResetService;
+import adliya.uz.task1.service.SessionService;
 import adliya.uz.task1.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +34,8 @@ public class UserController {
 
     private final UserService userService;
     private final PasswordResetService passwordResetService;
+    private final MfaService mfaService;
+    private final SessionService sessionService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('USERS_CREATE')")
@@ -39,7 +46,48 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAuthority('USERS_VIEW')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllForLegacyApi());
+        return ResponseEntity.ok(userService.withMfaStatus(userService.getAllForLegacyApi(), mfaService));
+    }
+
+    /** SUPER_ADMIN only: enrollment state (never the secret or codes). */
+    @GetMapping("/{id}/mfa")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public MfaStatusResponse mfaStatus(@PathVariable Long id) {
+        return mfaService.status(userService.getById(id));
+    }
+
+    /** SUPER_ADMIN only: removes the user's second factor and ends their sessions; they re-enroll at the next sign-in. */
+    @PostMapping("/{id}/mfa/reset")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public ResponseEntity<Void> resetMfa(@PathVariable Long id) {
+        mfaService.adminReset(userService.getCurrentUser(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/sessions")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public List<SessionResponse> sessions(@PathVariable Long id) {
+        return sessionService.sessionsForAdmin(id);
+    }
+
+    @DeleteMapping("/{id}/sessions/{sessionId}")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public ResponseEntity<Void> revokeSession(@PathVariable Long id, @PathVariable String sessionId) {
+        sessionService.revokeForAdmin(id, sessionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/sessions")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public ResponseEntity<Void> revokeAllSessions(@PathVariable Long id) {
+        sessionService.revokeAllForAdmin(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/security-events")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
+    public List<SecurityEventResponse> securityEvents(@PathVariable Long id) {
+        return sessionService.securityEvents(id).stream().map(SecurityEventResponse::from).toList();
     }
 
     @GetMapping("/{id}")

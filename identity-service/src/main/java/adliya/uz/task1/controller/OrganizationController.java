@@ -1,6 +1,7 @@
 package adliya.uz.task1.controller;
 
 import adliya.uz.task1.dto.CreateOrganizationRequest;
+import adliya.uz.task1.dto.OrganizationMemberResponse;
 import adliya.uz.task1.dto.OrganizationResponse;
 import adliya.uz.task1.dto.UpdateOrganizationRequest;
 import adliya.uz.task1.entity.Organization;
@@ -41,6 +42,13 @@ public class OrganizationController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<OrganizationResponse> getById(@PathVariable Long id) {
         return ResponseEntity.ok(OrganizationResponse.from(organizationService.getById(id)));
+    }
+
+    /** Active users with access to the organization; visible to SUPER_ADMIN, global function managers and the organization's own staff. */
+    @GetMapping("/{id}/members")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OrganizationMemberResponse>> members(@PathVariable Long id) {
+        return ResponseEntity.ok(organizationService.activeMembers(id).stream().map(OrganizationMemberResponse::from).toList());
     }
 
     @PutMapping("/{id}")

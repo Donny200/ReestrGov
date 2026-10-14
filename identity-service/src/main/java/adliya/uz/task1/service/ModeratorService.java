@@ -119,7 +119,9 @@ public class ModeratorService {
 
         if (request.getEnabled() != null) moderator.setEnabled(request.getEnabled());
 
-        return userRepository.save(moderator);
+        User saved = userRepository.save(moderator);
+        if (Boolean.FALSE.equals(request.getEnabled())) userService.endSessions(saved);
+        return saved;
     }
 
     @Transactional
@@ -127,6 +129,7 @@ public class ModeratorService {
         User moderator = getById(id);
         moderator.setEnabled(false);
         userRepository.save(moderator);
+        userService.endSessions(moderator);
     }
 
     private User findUser(Long id) {

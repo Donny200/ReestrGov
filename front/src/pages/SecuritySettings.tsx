@@ -17,6 +17,8 @@ import { passwordField } from '../lib/validation';
 import { changePassword } from '../services/authService';
 import type { Translate } from '../utils/errors';
 import { fullName, roleLabel } from '../utils/format';
+import { MfaSettingsCard } from '../features/mfa/MfaSettingsCard';
+import { SessionsCard } from '../features/sessions/SessionsCard';
 
 const passwordSchema = (t: Translate) =>
   z
@@ -62,6 +64,7 @@ export function SecuritySettings() {
       <PageHeader eyebrow={t('nav.admin')} title={t('security.title')} description={t('security.passwordRule')} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)] lg:items-start">
+        <div className="min-w-0 space-y-6">
         <Card>
           <CardHeader title={t('security.changePassword')} />
           <form onSubmit={submit} noValidate>
@@ -81,6 +84,9 @@ export function SecuritySettings() {
             </CardFooter>
           </form>
         </Card>
+        {!user?.mustChangePassword && <MfaSettingsCard />}
+        {!user?.mustChangePassword && <SessionsCard />}
+        </div>
 
         <Card className="lg:sticky lg:top-24">
           <CardHeader title={t('admin.welcome')} />

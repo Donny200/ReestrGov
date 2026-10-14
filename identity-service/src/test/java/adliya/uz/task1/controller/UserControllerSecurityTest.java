@@ -45,6 +45,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class UserControllerSecurityTest {
 
+    @MockitoBean
+    private adliya.uz.task1.service.SessionService sessionService;
+    @MockitoBean
+    private adliya.uz.task1.service.MfaService mfaService;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -68,6 +73,33 @@ class UserControllerSecurityTest {
 
     @MockitoBean
     private AuthenticationProvider authenticationProvider;
+
+    @Test
+    @WithMockUser(username = "orgadmin@example.com", authorities = {"ROLE_ORG_ADMIN", "USERS_VIEW", "USERS_EDIT"})
+    void mfaResetAndSessionAdministrationRequireSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/user/7/mfa")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/user/7/mfa/reset")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/user/7/sessions")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/user/7/sessions/s-1")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/user/7/sessions")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/user/7/security-events")).andExpect(status().isForbidden());
+        verifyNoInteractions(mfaService, sessionService);
+    }
+
+    @Test
+    @WithMockUser(username = "root@example.com", authorities = {"ROLE_SUPER_ADMIN"})
+    void superAdminManagesSessionsAndSecondFactorsOfOtherUsersWithoutSeeingSecrets() throws Exception {
+        when(userService.getById(7L)).thenReturn(adliya.uz.task1.entity.User.builder().id(7L).build());
+        when(mfaService.status(any())).thenReturn(new adliya.uz.task1.dto.MfaStatusResponse(true, true, true, null, null, false, 8));
+        mockMvc.perform(get("/api/user/7/mfa")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrolled").value(true))
+                .andExpect(jsonPath("$.recoveryCodesRemaining").value(8))
+                .andExpect(jsonPath("$.secret").doesNotExist());
+        mockMvc.perform(post("/api/user/7/mfa/reset")).andExpect(status().isNoContent());
+        verify(mfaService).adminReset(any(), eq(7L));
+        mockMvc.perform(delete("/api/user/7/sessions")).andExpect(status().isNoContent());
+        verify(sessionService).revokeAllForAdmin(7L);
+    }
 
     @Test
     @WithMockUser(username = "viewer@example.com", authorities = "USERS_VIEW")

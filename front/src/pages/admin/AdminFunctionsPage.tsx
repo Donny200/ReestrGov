@@ -26,7 +26,7 @@ const PAGE_SIZE = 50;
 
 export function AdminFunctionsPage() {
   const { t, locale, available } = useI18n();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canView = hasPermission('FUNCTIONS_VIEW');
   const functions = useAdminFunctions(canView);
   const options = useFunctionOptions();
@@ -35,6 +35,7 @@ export function AdminFunctionsPage() {
   const [status, setStatus] = useState(FUNCTION_STATUSES.includes(initialStatus as FunctionStatus) ? (initialStatus as string) : '');
   const [verification, setVerification] = useState<VerificationFilter>(parseVerificationFilter(searchParams.get('verification')));
   const [organization, setOrganization] = useState('');
+  const [assignee, setAssignee] = useState(searchParams.get('assignee') === 'me' ? 'me' : searchParams.get('assignee') === 'unassigned' ? 'unassigned' : '');
   const [category, setCategory] = useState('');
   const [language, setLanguage] = useState(locale);
   const [search, setSearch] = useState('');
@@ -56,11 +57,12 @@ export function AdminFunctionsPage() {
           (!status || row.status === status) &&
           (!organization || (organization === 'unassigned' ? row.organizationId === null : row.organizationId === Number(organization))) &&
           (!category || row.categoryId === Number(category)) &&
+          (!assignee || (assignee === 'unassigned' ? !row.assignee && !row.revisionOfId : row.assignee?.userId === user?.id)) &&
           matchesVerification(row.verificationStatus, verification) &&
           functionText(row, 'name', language).toLocaleLowerCase().includes(term),
       )
       .sort((a, b) => b.id - a.id);
-  }, [functions.data, status, organization, category, verification, language, search]);
+  }, [functions.data, status, organization, category, verification, language, search, assignee, user?.id]);
 
   const columns = useMemo<ColumnDef<AdminFunction>[]>(
     () => [
@@ -78,6 +80,11 @@ export function AdminFunctionsPage() {
               <p className="mt-1 inline-flex items-center gap-1 text-xs text-secondary" lang={locale}>
                 <GitBranchIcon className="h-3 w-3" aria-hidden="true" />
                 {t('fnAdmin.revisionOf', 'Draft revision of service')} #{row.original.revisionOfId}
+              </p>
+            )}
+            {row.original.assignee && (
+              <p className="mt-1 text-xs text-secondary wrap-anywhere" lang={locale}>
+                {t('assignee.short', 'Responsible')}: {row.original.assignee.userId === user?.id ? t('verification.byYou', 'you') : row.original.assignee.name ?? row.original.assignee.email}
               </p>
             )}
             {!hasFunctionTranslation(row.original, language) && (
@@ -160,7 +167,7 @@ export function AdminFunctionsPage() {
         ),
       },
     ],
-    [t, language, locale, available, options.data, hasPermission, organizationName],
+    [t, language, locale, available, options.data, hasPermission, organizationName, user?.id],
   );
 
   return (
@@ -182,7 +189,7 @@ export function AdminFunctionsPage() {
       <Card className="mb-6">
         <CardBody>
           <p className="micro mb-4 text-secondary">{t('fnAdmin.filters', 'Filters')}</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
             <Field label={t('field.status')}>
               {(control) => (
                 <Select
@@ -240,6 +247,21 @@ export function AdminFunctionsPage() {
                     { value: '', label: t('status.all') },
                     { value: 'due', label: t('verification.filterDue', 'Needs recheck') },
                     { value: 'verified', label: t('verification.status.VERIFIED', 'Verified') },
+                  ]}
+                />
+              )}
+            </Field>
+            <Field label={t('assignee.title', 'Responsible staff member')}>
+              {(control) => (
+                <Select
+                  {...control}
+                  size="sm"
+                  value={assignee}
+                  onValueChange={setAssignee}
+                  options={[
+                    { value: '', label: t('status.all') },
+                    { value: 'unassigned', label: t('assignments.state.UNASSIGNED', 'Unassigned') },
+                    { value: 'me', label: t('reports.assignedToMe', 'Cards assigned to me') },
                   ]}
                 />
               )}

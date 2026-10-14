@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
+import { KeyRoundIcon, MonitorSmartphoneIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon, ShieldOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -18,6 +18,8 @@ import { LegacyUserCreateDialog, LegacyUserEditDialog } from '../../features/leg
 import { useDeactivateLegacyUser, useLegacyUsers } from '../../features/legacyUsers/queries';
 import { useOrganizations } from '../../features/organizations/queries';
 import { PasswordResetDialog } from '../../features/passwordReset/PasswordResetDialog';
+import { UserSessionsDialog } from '../../features/sessions/UserSessionsDialog';
+import { useResetUserMfa } from '../../features/legacyUsers/queries';
 import { useAuth } from '../../contexts/auth';
 import { useRoles } from '../../features/roles/queries';
 import { useI18n } from '../../contexts/i18n';
@@ -47,6 +49,9 @@ export function LegacyUsers() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [deactivating, setDeactivating] = useState<LegacyUser | null>(null);
   const [resetting, setResetting] = useState<LegacyUser | null>(null);
+  const [resettingMfa, setResettingMfa] = useState<LegacyUser | null>(null);
+  const [sessionsUser, setSessionsUser] = useState<LegacyUser | null>(null);
+  const resetMfa = useResetUserMfa();
   const { isSuperAdmin } = useAuth();
 
   const organizationNames = useMemo(
@@ -128,6 +133,22 @@ export function LegacyUsers() {
         cell: ({ row }) => <StatusBadge enabled={row.original.enabled} />,
       },
       {
+        id: 'mfa',
+        header: t('mfa.column', '2FA'),
+        enableSorting: false,
+        meta: { hideBelow: 'lg' },
+        cell: ({ row }) =>
+          row.original.mfa === null ? (
+            <span className="text-secondary">—</span>
+          ) : row.original.mfa.enrolled ? (
+            <StatusPill tone="published">{t('mfa.stateEnabled', 'Enabled')}</StatusPill>
+          ) : row.original.mfa.required ? (
+            <StatusPill tone={row.original.mfa.enrollmentOverdue ? 'danger' : 'pending'}>{t('mfa.stateNotEnrolled', 'Not enrolled')}</StatusPill>
+          ) : (
+            <StatusPill tone="draft">{t('mfa.stateOptional', 'Optional')}</StatusPill>
+          ),
+      },
+      {
         id: 'actions',
         header: t('field.actions'),
         enableSorting: false,
@@ -148,6 +169,18 @@ export function LegacyUsers() {
                 <DropdownMenuItem onSelect={() => setResetting(row.original)}>
                   <KeyRoundIcon />
                   {t('users.resetPassword', 'Reset password')}
+                </DropdownMenuItem>
+              )}
+              {isSuperAdmin && (
+                <DropdownMenuItem onSelect={() => setSessionsUser(row.original)}>
+                  <MonitorSmartphoneIcon />
+                  {t('sessions.title', 'Active sessions')}
+                </DropdownMenuItem>
+              )}
+              {isSuperAdmin && row.original.mfa?.enrolled && (
+                <DropdownMenuItem destructive onSelect={() => setResettingMfa(row.original)}>
+                  <ShieldOffIcon />
+                  {t('mfa.adminReset', 'Reset two-factor authentication')}
                 </DropdownMenuItem>
               )}
               {row.original.enabled && (
@@ -221,6 +254,20 @@ export function LegacyUsers() {
       />
       <LegacyUserEditDialog open={dialog?.mode === 'edit'} user={dialog?.mode === 'edit' ? dialog.user : null} onClose={() => setDialog(null)} />
       <PasswordResetDialog user={resetting} onClose={() => setResetting(null)} />
+      <UserSessionsDialog user={sessionsUser} onClose={() => setSessionsUser(null)} />
+      <ConfirmModal
+        open={Boolean(resettingMfa)}
+        title={t('mfa.adminReset', 'Reset two-factor authentication')}
+        message={`${resettingMfa ? fullName(resettingMfa) : ''} — ${t('mfa.adminResetConfirm', 'Remove this user’s second factor and end all their sessions? They will set it up again at their next sign-in. You will never see their secret or codes.')}`}
+        confirmLabel={t('mfa.adminReset', 'Reset two-factor authentication')}
+        cancelLabel={t('action.cancel')}
+        loading={resetMfa.isPending}
+        onConfirm={() => resettingMfa && resetMfa.mutate(resettingMfa.id, {
+          onSuccess: () => { toast.success(t('mfa.adminResetDone', 'Two-factor authentication reset')); setResettingMfa(null); },
+          onError: (error) => toast.error(errorMessage(error, t)),
+        })}
+        onClose={() => setResettingMfa(null)}
+      />
       <ConfirmModal
         open={Boolean(deactivating)}
         title={t('action.deactivate')}

@@ -1,10 +1,13 @@
 import { createContext, useContext } from 'react';
-import type { AuthUser, RoleName } from '../types/api';
+import type { AuthUser, LoginOutcome, RoleName } from '../types/api';
 
 export interface AuthValue {
   user: AuthUser | null;
   initializing: boolean;
-  signIn: (email: string, password: string) => Promise<AuthUser>;
+  /** Resolves with the user, or with a pending second-factor outcome when only a challenge cookie was issued. */
+  signIn: (email: string, password: string) => Promise<AuthUser | LoginOutcome>;
+  /** Stores the user returned once the second factor (or enrollment) completed. */
+  completeSignIn: (user: AuthUser) => void;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasRole: (...roles: RoleName[]) => boolean;

@@ -1,4 +1,4 @@
-import type { CatalogFunction, ServiceInstructions, TranslatedText } from './api';
+import type { AssigneeSummary, CatalogFunction, ServiceInstructions, TranslatedText } from './api';
 
 export type FunctionStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'DEACTIVATED';
 
@@ -19,6 +19,8 @@ export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 
   /** Set when this record is a draft revision: the id of the published service it will replace. */
   revisionOfId?: number | null;
   revision?: FunctionRevisionSummary | null;
+  /** Responsible staff member; absent on public responses. */
+  assignee?: AssigneeSummary | null;
 }
 
 /** Content can be changed in place only for drafts and deactivated services; published ones go through a revision. */

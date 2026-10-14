@@ -50,6 +50,7 @@ class ReportAndVerificationEndpointSecurityTest {
     @MockitoBean FunctionVerificationService verification;
     @MockitoBean AnalyticsExportService exports;
     @MockitoBean SimpleJwtService jwt;
+    @MockitoBean adliya.uz.functioncatalogservice.security.CatalogAccess access;
 
     @Test void anonymousVisitorCanSubmitAndTheForwardedClientAddressIsUsed() throws Exception {
         mvc.perform(post("/api/reports").header("X-Real-IP", "203.0.113.9").contentType("application/json").content(VALID_REPORT))

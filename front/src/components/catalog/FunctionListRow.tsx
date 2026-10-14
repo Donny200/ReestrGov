@@ -5,6 +5,8 @@ import { truncate } from '../../utils/format';
 import { useI18n } from '../../contexts/i18n';
 import { localizedText } from '../../utils/translations';
 import { SaveServiceButton } from '../../features/saved/SaveServiceButton';
+import { CompareButton } from '../../features/compare/CompareButton';
+import { formatDate } from '../../utils/format';
 
 interface FunctionListRowProps {
   item: CatalogFunction;
@@ -28,9 +30,17 @@ export function FunctionListRow({ item, index, organizationName }: FunctionListR
         <>
           <Badge size="sm">{organizationName ?? t('fn.organizationUnknown', 'Organization unknown')}</Badge>
           {item.category && <Badge size="sm" tone="accent">{item.category}</Badge>}
+          {item.lastUpdatedAt && (
+            <span className="text-xs tabular-nums text-secondary">{t('history.updatedOn', 'Updated')} {formatDate(item.lastUpdatedAt, locale)}</span>
+          )}
         </>
       }
-      action={<SaveServiceButton compact service={{ id: item.id, name }} />}
+      action={
+        <span className="flex flex-col gap-1 sm:flex-row sm:gap-2">
+          <SaveServiceButton compact service={{ id: item.id, name }} />
+          <CompareButton compact service={{ id: item.id, name }} />
+        </span>
+      }
     />
   );
 }

@@ -60,7 +60,7 @@ class DataInitializerTest {
 
         new DataInitializer(roleRepository, permissionRepository).run();
 
-        assertThat(catalogue).hasSize(50);
+        assertThat(catalogue).hasSize(51);
         assertThat(catalogue.get("REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
         assertThat(catalogue.get("ORG_REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
         assertThat(catalogue.get("ORG_ANALYTICS_VIEW").getCategory()).isEqualTo("Analytics");

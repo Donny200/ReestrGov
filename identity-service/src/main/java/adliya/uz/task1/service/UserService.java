@@ -10,6 +10,7 @@ import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.EmailAlreadyExistsException;
 import adliya.uz.task1.exception.ResourceNotFoundException;
 import adliya.uz.task1.repository.OrganizationRepository;
+import adliya.uz.task1.repository.RefreshTokenRepository;
 import adliya.uz.task1.repository.RoleRepository;
 import adliya.uz.task1.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,18 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    /** Adds enrollment state to list responses in one query instead of one per user. */
+    public List<UserResponse> withMfaStatus(List<UserResponse> responses, MfaService mfa) {
+        java.util.Set<Long> enrolled = mfa.enrolledUserIds();
+        boolean overdue = mfa.enrollmentOverdue();
+        return responses.stream().map(response -> {
+            boolean required = mfa.enabled() && response.getRole() != null && mfa.requiredRoles().contains(response.getRole());
+            boolean isEnrolled = enrolled.contains(response.getId());
+            return response.withMfa(new UserResponse.MfaSummary(required, isEnrolled, mfa.enrollmentDeadline(), required && !isEnrolled && overdue));
+        }).toList();
+    }
 
     public User getByEmail(String email) {
         return userRepository.findByEmail(email)
@@ -141,6 +154,14 @@ public class UserService {
         if (Boolean.TRUE.equals(target.getEnabled())) {
             target.setEnabled(false);
             userRepository.save(target);
+            endSessions(target);
+        }
+    }
+
+    /** A deactivated account keeps no live session. */
+    public void endSessions(User user) {
+        if (refreshTokenRepository != null && user.getId() != null) {
+            refreshTokenRepository.revokeAllByUserId(user.getId(), java.time.Instant.now(), "ACCOUNT_DEACTIVATED");
         }
     }
 

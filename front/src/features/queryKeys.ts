@@ -48,6 +48,8 @@ export const functionKeys = {
   publicList: (query: FunctionQuery) => [...functionKeys.all, 'public', query] as const,
   publicDetail: (id: number) => [...functionKeys.all, 'public-detail', id] as const,
   options: (global: boolean, userId: number | null) => [...functionKeys.all, 'options', global, userId] as const,
+  publicHistory: (id: number) => [...functionKeys.all, 'public-history', id] as const,
+  assigneeCandidates: (id: number) => [...functionKeys.all, 'assignee-candidates', id] as const,
 };
 
 export const reportKeys = {
@@ -62,5 +64,15 @@ export const analyticsKeys = {
   summary: (filters: AnalyticsFilters) => [...analyticsKeys.all, 'summary', filters] as const,
   engagement: (filters: AnalyticsFilters) => [...analyticsKeys.all, 'engagement', filters] as const,
   quality: (filters: QualityQueueFilters) => [...analyticsKeys.all, 'quality', filters] as const,
-  reminders: (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'>) => [...analyticsKeys.all, 'reminders', filters] as const,
+  reminders: (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'> & { assignee?: 'me' }) => [...analyticsKeys.all, 'reminders', filters] as const,
+  feedback: (filters: AnalyticsFilters) => [...analyticsKeys.all, 'feedback', filters] as const,
+  assignments: (organizationId: number | undefined, state: string | undefined) => [...analyticsKeys.all, 'assignments', organizationId ?? null, state ?? null] as const,
+};
+
+export const authKeys = {
+  all: ['auth'] as const,
+  mfa: () => [...authKeys.all, 'mfa'] as const,
+  sessions: () => [...authKeys.all, 'sessions'] as const,
+  userSessions: (id: number) => [...authKeys.all, 'user-sessions', id] as const,
+  userMfa: (id: number) => [...authKeys.all, 'user-mfa', id] as const,
 };

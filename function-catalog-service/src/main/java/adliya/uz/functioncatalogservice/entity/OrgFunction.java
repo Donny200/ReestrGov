@@ -63,6 +63,13 @@ public class OrgFunction {
     /** Set on a draft revision: the id of the published card whose pending edits this row carries. */
     @Column(name = "revision_of_id")
     private Long revisionOfId;
+    /** Staff member responsible for keeping this card current; lives on the main row, never on a revision. */
+    private Long assignedUserId;
+    @Column(length = 320)
+    private String assignedUserEmail;
+    @Column(length = 150)
+    private String assignedUserName;
+    private Instant assignedAt;
 
     public Boolean getActive() { return status == FunctionStatus.PUBLISHED; }
     public boolean isRevision() { return revisionOfId != null; }

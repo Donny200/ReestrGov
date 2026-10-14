@@ -143,6 +143,9 @@ public class ReportReviewService {
         if (query.serviceCategoryId() != null) {
             specification = specification.and(inServiceCategory(query.serviceCategoryId()));
         }
+        if (query.assigneeUserId() != null) {
+            specification = specification.and(assignedTo(query.assigneeUserId()));
+        }
         if (query.from() != null) {
             Instant start = query.from().atStartOfDay(analytics.getZone()).toInstant();
             specification = specification.and((root, criteria, builder) -> builder.greaterThanOrEqualTo(root.get("createdAt"), start));
@@ -170,6 +173,16 @@ public class ReportReviewService {
             Subquery<Long> cards = criteria.subquery(Long.class);
             Root<OrgFunction> card = cards.from(OrgFunction.class);
             cards.select(card.get("id")).where(builder.equal(card.get("functionCategory").get("id"), categoryId));
+            return builder.and(builder.equal(root.get("entityType"), ReportEntityType.FUNCTION), root.get("entityId").in(cards));
+        };
+    }
+
+    /** Reports about cards whose responsible staff member is the given user. */
+    private static Specification<InformationReport> assignedTo(Long userId) {
+        return (root, criteria, builder) -> {
+            Subquery<Long> cards = criteria.subquery(Long.class);
+            Root<OrgFunction> card = cards.from(OrgFunction.class);
+            cards.select(card.get("id")).where(builder.equal(card.get("assignedUserId"), userId));
             return builder.and(builder.equal(root.get("entityType"), ReportEntityType.FUNCTION), root.get("entityId").in(cards));
         };
     }

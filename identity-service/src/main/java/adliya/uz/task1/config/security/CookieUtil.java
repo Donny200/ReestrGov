@@ -27,6 +27,15 @@ public class CookieUtil {
         return build(cookieProperties.getAccessTokenName(), "", "/", Duration.ZERO);
     }
 
+    /** Pending-MFA proof: scoped to the MFA endpoints only, so it cannot reach any other API. */
+    public ResponseCookie createMfaChallengeCookie(String token, Duration maxAge) {
+        return build(cookieProperties.getMfaChallengeName(), token, cookieProperties.getMfaChallengePath(), maxAge);
+    }
+
+    public ResponseCookie createLogoutMfaChallengeCookie() {
+        return build(cookieProperties.getMfaChallengeName(), "", cookieProperties.getMfaChallengePath(), Duration.ZERO);
+    }
+
     public ResponseCookie createLogoutRefreshCookie() {
         return build(cookieProperties.getRefreshTokenName(), "", cookieProperties.getRefreshTokenPath(), Duration.ZERO);
     }

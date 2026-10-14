@@ -1,11 +1,11 @@
 import { useId, type ReactNode } from 'react';
 import { InfoIcon } from 'lucide-react';
-import { Checkbox } from '../ui/Input';
 import { useI18n } from '../../contexts/i18n';
 import { cn } from '../../lib/cn';
 import type { CatalogFunction, InstructionField } from '../../types/api';
-import { instructionItems, localizedInstruction, type LocalizedInstruction } from '../../utils/instructions';
+import { localizedInstruction, type LocalizedInstruction } from '../../utils/instructions';
 import { requirementLines } from '../../utils/format';
+import { ChecklistItems, ChecklistSummary } from '../../features/checklist/PreparationChecklist';
 
 type Translate = (key: string, fallback?: string) => string;
 
@@ -27,37 +27,6 @@ function Section({ id, title, children, language }: { id: string; title: string;
   );
 }
 
-function StepList({ items }: { items: string[] }) {
-  return (
-    <ol className="space-y-4">
-      {items.map((item, index) => (
-        <li key={index} className="flex items-start gap-4 break-inside-avoid">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-ink text-sm font-semibold tabular-nums text-ink-fg print:border print:border-line print:bg-transparent print:text-foreground" aria-hidden="true">
-            {index + 1}
-          </span>
-          <span className="min-w-0 pt-0.5 text-base leading-7 text-foreground wrap-anywhere">{item}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function DocumentChecklist({ items, label }: { items: string[]; label: string }) {
-  const prefix = useId();
-  return (
-    <ul className="space-y-2" aria-label={label}>
-      {items.map((item, index) => (
-        <li key={index} className="break-inside-avoid">
-          <label htmlFor={`${prefix}-${index}`} className="flex cursor-pointer items-start gap-3 rounded-control px-1 py-1.5 text-base leading-7 text-foreground fine:hover:bg-surface">
-            <Checkbox id={`${prefix}-${index}`} className="mt-1" />
-            <span className="min-w-0 wrap-anywhere">{item}</span>
-          </label>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function Fact({ label, value, t }: { label: string; value: LocalizedInstruction | null; t: Translate }) {
   return (
     <div className="rounded-card-sm border border-line p-4 break-inside-avoid">
@@ -73,6 +42,7 @@ interface ServiceInstructionsViewProps {
   record: CatalogFunction;
 }
 
+/** Documents, requirements and steps are rendered as the visitor's browser-local preparation checklist. */
 export function ServiceInstructionsView({ record }: ServiceInstructionsViewProps) {
   const { t, locale } = useI18n();
   const baseId = useId();
@@ -95,17 +65,19 @@ export function ServiceInstructionsView({ record }: ServiceInstructionsViewProps
         </dl>
       </section>
 
+      <ChecklistSummary record={record} />
+
       <Section id={`${baseId}-steps`} title={t('instructions.steps', 'Step-by-step procedure')} language={locale}>
-        {steps ? <StepList items={instructionItems(steps.text)} /> : <NotProvided t={t} />}
+        {steps ? <ChecklistItems record={record} section="steps" label={t('instructions.steps', 'Step-by-step procedure')} numbered /> : <NotProvided t={t} />}
       </Section>
 
       {documents ? (
         <Section id={`${baseId}-documents`} title={documentsLabel} language={locale}>
-          <DocumentChecklist items={instructionItems(documents.text)} label={documentsLabel} />
+          <ChecklistItems record={record} section="documents" label={documentsLabel} />
         </Section>
       ) : requirements.length > 0 ? (
         <Section id={`${baseId}-documents`} title={requirementsLabel}>
-          <DocumentChecklist items={requirements} label={requirementsLabel} />
+          <ChecklistItems record={record} section="requirements" label={requirementsLabel} />
         </Section>
       ) : (
         <Section id={`${baseId}-documents`} title={documentsLabel}>
@@ -115,9 +87,7 @@ export function ServiceInstructionsView({ record }: ServiceInstructionsViewProps
 
       {documents && requirements.length > 0 && (
         <Section id={`${baseId}-requirements`} title={t('instructions.additionalRequirements', 'Additional requirements')}>
-          <ul className="list-disc space-y-2 ps-5 text-base leading-7 text-foreground">
-            {requirements.map((line, index) => <li key={index} className="wrap-anywhere">{line}</li>)}
-          </ul>
+          <ChecklistItems record={record} section="requirements" label={t('instructions.additionalRequirements', 'Additional requirements')} />
         </Section>
       )}
 

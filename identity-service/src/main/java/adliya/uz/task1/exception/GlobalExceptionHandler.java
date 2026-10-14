@@ -58,6 +58,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(errorBody(HttpStatus.TOO_MANY_REQUESTS, "Too many attempts; try again later"));
     }
 
+    @ExceptionHandler(MfaRequiredException.class)
+    public ResponseEntity<Object> handleMfaRequired(MfaRequiredException ex) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Object> handleBadCredentials(BadCredentialsException ex) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password");

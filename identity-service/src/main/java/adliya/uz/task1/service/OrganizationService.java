@@ -134,6 +134,24 @@ public class OrganizationService {
         return organizationRepository.save(organization);
     }
 
+    /** Enabled members of an organization; only its own staff, SUPER_ADMIN or global function managers may list them. */
+    @Transactional(readOnly = true)
+    public List<User> activeMembers(Long organizationId) {
+        User current = requireEnabledUser();
+        boolean global = SystemRole.SUPER_ADMIN.authority().equals(current.getRole().getName())
+                || hasPermission(current, "FUNCTIONS_MANAGE_ANY_ORGANIZATION");
+        boolean own = current.getOrganizations().stream().map(Organization::getId).anyMatch(organizationId::equals);
+        if (!global && !own) {
+            throw new AccessDeniedException("You can only view staff of your own organization(s)");
+        }
+        Organization organization = getById(organizationId);
+        return organization.getMembers().stream()
+                .filter(member -> Boolean.TRUE.equals(member.getEnabled()))
+                .sorted(java.util.Comparator.comparing(User::getLastName, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(User::getFirstName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
     public List<Organization> getAllPublic() {
         return organizationRepository.findAllByEnabledTrue();
     }

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangleIcon, ArchiveIcon, FileCheck2Icon, FilePenLineIcon, FileSearchIcon, InfoIcon, LanguagesIcon, LinkIcon, ShieldAlertIcon } from 'lucide-react';
+import { AlertTriangleIcon, ArchiveIcon, BellIcon, FileCheck2Icon, FilePenLineIcon, FileSearchIcon, FlagIcon, InfoIcon, LanguagesIcon, LinkIcon, ShieldAlertIcon, UserCheckIcon } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody } from '../../components/ui/Card';
@@ -30,6 +30,8 @@ import { qualityIssueHints, issueLabel } from '../../features/analytics/qualityI
 import { useEngagementReport, useOrganizationSummary } from '../../features/analytics/queries';
 import { RemindersSection } from '../../features/analytics/RemindersSection';
 import { ReportsSection } from '../../features/analytics/ReportsSection';
+import { AssignmentsSection } from '../../features/analytics/AssignmentsSection';
+import { FeedbackSection } from '../../features/analytics/FeedbackSection';
 import { parseId, useScopeOptions } from '../../features/analytics/scope';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useHashTarget } from '../../hooks/useHashTarget';
@@ -108,6 +110,7 @@ export function OrganizationDashboard() {
     value === 'custom' ? t('analytics.customPeriod', 'Custom period') : t(`analytics.preset.${value}`, `Last ${value} days`);
 
   const data = summary.data;
+  const canViewReportsHere = hasPermission('REPORTS_VIEW') || hasPermission('ORG_REPORTS_MANAGE');
   const functionsLink = (value: FunctionStatus) => (hasPermission('FUNCTIONS_VIEW') ? `/admin/functions?status=${value}` : undefined);
 
   return (
@@ -277,11 +280,26 @@ export function OrganizationDashboard() {
         </>
       )}
 
+      {data?.assignedToMe && (
+        <section aria-labelledby="assigned-to-me-title">
+          <h2 id="assigned-to-me-title" className="mb-3 text-lg font-semibold text-foreground">{t('assignments.mineTitle', 'Assigned to you')}</h2>
+          <div className="grid gap-4 min-[420px]:grid-cols-2 xl:grid-cols-4">
+            <StatCard label={t('assignments.myServices', 'Your service cards')} value={data.assignedToMe.services} hint={t('assignments.myServicesHint', 'You keep these current')} icon={UserCheckIcon} loading={summary.isPending} to={hasPermission('FUNCTIONS_VIEW') ? '/admin/functions?assignee=me' : undefined} />
+            <StatCard label={t('assignments.myReminders', 'Your open reminders')} value={data.assignedToMe.openReminders} hint={t('reminders.dashboardHint', 'Quality issues to follow up')} icon={BellIcon} loading={summary.isPending} to="#reminders" />
+            <StatCard label={t('assignments.myReports', 'Reports on your cards')} value={data.assignedToMe.openReports} hint={t('reports.unresolvedHint', 'New or in progress right now')} icon={FlagIcon} loading={summary.isPending} to={canViewReportsHere ? '/admin/reports?assignee=me' : undefined} />
+          </div>
+        </section>
+      )}
+
       <RemindersSection organizationId={filters.organizationId} categoryId={filters.categoryId} />
+
+      <AssignmentsSection organizationId={filters.organizationId} organizationName={scope.organizationName} showOrganization={scope.showOrganizations} />
 
       <ReportsSection filters={filters} counts={data?.reports} loading={summary.isPending} />
 
       <EngagementSection filters={filters} report={engagement} />
+
+      <FeedbackSection filters={filters} organizationName={scope.organizationName} showOrganization={scope.showOrganizations} />
 
       <QualityQueueSection
         ref={queueRef}

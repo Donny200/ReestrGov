@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/auth';
 import {
+  assignFunction,
   createFunction,
   createFunctionRevision,
+  getAssigneeCandidates,
+  getAssignmentOverview,
+  unassignFunction,
   deactivateFunction,
   discardFunctionRevision,
   getAdminFunction,
@@ -17,7 +21,7 @@ import {
   verifyFunction,
   type FunctionTranslationBody,
 } from '../../services/adminFunctionService';
-import { getFunction, getFunctions, updateFunctionRequirements } from '../../services/functionService';
+import { getFunction, getFunctionHistory, getFunctions, updateFunctionRequirements } from '../../services/functionService';
 import { getPublicOrganizations } from '../../services/organizationService';
 import type {
   AdminFunction,
@@ -28,7 +32,8 @@ import type {
   UpdateFunctionRequest,
 } from '../../types/adminFunctions';
 import type { FunctionQuery } from '../../types/api';
-import { functionKeys } from '../queryKeys';
+import type { AssignmentState } from '../../types/analytics';
+import { analyticsKeys, functionKeys } from '../queryKeys';
 
 export const useAdminFunctions = (enabled = true) =>
   useQuery({ queryKey: functionKeys.admin(), queryFn: getAdminFunctions, enabled });
@@ -50,6 +55,15 @@ export const usePublicFunctions = (query: FunctionQuery = {}) =>
 
 export const usePublicFunction = (id: number) =>
   useQuery({ queryKey: functionKeys.publicDetail(id), queryFn: () => getFunction(id), enabled: Number.isFinite(id) });
+
+export const usePublicFunctionHistory = (id: number | undefined) =>
+  useQuery({ queryKey: functionKeys.publicHistory(id ?? 0), queryFn: () => getFunctionHistory(id ?? 0), enabled: id !== undefined, retry: false });
+
+export const useAssignmentOverview = (organizationId: number | undefined, state: AssignmentState | undefined, enabled = true) =>
+  useQuery({ queryKey: analyticsKeys.assignments(organizationId, state), queryFn: () => getAssignmentOverview(organizationId, state), enabled });
+
+export const useAssigneeCandidates = (id: number, enabled = true) =>
+  useQuery({ queryKey: functionKeys.assigneeCandidates(id), queryFn: () => getAssigneeCandidates(id), enabled });
 
 export interface FunctionOptions {
   organizations: FunctionOrganization[];
@@ -122,6 +136,21 @@ export const useDiscardFunctionRevision = (id: number) =>
 export const useAutoTranslateFunction = (id: number) =>
   useFunctionMutation(({ languages, overwriteMachine }: { languages: string[]; overwriteMachine: boolean }) =>
     translateFunction(id, languages, overwriteMachine));
+
+function useAssignmentMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<AdminFunction>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: async (record) => {
+      await storeFunction(client, record);
+      await client.invalidateQueries({ queryKey: analyticsKeys.all });
+    },
+  });
+}
+
+export const useAssignFunction = (id: number) => useAssignmentMutation((userId: number) => assignFunction(id, userId));
+
+export const useUnassignFunction = (id: number) => useAssignmentMutation(() => unassignFunction(id));
 
 export const useUpdateFunctionRequirements = (id: number) =>
   useFunctionMutation(async (requirements: string) => {

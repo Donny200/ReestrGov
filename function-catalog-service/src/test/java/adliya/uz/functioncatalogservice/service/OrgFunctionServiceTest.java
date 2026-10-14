@@ -32,6 +32,7 @@ class OrgFunctionServiceTest {
     @Mock QualityReminderRepository reminders;
     @Mock IdentityOrganizationClient organizations;
     @Mock ReportReviewService reports;
+    @Mock PublicChangeService publicChanges;
     @InjectMocks OrgFunctionService service;
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 

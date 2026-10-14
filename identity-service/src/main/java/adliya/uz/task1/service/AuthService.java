@@ -33,6 +33,14 @@ public class AuthService {
         return UserResponse.from(userService.getCurrentUser());
     }
 
+    @Transactional(readOnly = true)
+    public User getCurrentUserEntity() {
+        User user = userService.getCurrentUser();
+        user.getRole().getPermissions().size();
+        user.getOrganizations().size();
+        return user;
+    }
+
     public User changePassword(ChangePasswordRequest request) {
         User user = userService.getCurrentUser();
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {

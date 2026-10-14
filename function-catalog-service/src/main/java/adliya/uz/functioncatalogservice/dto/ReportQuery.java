@@ -10,7 +10,12 @@ import java.util.Locale;
 import java.util.Set;
 
 public record ReportQuery(Set<ReportStatus> statuses, ReportCategory category, ReportEntityType entityType, Long entityId,
-                          Long serviceCategoryId, LocalDate from, LocalDate to, Long organizationId) {
+                          Long serviceCategoryId, LocalDate from, LocalDate to, Long organizationId, Long assigneeUserId) {
+
+    public ReportQuery(Set<ReportStatus> statuses, ReportCategory category, ReportEntityType entityType, Long entityId,
+                       Long serviceCategoryId, LocalDate from, LocalDate to, Long organizationId) {
+        this(statuses, category, entityType, entityId, serviceCategoryId, from, to, organizationId, null);
+    }
 
     public ReportQuery {
         if (from != null && to != null && from.isAfter(to)) {

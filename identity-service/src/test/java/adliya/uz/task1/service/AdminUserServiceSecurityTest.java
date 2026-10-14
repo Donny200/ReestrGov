@@ -38,6 +38,9 @@ class AdminUserServiceSecurityTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UserService userService;
+
     @InjectMocks
     private AdminUserService adminUserService;
 

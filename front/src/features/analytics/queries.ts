@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   acknowledgeReminder,
   getEngagement,
+  getFeedback,
   getOrganizationSummary,
   getQualityQueue,
   getReminders,
@@ -28,8 +29,11 @@ export const useEngagementReport = (filters: AnalyticsFilters, enabled = true) =
 export const useQualityQueue = (filters: QualityQueueFilters) =>
   useQuery({ queryKey: analyticsKeys.quality(filters), queryFn: () => getQualityQueue(filters), placeholderData: keepPreviousData });
 
-export const useReminders = (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'>, enabled = true) =>
+export const useReminders = (filters: Pick<AnalyticsFilters, 'organizationId' | 'categoryId'> & { assignee?: 'me' }, enabled = true) =>
   useQuery({ queryKey: analyticsKeys.reminders(filters), queryFn: () => getReminders(filters), enabled });
+
+export const useFeedbackReport = (filters: AnalyticsFilters, enabled = true) =>
+  useQuery({ queryKey: analyticsKeys.feedback(filters), queryFn: () => getFeedback(filters), placeholderData: keepPreviousData, enabled });
 
 export function useAcknowledgeReminder() {
   const client = useQueryClient();

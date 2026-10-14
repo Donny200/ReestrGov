@@ -234,6 +234,17 @@ export function AdminLayout() {
 
         <main className="flex-1 px-5 py-6 sm:px-8 sm:py-8" style={{ '--sticky-top': TOP_BAR_HEIGHT } as CSSProperties}>
           <div className="mx-auto w-full max-w-shell">
+            {user?.mfa?.required && !user.mfa.enrolled && !location.pathname.startsWith('/settings/security') && (
+              <div role="status" className="mb-6 flex flex-col gap-3 rounded-control bg-status-pending-bg px-4 py-3 text-sm leading-6 text-status-pending sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <ShieldCheckIcon className="me-2 inline h-4 w-4 align-text-bottom" aria-hidden="true" />
+                  {user.mfa.enrollmentDeadline
+                    ? `${t('mfa.bannerDeadline', 'Your role requires two-factor authentication. Set it up before')} ${new Date(user.mfa.enrollmentDeadline).toLocaleDateString()}.`
+                    : t('mfa.banner', 'Your role requires two-factor authentication. Set it up now.')}
+                </span>
+                <Link to="/settings/security#mfa" className="shrink-0 font-semibold underline-offset-4 fine:hover:underline">{t('mfa.setUp', 'Set up now')}</Link>
+              </div>
+            )}
             <Outlet />
           </div>
         </main>

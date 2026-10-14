@@ -1,5 +1,5 @@
 import type { FunctionStatus } from './adminFunctions';
-import type { TranslatedText, VerificationStatus } from './api';
+import type { AssigneeSummary, TranslatedText, VerificationStatus } from './api';
 
 export const ENGAGEMENT_EVENT_TYPES = ['CATALOG_VIEW', 'SERVICE_VIEW', 'OFFICIAL_LINK_CLICK', 'PHONE_CLICK', 'MAP_CLICK', 'PRINT'] as const;
 
@@ -111,6 +111,7 @@ export interface OrganizationSummary {
   activeLanguages: string[];
   reports: ReportCounts;
   openReminders: number;
+  assignedToMe: { services: number; openReminders: number; openReports: number } | null;
 }
 
 export interface QualityReminder {
@@ -123,6 +124,57 @@ export interface QualityReminder {
   issue: QualityIssueType;
   detectedAt: string;
   notifiedAt: string;
+  assignedUserId?: number | null;
+  assignedUserName?: string | null;
+}
+
+export const ASSIGNMENT_STATES = ['ASSIGNED', 'UNASSIGNED', 'NEEDS_REASSIGNMENT', 'UNKNOWN'] as const;
+
+export type AssignmentState = (typeof ASSIGNMENT_STATES)[number];
+
+export interface AssignmentItem {
+  functionId: number;
+  name: string;
+  nameTranslations: Record<string, TranslatedText> | null;
+  status: FunctionStatus;
+  organizationId: number | null;
+  categoryId: number | null;
+  category: string | null;
+  assignee: AssigneeSummary | null;
+  state: AssignmentState;
+}
+
+export interface AssignmentOverview {
+  counts: { assigned: number; unassigned: number; needsReassignment: number };
+  membersChecked: boolean;
+  items: AssignmentItem[];
+}
+
+export interface FeedbackTotals {
+  helpful: number;
+  notHelpful: number;
+  total: number;
+}
+
+export interface ServiceFeedback {
+  functionId: number;
+  name: string | null;
+  nameTranslations: Record<string, TranslatedText> | null;
+  status: FunctionStatus | null;
+  organizationId: number | null;
+  categoryId: number | null;
+  category: string | null;
+  helpful: number;
+  notHelpful: number;
+  total: number;
+}
+
+/** Usefulness of the published text; not a rating of the organization, the service or its staff. */
+export interface FeedbackReport {
+  period: PeriodInfo;
+  totals: FeedbackTotals;
+  previousTotals: FeedbackTotals;
+  services: ServiceFeedback[];
 }
 
 export interface QualityReminderPage {

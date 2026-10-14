@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { LanguagesIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
@@ -18,6 +19,9 @@ import { usePublicOrganizations } from '../features/organizations/queries';
 import { useEngagementTracker, usePageView, usePrintTracking } from '../features/engagement/tracking';
 import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { SaveServiceButton } from '../features/saved/SaveServiceButton';
+import { CompareButton } from '../features/compare/CompareButton';
+import { FeedbackPrompt } from '../features/feedback/FeedbackPrompt';
+import { ServiceHistory } from '../features/history/ServiceHistory';
 import type { CatalogFunction } from '../types/api';
 import { hasContactDetails } from '../utils/contact';
 import { formatDate } from '../utils/format';
@@ -52,6 +56,7 @@ export function FunctionDetail() {
   const functionDescription = localizedText(item.data?.description, item.data?.descriptionTranslations, locale);
   const organizationName = localizedText(organization?.name, organization?.nameTranslations, locale);
   const state = item.data ? translationState(item.data, locale) : { machine: false, fallback: false };
+  const reportButtonRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="shell py-8 sm:py-12 lg:py-16 print:py-0">
@@ -77,10 +82,18 @@ export function FunctionDetail() {
 
             <div className="mt-6 flex flex-wrap items-center gap-2 print:hidden">
               <SaveServiceButton service={{ id: item.data.id, name: functionName }} />
+              <CompareButton service={{ id: item.data.id, name: functionName }} />
               <ShareButton title={functionName} path={`/functions/${item.data.id}`} />
               <PrintButton label={t('print.checklist', 'Print checklist')} />
-              <ReportProblemButton entityType="FUNCTION" entityId={item.data.id} entityName={functionName} />
+              <div ref={reportButtonRef} className="contents">
+                <ReportProblemButton entityType="FUNCTION" entityId={item.data.id} entityName={functionName} />
+              </div>
             </div>
+            {item.data.lastUpdatedAt && (
+              <p className="mt-4 text-sm tabular-nums text-secondary">
+                {t('history.lastUpdated', 'Last updated')}: <time dateTime={item.data.lastUpdatedAt}>{formatDate(item.data.lastUpdatedAt, locale)}</time>
+              </p>
+            )}
 
             {(state.machine || state.fallback) && (
               <p className="mt-6 flex items-start gap-2.5 rounded-control bg-surface px-4 py-3 text-sm leading-6 text-secondary print:hidden">
@@ -99,6 +112,8 @@ export function FunctionDetail() {
             </section>
 
             <ServiceInstructionsView record={item.data} />
+            <ServiceHistory serviceId={item.data.id} />
+            <FeedbackPrompt serviceId={item.data.id} onReport={() => reportButtonRef.current?.querySelector('button')?.click()} />
           </Reveal>
 
           <Reveal as="aside" index={1} className="space-y-6 lg:sticky lg:top-28 print:mt-8 print:space-y-4">

@@ -11,6 +11,7 @@ import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { useSavedServices } from '../../features/saved/useSavedServices';
+import { useCompare } from '../../features/compare/useCompare';
 
 const links = [
   { to: '/', key: 'nav.home', fallback: 'Home' },
@@ -18,6 +19,7 @@ const links = [
   { to: '/#functions', key: 'nav.functions', fallback: 'Services' },
   { to: '/finder', key: 'nav.finder', fallback: 'Service finder' },
   { to: '/saved', key: 'nav.saved', fallback: 'Saved' },
+  { to: '/compare', key: 'nav.compare', fallback: 'Compare' },
 ] as const;
 
 const STAGGER_MS = 45;
@@ -67,6 +69,7 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
   }, [open]);
 
   const savedCount = useSavedServices().items.length;
+  const compareCount = useCompare().ids.length;
 
   const isActive = (to: (typeof links)[number]['to']) => {
     const target = new URL(to, window.location.origin);
@@ -76,8 +79,10 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
     return location.hash === target.hash;
   };
 
-  const linkLabel = (link: (typeof links)[number]) =>
-    link.to === '/saved' && savedCount > 0 ? `${t(link.key, link.fallback)} (${savedCount})` : t(link.key, link.fallback);
+  const linkLabel = (link: (typeof links)[number]) => {
+    const count = link.to === '/saved' ? savedCount : link.to === '/compare' ? compareCount : 0;
+    return count > 0 ? `${t(link.key, link.fallback)} (${count})` : t(link.key, link.fallback);
+  };
 
   const closeOverlay = () => {
     setOpen(false);

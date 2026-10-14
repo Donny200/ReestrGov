@@ -61,4 +61,6 @@ export interface ReportQuery {
   from?: string;
   to?: string;
   organizationId?: number;
+  /** Only "me": reports about cards the caller is responsible for. */
+  assignee?: 'me';
 }

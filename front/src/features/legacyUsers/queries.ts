@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createLegacyUser, deactivateLegacyUser, getLegacyUsers, initiatePasswordReset, updateLegacyUser } from '../../services/legacyUserService';
+import { createLegacyUser, deactivateLegacyUser, getLegacyUsers, initiatePasswordReset, resetUserMfa, updateLegacyUser } from '../../services/legacyUserService';
 import type { UpdateLegacyUserRequest } from '../../types/api';
 import { legacyUserKeys, roleKeys, staffKeys } from '../queryKeys';
 
@@ -23,3 +23,4 @@ export const useUpdateLegacyUser = () =>
   useLegacyUserMutation(({ id, payload }: { id: number; payload: UpdateLegacyUserRequest }) => updateLegacyUser(id, payload));
 export const useDeactivateLegacyUser = () => useLegacyUserMutation((id: number) => deactivateLegacyUser(id));
 export const useInitiatePasswordReset = () => useMutation({ mutationFn: (id: number) => initiatePasswordReset(id) });
+export const useResetUserMfa = () => useLegacyUserMutation((id: number) => resetUserMfa(id));

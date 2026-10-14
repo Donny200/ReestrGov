@@ -40,6 +40,8 @@ app:
     access-token-name: accessToken
     refresh-token-name: refreshToken
     refresh-token-path: /api/auth
+    mfa-challenge-name: mfaChallenge
+    mfa-challenge-path: /api/auth/mfa
   password-reset:
     token-ttl: ${PASSWORD_RESET_TOKEN_TTL:PT60M}
     reset-path: /reset-password
@@ -52,6 +54,21 @@ app:
     mail:
       enabled: ${PASSWORD_RESET_MAIL_ENABLED:false}
       from: ${PASSWORD_RESET_MAIL_FROM:}
+  mfa:
+    # Second factor for SUPER_ADMIN and ORG_ADMIN accounts (TOTP). The key encrypts secrets at rest and is required
+    # while enabled; generate it with: openssl rand -base64 32. MFA_ENROLLMENT_DEADLINE (ISO-8601 instant) lets
+    # existing staff keep signing in with the password alone until that moment while being asked to enroll.
+    enabled: ${MFA_ENABLED:true}
+    encryption-key: ${MFA_ENCRYPTION_KEY:}
+    enrollment-deadline: ${MFA_ENROLLMENT_DEADLINE:}
+    issuer: ${MFA_ISSUER:ReestrGov}
+    challenge-ttl: PT5M
+    max-attempts-per-challenge: 5
+    client-address-header: X-Real-IP
+    per-client-limit: 10
+    per-client-window: 15m
+    global-limit: 1000
+    global-window: 1h
   cors:
     allowed-origins:
       - http://localhost:3000

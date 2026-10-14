@@ -1,4 +1,4 @@
-import type { CatalogFunction, FunctionQuery, UpdateFunctionRequirementsRequest } from '../types/api';
+import type { CatalogFunction, FunctionQuery, PublicChange, UpdateFunctionRequirementsRequest } from '../types/api';
 import { apiRequest } from './http';
 
 export function getFunctions(query: FunctionQuery = {}): Promise<CatalogFunction[]> {
@@ -9,6 +9,11 @@ export function getFunctions(query: FunctionQuery = {}): Promise<CatalogFunction
 
 export function getFunction(id: number): Promise<CatalogFunction> {
   return apiRequest<CatalogFunction>(`/api/functions/${id}`);
+}
+
+/** Public history of approved publications; 404 for anything that is not published. */
+export function getFunctionHistory(id: number): Promise<PublicChange[]> {
+  return apiRequest<PublicChange[]>(`/api/functions/${id}/history`, { skipRefresh: true, skipUnauthorizedHandler: true });
 }
 
 export function updateFunctionRequirements(

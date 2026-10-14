@@ -5,6 +5,14 @@ export type RoleName =
 'ROLE_MODERATOR' |
 'ROLE_USER';
 
+/** Second-factor state as reported by identity-service; never includes the secret or recovery codes. */
+export interface MfaSummary {
+  required: boolean;
+  enrolled: boolean;
+  enrollmentDeadline: string | null;
+  enrollmentOverdue: boolean;
+}
+
 export interface AuthUser {
   id: number;
   firstName: string;
@@ -17,6 +25,84 @@ export interface AuthUser {
   permissions: string[];
   organizations: { id: number; name: string }[];
   organizationIds: number[];
+  mfa?: MfaSummary | null;
+}
+
+/** Password accepted; a second factor must be completed before any session exists. */
+export interface LoginOutcome {
+  mfaRequired: true;
+  enrollmentRequired: boolean;
+  expiresAt: string;
+}
+
+export function isLoginOutcome(value: AuthUser | LoginOutcome): value is LoginOutcome {
+  return (value as LoginOutcome).mfaRequired === true;
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  required: boolean;
+  enrolled: boolean;
+  confirmedAt: string | null;
+  enrollmentDeadline: string | null;
+  enrollmentOverdue: boolean;
+  recoveryCodesRemaining: number;
+}
+
+/** Shown exactly once while the user adds the key to an authenticator app. */
+export interface MfaEnrollment {
+  secret: string;
+  otpauthUri: string;
+  issuer: string;
+  account: string;
+}
+
+export interface MfaConfirmResult {
+  recoveryCodes: string[];
+  user: AuthUser | null;
+}
+
+export interface SessionInfo {
+  sessionId: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string;
+  userAgent: string | null;
+  current: boolean;
+}
+
+export interface SecurityEvent {
+  id: number;
+  userId: number | null;
+  actorUserId: number | null;
+  action: string;
+  details: string | null;
+  performedAt: string;
+}
+
+export type PublicChangeType = 'FIRST_PUBLICATION' | 'UPDATE' | 'REPUBLISHED';
+
+/** Public history entry: only the publication moment, its kind and the names of changed sections. */
+export interface PublicChange {
+  publishedAt: string;
+  changeType: PublicChangeType;
+  sections: string[];
+}
+
+/** Staff member responsible for keeping a card current (administrative responses only). */
+export interface AssigneeSummary {
+  userId: number;
+  name: string | null;
+  email: string | null;
+  assignedAt: string | null;
+}
+
+export interface StaffMember {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  role: string | null;
 }
 
 export interface LoginRequest {
@@ -226,6 +312,8 @@ export interface CatalogFunction extends VerificationInfo {
   descriptionTranslations?: Record<string, TranslatedText>;
   instructions?: ServiceInstructions | null;
   instructionTranslations?: InstructionTranslations;
+  /** Latest approved publication, when the card has a public change history. */
+  lastUpdatedAt?: string | null;
 }
 
 export interface UpdateFunctionRequirementsRequest {
@@ -246,6 +334,7 @@ export interface LegacyUser {
   role: string;
   enabled: boolean;
   organizations: number[];
+  mfa: MfaSummary | null;
 }
 
 export interface LegacyUserApi {
@@ -257,6 +346,7 @@ export interface LegacyUserApi {
   role: string;
   enabled: boolean;
   organizationIds: number[];
+  mfa?: MfaSummary | null;
 }
 
 export interface CreateLegacyUserRequest {

@@ -16,4 +16,5 @@ public interface OrgFunctionRepository extends JpaRepository<OrgFunction, Long> 
     Optional<OrgFunction> findBySeedKey(String seedKey);
     Optional<OrgFunction> findByRevisionOfId(Long revisionOfId);
     List<OrgFunction> findAllByRevisionOfIdIn(Collection<Long> revisionOfIds);
+    List<OrgFunction> findAllByAssignedUserId(Long assignedUserId);
 }

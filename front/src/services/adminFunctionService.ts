@@ -1,5 +1,6 @@
 import { apiRequest } from './http';
-import type { InstructionField } from '../types/api';
+import type { InstructionField, StaffMember } from '../types/api';
+import type { AssignmentOverview, AssignmentState } from '../types/analytics';
 import type {
   AdminFunction,
   CreateFunctionRequest,
@@ -51,6 +52,17 @@ export const saveFunctionTranslation = (id: number, language: string, body: Func
   apiRequest<AdminFunction>(`/api/functions/${id}/translations/${encodeURIComponent(language)}`, { method: 'PUT', body });
 
 export const verifyFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/verify`, { method: 'POST' });
+
+/** Cards in scope with their responsible staff member; flags unassigned cards and assignees who lost access. */
+export const getAssignmentOverview = (organizationId?: number, state?: AssignmentState) =>
+  apiRequest<AssignmentOverview>('/api/functions/assignments', { query: { organizationId, state } });
+
+export const getAssigneeCandidates = (id: number) => apiRequest<StaffMember[]>(`/api/functions/${id}/assignee/candidates`);
+
+export const assignFunction = (id: number, userId: number) =>
+  apiRequest<AdminFunction>(`/api/functions/${id}/assignee`, { method: 'PUT', body: { userId } });
+
+export const unassignFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/assignee`, { method: 'DELETE' });
 
 export const getTranslationCapabilities = () =>
   apiRequest<{ available: boolean }>('/api/functions/translation-capabilities');

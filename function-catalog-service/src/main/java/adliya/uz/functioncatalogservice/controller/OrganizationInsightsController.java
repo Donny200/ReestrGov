@@ -1,6 +1,8 @@
 package adliya.uz.functioncatalogservice.controller;
 
 import adliya.uz.functioncatalogservice.dto.EngagementReport;
+import adliya.uz.functioncatalogservice.dto.FeedbackReport;
+import adliya.uz.functioncatalogservice.service.FeedbackService;
 import adliya.uz.functioncatalogservice.dto.OrganizationSummary;
 import adliya.uz.functioncatalogservice.dto.QualityQueue;
 import adliya.uz.functioncatalogservice.dto.QualityReminderResponse;
@@ -40,6 +42,7 @@ public class OrganizationInsightsController {
     private final ServiceQualityService quality;
     private final QualityReminderService reminders;
     private final AnalyticsExportService exports;
+    private final FeedbackService feedback;
 
     @GetMapping("/summary")
     @Operation(summary = "Dashboard summary",
@@ -103,8 +106,23 @@ public class OrganizationInsightsController {
             description = "Reminders created by the daily quality scan that nobody has acknowledged yet, newest first. "
                     + "Lists at most 200; total counts all of them.")
     public QualityReminderResponse.Page reminders(@RequestParam(required = false) Long organizationId,
-                                                   @RequestParam(required = false) Long categoryId) {
-        return reminders.active(organizationId, categoryId);
+                                                   @RequestParam(required = false) Long categoryId,
+                                                   @RequestParam(required = false) String assignee) {
+        if (assignee != null && !assignee.isBlank() && !"me".equalsIgnoreCase(assignee.trim())) {
+            throw new IllegalArgumentException("assignee accepts only \"me\"");
+        }
+        return reminders.active(organizationId, categoryId, assignee != null && !assignee.isBlank());
+    }
+
+    @GetMapping("/feedback")
+    @Operation(summary = "Was this information helpful? aggregates",
+            description = "Anonymous helpful / not helpful counts per service for the period, compared with the preceding period. "
+                    + "They describe the usefulness of the published text, not the organization, the government service or its staff.")
+    public FeedbackReport feedback(@RequestParam(required = false) Long organizationId,
+                                   @RequestParam(required = false) Long categoryId,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return feedback.report(organizationId, categoryId, from, to);
     }
 
     @PostMapping("/reminders/{id}/acknowledge")

@@ -27,7 +27,7 @@ public class DataInitializer implements CommandLineRunner {
     private static final List<String> ORG_ADMIN_PERMISSIONS = List.of(
             "ORGANIZATIONS_VIEW", "MODERATORS_VIEW", "MODERATORS_CREATE",
             "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE",
-            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE");
+            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN");
     private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW");
     private static final List<PermissionSeed> PERMISSION_SEEDS = List.of(
             new PermissionSeed("ORGANIZATIONS_VIEW", "View organizations", "Organization Management"),
@@ -70,6 +70,7 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("FUNCTION_CATEGORIES_MANAGE", "Manage function categories", "Function Management"),
             new PermissionSeed("FUNCTIONS_IMPORT", "Import function drafts", "Function Management"),
             new PermissionSeed("AUDIT_VIEW", "View function audit history", "Function Management"),
+            new PermissionSeed("FUNCTIONS_ASSIGN", "Assign the staff member responsible for a function", "Function Management"),
 
             new PermissionSeed("TRANSLATION_KEYS_VIEW", "View translation keys", "Translation Management"),
             new PermissionSeed("TRANSLATION_KEYS_CREATE", "Create translation keys", "Translation Management"),

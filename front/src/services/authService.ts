@@ -1,8 +1,44 @@
-import type { AuthUser, ChangePasswordRequest, LoginRequest, PasswordResetOptions } from '../types/api';
+import type {
+  AuthUser,
+  ChangePasswordRequest,
+  LoginOutcome,
+  LoginRequest,
+  MfaConfirmResult,
+  MfaEnrollment,
+  MfaStatus,
+  PasswordResetOptions,
+  SessionInfo,
+} from '../types/api';
 import { ApiError, apiRequest, refreshSession } from './http';
 
+/** 200 with the user, or 202 with a pending second factor (only a challenge cookie exists then). */
 export const login = (payload: LoginRequest) =>
-  apiRequest<AuthUser>('/api/auth/login', { method: 'POST', body: payload, skipRefresh: true, skipUnauthorizedHandler: true });
+  apiRequest<AuthUser | LoginOutcome>('/api/auth/login', { method: 'POST', body: payload, skipRefresh: true, skipUnauthorizedHandler: true });
+
+const mfaOptions = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
+
+export const getMfaStatus = () => apiRequest<MfaStatus>('/api/auth/mfa');
+
+export const verifyMfa = (code: string) =>
+  apiRequest<AuthUser>('/api/auth/mfa/verify', { method: 'POST', body: { code }, ...mfaOptions });
+
+export const startMfaEnrollment = () => apiRequest<MfaEnrollment>('/api/auth/mfa/enroll', { method: 'POST', ...mfaOptions });
+
+export const confirmMfaEnrollment = (code: string) =>
+  apiRequest<MfaConfirmResult>('/api/auth/mfa/confirm', { method: 'POST', body: { code }, ...mfaOptions });
+
+export const disableMfa = (password: string, code: string) =>
+  apiRequest<MfaStatus>('/api/auth/mfa/disable', { method: 'POST', body: { password, code } });
+
+export const regenerateRecoveryCodes = (password: string, code: string) =>
+  apiRequest<MfaConfirmResult>('/api/auth/mfa/recovery-codes', { method: 'POST', body: { password, code } });
+
+export const getSessions = () => apiRequest<SessionInfo[]>('/api/auth/sessions');
+
+export const revokeSession = (sessionId: string) =>
+  apiRequest<void>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+
+export const revokeOtherSessions = () => apiRequest<{ revoked: number }>('/api/auth/sessions/revoke-others', { method: 'POST' });
 
 export async function refresh(): Promise<void> {
   if (!(await refreshSession())) throw new ApiError(401, 'Session expired');

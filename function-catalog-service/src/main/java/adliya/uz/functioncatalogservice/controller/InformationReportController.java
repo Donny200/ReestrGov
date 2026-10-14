@@ -13,6 +13,7 @@ import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.CsvExport;
 import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
+import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class InformationReportController {
     private final ReportReviewService reviews;
     private final ClientAddressResolver clientAddresses;
     private final AnalyticsExportService exports;
+    private final CatalogAccess access;
 
     @PostMapping
     public ResponseEntity<Map<String, Boolean>> submit(@Valid @RequestBody SubmitReportRequest request, HttpServletRequest http) {
@@ -54,9 +56,10 @@ public class InformationReportController {
                                      @RequestParam(required = false) Long serviceCategoryId,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                                     @RequestParam(required = false) Long organizationId) {
+                                     @RequestParam(required = false) Long organizationId,
+                                     @RequestParam(required = false) String assignee) {
         ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, serviceCategoryId,
-                from, to, organizationId);
+                from, to, organizationId, assigneeOf(assignee));
         boolean reveal = reviews.revealsContact();
         return reviews.list(query).stream().map(report -> ReportResponse.of(report, reveal, null)).toList();
     }
@@ -75,6 +78,18 @@ public class InformationReportController {
         ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, serviceCategoryId,
                 from, to, organizationId);
         return CsvExport.attachment(exports.reports(query, delimiter));
+    }
+
+    /** Only "me" is accepted: follow-up is routed to the caller's own responsibilities, never looked up for other users. */
+    private Long assigneeOf(String assignee) {
+        if (assignee == null || assignee.isBlank()) {
+            return null;
+        }
+        if (!"me".equalsIgnoreCase(assignee.trim())) {
+            throw new IllegalArgumentException("assignee accepts only \"me\"");
+        }
+        Long me = access.principal().userId();
+        return me == null ? -1L : me;
     }
 
     @GetMapping("/{id}")

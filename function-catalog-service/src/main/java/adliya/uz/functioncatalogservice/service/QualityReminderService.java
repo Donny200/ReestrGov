@@ -57,11 +57,13 @@ public class QualityReminderService {
                 if (reminder == null) {
                     reminders.save(QualityReminder.builder().functionId(function.getId())
                             .organizationId(function.getOrganizationId()).issue(issue.type())
+                            .assignedUserId(function.getAssignedUserId())
                             .detectedAt(now).notifiedAt(now).build());
                     created++;
                     continue;
                 }
                 reminder.setOrganizationId(function.getOrganizationId());
+                reminder.setAssignedUserId(function.getAssignedUserId());
                 if (snoozeExpired(reminder, now)) {
                     reminder.setAcknowledgedAt(null);
                     reminder.setAcknowledgedByUserId(null);
@@ -83,7 +85,14 @@ public class QualityReminderService {
 
     @Transactional(readOnly = true)
     public QualityReminderResponse.Page active(Long organizationId, Long categoryId) {
+        return active(organizationId, categoryId, false);
+    }
+
+    /** With {@code mine}, only reminders for cards whose responsible staff member is the caller. */
+    @Transactional(readOnly = true)
+    public QualityReminderResponse.Page active(Long organizationId, Long categoryId, boolean mine) {
         OrganizationScope scope = access.scope(organizationId);
+        Long me = mine ? access.principal().userId() : null;
         if (scope.empty()) {
             return new QualityReminderResponse.Page(0, List.of());
         }
@@ -96,6 +105,7 @@ public class QualityReminderService {
                 .collect(Collectors.toMap(OrgFunction::getId, Function.identity()));
         List<QualityReminder> matching = found.stream()
                 .filter(reminder -> categoryId == null || inCategory(cards.get(reminder.getFunctionId()), categoryId))
+                .filter(reminder -> !mine || (me != null && me.equals(reminder.getAssignedUserId())))
                 .toList();
         return new QualityReminderResponse.Page(matching.size(), matching.stream()
                 .limit(LIST_LIMIT)
@@ -104,6 +114,11 @@ public class QualityReminderService {
     }
 
     public long activeCount(OrganizationScope scope, Set<Long> functionIds) {
+        return activeCount(scope, functionIds, null);
+    }
+
+    /** Open reminders in scope; with {@code assignedUserId}, only those for cards that user is responsible for. */
+    public long activeCount(OrganizationScope scope, Set<Long> functionIds, Long assignedUserId) {
         if (scope.empty() || functionIds.isEmpty()) {
             return 0;
         }
@@ -111,7 +126,10 @@ public class QualityReminderService {
                 ? reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc()
                 : reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(
                         scope.organizationIds());
-        return found.stream().filter(reminder -> functionIds.contains(reminder.getFunctionId())).count();
+        return found.stream()
+                .filter(reminder -> functionIds.contains(reminder.getFunctionId()))
+                .filter(reminder -> assignedUserId == null || assignedUserId.equals(reminder.getAssignedUserId()))
+                .count();
     }
 
     @Transactional

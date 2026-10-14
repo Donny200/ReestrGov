@@ -15,4 +15,6 @@ public class CookieProperties {
     private String accessTokenName = "accessToken";
     private String refreshTokenName = "refreshToken";
     private String refreshTokenPath = "/api/auth";
+    private String mfaChallengeName = "mfaChallenge";
+    private String mfaChallengePath = "/api/auth/mfa";
 }

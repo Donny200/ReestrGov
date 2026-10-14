@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AuthUser, RoleName } from '../types/api';
+import { isLoginOutcome, type AuthUser, type RoleName } from '../types/api';
 import * as authService from '../services/authService';
 import { onUnauthorized } from '../services/http';
 import { queryClient } from '../lib/queryClient';
@@ -33,10 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [navigate]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const authenticated = await authService.login({ email, password });
+    const outcome = await authService.login({ email, password });
+    if (isLoginOutcome(outcome)) return outcome;
+    queryClient.clear();
+    setUser(outcome);
+    return outcome;
+  }, []);
+
+  const completeSignIn = useCallback((authenticated: AuthUser) => {
     queryClient.clear();
     setUser(authenticated);
-    return authenticated;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -57,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       initializing,
       signIn,
+      completeSignIn,
       signOut,
       refreshUser: loadUser,
       hasRole,
@@ -65,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isOrgAdmin: user?.role === 'ROLE_ORG_ADMIN',
       isModerator: user?.role === 'ROLE_MODERATOR',
     }),
-    [user, initializing, signIn, signOut, loadUser, hasRole, hasPermission],
+    [user, initializing, signIn, completeSignIn, signOut, loadUser, hasRole, hasPermission],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

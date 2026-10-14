@@ -1,4 +1,12 @@
-import type { CreateLegacyUserRequest, LegacyUser, LegacyUserApi, PasswordResetLink, UpdateLegacyUserRequest } from '../types/api';
+import type {
+  CreateLegacyUserRequest,
+  LegacyUser,
+  LegacyUserApi,
+  MfaStatus,
+  PasswordResetLink,
+  SessionInfo,
+  UpdateLegacyUserRequest,
+} from '../types/api';
 import { apiRequest } from './http';
 
 function normalize(user: LegacyUserApi): LegacyUser {
@@ -11,6 +19,7 @@ function normalize(user: LegacyUserApi): LegacyUser {
     role: user.role,
     enabled: user.enabled,
     organizations: user.organizationIds ?? [],
+    mfa: user.mfa ?? null,
   };
 }
 
@@ -43,3 +52,16 @@ export const deactivateLegacyUser = (id: number) => apiRequest<void>(`/api/user/
 /** SUPER_ADMIN only: issues a single-use reset link. Passwords are never returned or displayed. */
 export const initiatePasswordReset = (id: number) =>
   apiRequest<PasswordResetLink>(`/api/user/${id}/password-reset`, { method: 'POST' });
+
+/** SUPER_ADMIN only: enrollment state (never the secret or codes). */
+export const getUserMfaStatus = (id: number) => apiRequest<MfaStatus>(`/api/user/${id}/mfa`);
+
+/** SUPER_ADMIN only: removes the second factor and ends every session; the user re-enrolls at the next sign-in. */
+export const resetUserMfa = (id: number) => apiRequest<void>(`/api/user/${id}/mfa/reset`, { method: 'POST' });
+
+export const getUserSessions = (id: number) => apiRequest<SessionInfo[]>(`/api/user/${id}/sessions`);
+
+export const revokeUserSession = (id: number, sessionId: string) =>
+  apiRequest<void>(`/api/user/${id}/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+
+export const revokeUserSessions = (id: number) => apiRequest<void>(`/api/user/${id}/sessions`, { method: 'DELETE' });

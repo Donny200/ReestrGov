@@ -2,6 +2,8 @@ package adliya.uz.functioncatalogservice.controller;
 
 import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.OrgFunctionResponse;
+import adliya.uz.functioncatalogservice.dto.PublicChangeResponse;
+import adliya.uz.functioncatalogservice.service.PublicChangeService;
 import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.UpdateRequirementsRequest;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
@@ -21,18 +23,28 @@ import java.util.Map;
 public class OrgFunctionController {
 
     private final OrgFunctionService orgFunctionService;
+    private final PublicChangeService publicChanges;
 
     @GetMapping
     public ResponseEntity<List<OrgFunctionResponse>> getAll(
             @RequestParam(required = false) Long organizationId,
             @RequestParam(required = false) String category) {
+        List<OrgFunction> functions;
         if (organizationId != null) {
-            return ResponseEntity.ok(orgFunctionService.getByOrganizationId(organizationId).stream().map(OrgFunctionResponse::publicFrom).toList());
+            functions = orgFunctionService.getByOrganizationId(organizationId);
+        } else if (category != null) {
+            functions = orgFunctionService.getByCategory(category);
+        } else {
+            functions = orgFunctionService.getAll();
         }
-        if (category != null) {
-            return ResponseEntity.ok(orgFunctionService.getByCategory(category).stream().map(OrgFunctionResponse::publicFrom).toList());
-        }
-        return ResponseEntity.ok(orgFunctionService.getAll().stream().map(OrgFunctionResponse::publicFrom).toList());
+        Map<Long, java.time.Instant> updated = publicChanges.lastUpdatedAt(functions.stream().map(OrgFunction::getId).toList());
+        return ResponseEntity.ok(functions.stream().map(function -> OrgFunctionResponse.publicFrom(function, updated.get(function.getId()))).toList());
+    }
+
+    /** Public, concise history of approved publications of a published card; nothing about drafts or staff. */
+    @GetMapping("/{id}/history")
+    public List<PublicChangeResponse> publicHistory(@PathVariable Long id) {
+        return publicChanges.publicHistory(id).stream().map(PublicChangeResponse::from).toList();
     }
 
     @GetMapping("/admin")
@@ -68,7 +80,8 @@ public class OrgFunctionController {
 
     @GetMapping("/{id}")
     public ResponseEntity<OrgFunctionResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(OrgFunctionResponse.publicFrom(orgFunctionService.getById(id)));
+        OrgFunction function = orgFunctionService.getById(id);
+        return ResponseEntity.ok(OrgFunctionResponse.publicFrom(function, publicChanges.lastUpdatedAt(List.of(function.getId())).get(function.getId())));
     }
 
     @PostMapping

@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import adliya.uz.task1.service.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
     private final CookieProperties cookieProperties;
+    private final SessionService sessionService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -43,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-            if (jwtService.isTokenValid(token, userDetails) && userDetails.isEnabled()) {
+            if (jwtService.isTokenValid(token, userDetails) && userDetails.isEnabled() && sessionAlive(token)) {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -53,6 +55,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             logger.debug("Invalid JWT token: " + ex.getMessage());
             SecurityContextHolder.clearContext();
         }
+    }
+
+    /** Tokens bound to a session are rejected as soon as that session was revoked; restricted tokens carry no session. */
+    private boolean sessionAlive(String token) {
+        String sessionId = jwtService.extractClaim(token, claims -> claims.get(JwtService.SESSION_CLAIM, String.class));
+        return sessionId == null || sessionService.isActive(sessionId);
     }
 
     private String accessToken(HttpServletRequest request) {

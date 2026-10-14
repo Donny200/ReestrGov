@@ -33,6 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class PublicOrganizationControllerTest {
 
+    @MockitoBean
+    private adliya.uz.task1.service.SessionService sessionService;
+
     @Autowired
     private MockMvc mockMvc;
 

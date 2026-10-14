@@ -27,6 +27,7 @@ public class AdminUserService {
     private final OrganizationService organizationService;
     private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
+    private final UserService userService;
 
     @Transactional
     public User createOrgAdmin(CreateOrgAdminRequest request) {
@@ -90,7 +91,9 @@ public class AdminUserService {
             user.getOrganizations().add(org);
         }
         if (request.getEnabled() != null) user.setEnabled(request.getEnabled());
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        if (Boolean.FALSE.equals(request.getEnabled())) userService.endSessions(saved);
+        return saved;
     }
 
     @Transactional
@@ -98,6 +101,7 @@ public class AdminUserService {
         User user = getOrgAdminById(id);
         user.setEnabled(false);
         userRepository.save(user);
+        userService.endSessions(user);
     }
 
     private User findUser(Long id) {

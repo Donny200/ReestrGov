@@ -21,6 +21,8 @@ const OrganizationDetail = lazy(() => import('./pages/OrganizationDetail').then(
 const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module) => ({ default: module.FunctionDetail })));
 const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
 const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
+const CompareServices = lazy(() => import('./pages/CompareServices').then((module) => ({ default: module.CompareServices })));
+const MfaChallenge = lazy(() => import('./pages/MfaChallenge').then((module) => ({ default: module.MfaChallenge })));
 const Reports = lazy(() => import('./pages/admin/Reports').then((module) => ({ default: module.Reports })));
 const OrganizationDashboard = lazy(() =>
   import('./pages/admin/OrganizationDashboard').then((module) => ({ default: module.OrganizationDashboard })),
@@ -76,10 +78,12 @@ export function App() {
                       <Route path="/functions/:id" element={<PageBoundary><FunctionDetail /></PageBoundary>} />
                       <Route path="/finder" element={<PageBoundary><ServiceFinder /></PageBoundary>} />
                       <Route path="/saved" element={<PageBoundary><SavedServices /></PageBoundary>} />
+                      <Route path="/compare" element={<PageBoundary><CompareServices /></PageBoundary>} />
                       <Route path="*" element={<PageBoundary><NotFound /></PageBoundary>} />
                     </Route>
 
                     <Route path="/login" element={<PageBoundary><Login /></PageBoundary>} />
+                    <Route path="/login/mfa" element={<PageBoundary><MfaChallenge /></PageBoundary>} />
                     <Route path="/forgot-password" element={<PageBoundary><ForgotPassword /></PageBoundary>} />
                     <Route path="/reset-password" element={<PageBoundary><ResetPassword /></PageBoundary>} />
 

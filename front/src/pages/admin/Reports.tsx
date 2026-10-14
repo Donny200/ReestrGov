@@ -64,6 +64,7 @@ export function Reports() {
       from: isIsoDate(from) ? from : undefined,
       to: isIsoDate(to) ? to : undefined,
       organizationId: parseId(searchParams.get('organization')),
+      assignee: searchParams.get('assignee') === 'me' ? 'me' : undefined,
     };
   }, [searchParams]);
   const invalidRange = Boolean(query.from && query.to && query.from > query.to);
@@ -218,6 +219,16 @@ export function Reports() {
               options={scope.organizations}
             />
           )}
+          <Select
+            value={query.assignee ?? ''}
+            aria-label={t('assignee.title', 'Responsible staff member')}
+            size="sm"
+            onValueChange={(value) => setParam('assignee', value)}
+            options={[
+              { value: '', label: t('reports.anyAssignee', 'Any responsible staff member') },
+              { value: 'me', label: t('reports.assignedToMe', 'Cards assigned to me') },
+            ]}
+          />
           <Field label={t('analytics.from', 'From')} error={invalidRange ? t('analytics.rangeOrder', 'The start date must not be after the end date') : undefined}>
             {(control) => <Input {...control} type="date" className="min-h-10 py-2 text-sm" value={query.from ?? ''} onChange={(event) => setParam('from', event.target.value)} />}
           </Field>

@@ -18,6 +18,7 @@ import { usePublicFunctions } from '../features/functions/queries';
 import { usePageView } from '../features/engagement/tracking';
 import { useRegions } from '../features/reference/queries';
 import { localizedText } from '../utils/translations';
+import { matchesTerms, searchTerms, serviceHaystack } from '../utils/finder';
 
 export function Home() {
   const { t, locale } = useI18n();
@@ -39,24 +40,30 @@ export function Home() {
     return map;
   }, [orgList, locale]);
 
+  /** Organization names in every language, so a query in any supported script matches. */
+  const orgSearchText = useMemo(() => {
+    const map = new Map<number, string[]>();
+    orgList.forEach((item) => map.set(item.id, [item.name, ...Object.values(item.nameTranslations ?? {}).map((value) => value.text)]));
+    return map;
+  }, [orgList]);
+
+  const indexes = useMemo(() => new Map(fnList.map((item) => [item.id, serviceHaystack(item, locale, orgSearchText.get(item.organizationId) ?? [])])), [fnList, locale, orgSearchText]);
+
   const categories = useMemo(
     () => Array.from(new Set(fnList.map((item) => item.category).filter((value): value is string => Boolean(value)))).sort(),
     [fnList],
   );
 
   const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const terms = searchTerms(query, locale);
     return fnList.filter((item) => {
       if (organizationId && item.organizationId !== Number(organizationId)) return false;
       if (category && item.category !== category) return false;
-      if (!term) return true;
-      return [
-        localizedText(item.name, item.nameTranslations, locale),
-        localizedText(item.description, item.descriptionTranslations, locale),
-        orgName.get(item.organizationId),
-      ].some((value) => (value ?? '').toLowerCase().includes(term));
+      if (terms.length === 0) return true;
+      const index = indexes.get(item.id);
+      return index ? matchesTerms(index, terms) : false;
     });
-  }, [fnList, organizationId, category, query, orgName, locale]);
+  }, [fnList, organizationId, category, query, indexes, locale]);
 
   const functionCountByOrg = useMemo(() => {
     const map = new Map<number, number>();

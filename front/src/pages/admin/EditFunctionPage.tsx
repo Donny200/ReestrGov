@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
 import { FunctionStatusBadge, StatusPill } from '../../components/ui/Badge';
 import { Skeleton, SkeletonText } from '../../components/ui/Skeleton';
+import { FunctionAssignee } from '../../components/functions/FunctionAssignee';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
 import { FunctionPreview } from '../../components/functions/FunctionPreview';
@@ -237,6 +238,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
         <aside className="space-y-6 lg:sticky lg:top-24">
           <FunctionWorkflow record={record} dirty={isDirty || secondaryDirty} busy={busy} />
           <FunctionVerification record={record} dirty={isDirty || secondaryDirty} busy={busy} />
+          <FunctionAssignee record={record} busy={busy} />
           <FunctionPreview record={record} />
         </aside>
       </div>

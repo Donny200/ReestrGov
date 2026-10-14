@@ -25,7 +25,11 @@ public class MandatoryPasswordChangeFilter extends OncePerRequestFilter {
             new AllowedRequest(HttpMethod.POST.name(), "/api/auth/password-reset/request"),
             new AllowedRequest(HttpMethod.POST.name(), "/api/auth/password-reset/complete"),
             new AllowedRequest(HttpMethod.POST.name(), "/api/auth/logout"),
-            new AllowedRequest(HttpMethod.GET.name(), "/api/auth/me")
+            new AllowedRequest(HttpMethod.GET.name(), "/api/auth/me"),
+            new AllowedRequest(HttpMethod.GET.name(), "/api/auth/mfa"),
+            new AllowedRequest(HttpMethod.POST.name(), "/api/auth/mfa/enroll"),
+            new AllowedRequest(HttpMethod.POST.name(), "/api/auth/mfa/confirm"),
+            new AllowedRequest(HttpMethod.POST.name(), "/api/auth/mfa/verify")
     );
 
     @Override

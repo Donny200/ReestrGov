@@ -23,8 +23,9 @@ interface RemindersSectionProps {
 
 export function RemindersSection({ organizationId, categoryId }: RemindersSectionProps) {
   const { t, locale } = useI18n();
-  const { hasPermission } = useAuth();
-  const reminders = useReminders({ organizationId, categoryId });
+  const { hasPermission, user } = useAuth();
+  const [mine, setMine] = useState(false);
+  const reminders = useReminders({ organizationId, categoryId, assignee: mine ? 'me' : undefined });
   const acknowledge = useAcknowledgeReminder();
   const [expanded, setExpanded] = useState(false);
   const items = reminders.data?.items ?? [];
@@ -32,7 +33,7 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
   const visible = expanded ? items : items.slice(0, PREVIEW);
   const canOpenEditor = hasPermission('FUNCTIONS_VIEW');
 
-  if (!reminders.isPending && !reminders.error && total === 0) return null;
+  if (!mine && !reminders.isPending && !reminders.error && total === 0) return null;
 
   return (
     <section id="reminders" aria-label={t('reminders.title', 'Reminders')} className="scroll-mt-24">
@@ -41,6 +42,12 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
           icon={<BellIcon />}
           title={`${t('reminders.title', 'Reminders')}${total > 0 ? ` (${total})` : ''}`}
           description={t('reminders.subtitle', 'Created by a daily check. An acknowledged reminder returns after 14 days if the issue is still open.')}
+          actions={
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input type="checkbox" className="h-4 w-4 accent-current" checked={mine} onChange={(event) => setMine(event.target.checked)} />
+              {t('reminders.onlyMine', 'Only cards assigned to me')}
+            </label>
+          }
         />
         {reminders.isPending ? (
           <div className="px-5 py-5"><SkeletonText lines={3} /></div>
@@ -56,6 +63,9 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
                     <p className="font-medium text-foreground wrap-anywhere">{name}</p>
                     <p className="mt-0.5 text-sm text-secondary">
                       {issueLabel(reminder.issue, t)} · <span className="tabular-nums">{t('reminders.detected', 'Detected:')} {formatDate(reminder.detectedAt, locale)}</span>
+                      {reminder.assignedUserId != null && (
+                        <span> · {t('assignee.short', 'Responsible')}: {reminder.assignedUserId === user?.id ? t('verification.byYou', 'you') : reminder.assignedUserName ?? `#${reminder.assignedUserId}`}</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

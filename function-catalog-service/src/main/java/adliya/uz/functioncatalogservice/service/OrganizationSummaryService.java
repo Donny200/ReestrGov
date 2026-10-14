@@ -8,8 +8,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import adliya.uz.functioncatalogservice.dto.ReportQuery;
+import adliya.uz.functioncatalogservice.entity.OrgFunction;
+import adliya.uz.functioncatalogservice.entity.ReportEntityType;
+import adliya.uz.functioncatalogservice.entity.ReportStatus;
+import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
+
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +29,7 @@ public class OrganizationSummaryService {
     private final ReportReviewService reports;
     private final QualityReminderService reminders;
     private final EngagementInsightsService engagement;
+    private final OrgFunctionRepository functions;
 
     public OrganizationSummary summary(Long organizationId, Long categoryId, LocalDate from, LocalDate to) {
         OrganizationScope scope = access.scope(organizationId);
@@ -30,6 +39,24 @@ public class OrganizationSummaryService {
                 snapshot.statuses(), snapshot.servicesNeedingAttention(), snapshot.attention(),
                 snapshot.translationsChecked(), snapshot.activeLanguages(),
                 reports.counts(scope, categoryId, period),
-                reminders.activeCount(scope, snapshot.functionIds()));
+                reminders.activeCount(scope, snapshot.functionIds()),
+                assignedToMe(scope, snapshot.functionIds()));
+    }
+
+    private OrganizationSummary.AssignedToMe assignedToMe(OrganizationScope scope, Set<Long> functionIds) {
+        Long me = access.principal().userId();
+        if (me == null || scope.empty()) {
+            return new OrganizationSummary.AssignedToMe(0, 0, 0);
+        }
+        Set<Long> mine = functions.findAllByAssignedUserId(me).stream()
+                .filter(card -> !card.isRevision() && functionIds.contains(card.getId()))
+                .map(OrgFunction::getId)
+                .collect(Collectors.toSet());
+        if (mine.isEmpty()) {
+            return new OrganizationSummary.AssignedToMe(0, 0, 0);
+        }
+        long openReports = reports.search(new ReportQuery(ReportStatus.OPEN, null, ReportEntityType.FUNCTION, null, null, null, null,
+                null, me), ReportReviewService.LIST_LIMIT).size();
+        return new OrganizationSummary.AssignedToMe(mine.size(), reminders.activeCount(scope, mine, me), openReports);
     }
 }
