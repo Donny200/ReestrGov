@@ -49,7 +49,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Proves that no access or refresh token exists before the second factor and that the challenge cookie reaches only the MFA endpoints. */
 @WebMvcTest(controllers = {AuthController.class, MfaController.class},
         properties = {"eureka.client.enabled=false", "spring.cloud.discovery.enabled=false", "jwt.expiration=60000", "jwt.refresh-expiration=120000"})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, SessionCookies.class, CookieUtil.class, CookieProperties.class, JwtProperties.class, MfaProperties.class})
+@Import({SecurityConfig.class, JwtAuthenticationFilter.class, SessionCookies.class, CookieUtil.class, CookieProperties.class, JwtProperties.class, MfaProperties.class,
+        adliya.uz.task1.config.LoginProperties.class, adliya.uz.task1.service.LoginRateLimiter.class, adliya.uz.task1.service.LoginAttemptGuard.class})
 class MfaLoginFlowTest {
 
     @Autowired MockMvc mvc;

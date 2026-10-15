@@ -50,16 +50,31 @@ public class OrgFunctionController {
         return publicChanges.publicHistory(id).stream().map(PublicChangeResponse::from).toList();
     }
 
+    /**
+     * Staff list. Without {@code page}/{@code size} the whole scoped list is returned (existing contract); with them
+     * one page ordered by id is returned and {@code X-Total-Count} carries the total.
+     */
     @GetMapping("/admin")
     @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
-    public ResponseEntity<List<OrgFunctionResponse>> getAllForAdmin() {
-        List<OrgFunction> functions = orgFunctionService.getAllForAdmin();
+    public ResponseEntity<List<OrgFunctionResponse>> getAllForAdmin(@RequestParam(required = false) Integer page,
+                                                                    @RequestParam(required = false) Integer size) {
+        if (page == null && size == null) {
+            return ResponseEntity.ok(staffView(orgFunctionService.getAllForAdmin()));
+        }
+        var result = orgFunctionService.getPageForAdmin(Math.max(0, page == null ? 0 : page),
+                Math.min(Math.max(1, size == null ? 50 : size), 200));
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(result.getTotalElements()))
+                .body(staffView(result.getContent()));
+    }
+
+    private List<OrgFunctionResponse> staffView(List<OrgFunction> functions) {
         Map<Long, OrgFunction> revisions = orgFunctionService.draftRevisionsOf(functions);
         Map<Long, MachineTranslationSummary> summaries = translations.summaries(functions);
-        return ResponseEntity.ok(functions.stream()
+        return functions.stream()
                 .map(function -> OrgFunctionResponse.from(function, revisions.get(function.getId()))
                         .withMachineTranslation(summaries.get(function.getId())))
-                .toList());
+                .toList();
     }
 
     @GetMapping("/{id}/admin")

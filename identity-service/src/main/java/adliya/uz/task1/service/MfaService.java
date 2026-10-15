@@ -272,6 +272,9 @@ public class MfaService {
         if (admin.getRole() == null || !SystemRole.SUPER_ADMIN.authority().equals(admin.getRole().getName())) {
             throw new AccessDeniedException("Only SUPER_ADMIN can reset another user's second factor");
         }
+        if (admin.getId() != null && admin.getId().equals(targetUserId)) {
+            throw new AccessDeniedException("Your own second factor can only be disabled with your password and a valid code");
+        }
         User target = users.findById(targetUserId).orElseThrow(() -> new ResourceNotFoundException("User not found, ID: " + targetUserId));
         recoveryCodes.deleteAllByUserId(target.getId());
         enrollments.deleteById(target.getId());

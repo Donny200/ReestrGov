@@ -244,6 +244,10 @@ class MfaServiceTest {
 
         enroll(orgAdmin);
         assertThatThrownBy(() -> service.adminReset(orgAdmin, 1L)).isInstanceOf(AccessDeniedException.class);
+        // A hijacked SUPER_ADMIN session must not be able to drop its own second factor without password and code.
+        enroll(admin);
+        assertThatThrownBy(() -> service.adminReset(admin, admin.getId())).isInstanceOf(AccessDeniedException.class);
+        assertThat(service.enrolled(admin)).isTrue();
         service.adminReset(admin, 2L);
         assertThat(service.enrolled(orgAdmin)).isFalse();
         verify(sessions).revokeAll(2L, SessionService.REASON_MFA_RESET);

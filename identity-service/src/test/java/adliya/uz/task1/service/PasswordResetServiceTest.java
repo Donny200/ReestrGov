@@ -78,6 +78,14 @@ class PasswordResetServiceTest {
     }
 
     @Test
+    void adminCannotIssueAResetLinkForTheirOwnAccount() {
+        User admin = user(1L, "ROLE_SUPER_ADMIN", true);
+        when(userService.getCurrentUser()).thenReturn(admin);
+        assertThatThrownBy(() -> service.initiateByAdmin(1L)).isInstanceOf(AccessDeniedException.class);
+        verify(users, never()).findById(any());
+    }
+
+    @Test
     void adminResetStoresOnlyTheHashSupersedesOlderTokensAndReturnsTheLinkOnce() {
         User admin = user(1L, "ROLE_SUPER_ADMIN", true);
         User target = user(7L, "ROLE_MODERATOR", true);

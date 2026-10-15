@@ -1,5 +1,6 @@
 package adliya.uz.task1.controller;
 
+import adliya.uz.task1.config.LoginProperties;
 import adliya.uz.task1.config.MfaProperties;
 import adliya.uz.task1.config.security.SessionCookies;
 import adliya.uz.task1.dto.ChangePasswordRequest;
@@ -11,6 +12,8 @@ import adliya.uz.task1.entity.MfaChallenge;
 import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.InvalidRefreshTokenException;
 import adliya.uz.task1.service.AuthService;
+import adliya.uz.task1.service.LoginAttemptGuard;
+import adliya.uz.task1.service.LoginRateLimiter;
 import adliya.uz.task1.service.MfaService;
 import adliya.uz.task1.service.RefreshTokenService;
 import adliya.uz.task1.service.SessionService;
@@ -20,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,6 +48,9 @@ public class AuthController {
     private final MfaService mfaService;
     private final SessionService sessionService;
     private final MfaProperties mfaProperties;
+    private final LoginProperties loginProperties;
+    private final LoginRateLimiter loginRateLimiter;
+    private final LoginAttemptGuard loginAttemptGuard;
 
     /**
      * Password step. Users with a second factor (or who must enroll one) receive 202 and only a short-lived challenge
@@ -50,7 +58,16 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
-        User user = authService.login(request);
+        loginRateLimiter.acquire(clientAddress(http));
+        loginAttemptGuard.check(request.getEmail());
+        User user;
+        try {
+            user = authService.login(request);
+        } catch (AuthenticationException exception) {
+            loginAttemptGuard.recordFailure(request.getEmail());
+            throw exception;
+        }
+        loginAttemptGuard.recordSuccess(request.getEmail());
         MfaService.Decision decision = mfaService.decide(user);
         if (decision != MfaService.Decision.FULL_SESSION) {
             MfaChallenge.Purpose purpose = decision == MfaService.Decision.ENROLL ? MfaChallenge.Purpose.ENROLL : MfaChallenge.Purpose.VERIFY;
@@ -118,5 +135,11 @@ public class AuthController {
     private UserResponse withMfa(User user) {
         return UserResponse.from(user).withMfa(new UserResponse.MfaSummary(mfaService.requiredFor(user), mfaService.enrolled(user),
                 mfaProperties.getEnrollmentDeadline(), mfaService.requiredFor(user) && !mfaService.enrolled(user) && mfaService.enrollmentOverdue()));
+    }
+
+    private String clientAddress(HttpServletRequest request) {
+        String header = loginProperties.getClientAddressHeader();
+        String forwarded = StringUtils.hasText(header) ? request.getHeader(header) : null;
+        return StringUtils.hasText(forwarded) ? forwarded.trim() : request.getRemoteAddr();
     }
 }

@@ -7,10 +7,11 @@ services:
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
     ports:
-      - "5433:5432"
+      # Loopback only: reachable from this host for local development, never from the network.
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+      - ./init-multiple-dbs.sql:/docker-entrypoint-initdb.d/init-multiple-dbs.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-postgres} -d postgres"]
       interval: 5s
@@ -22,15 +23,17 @@ services:
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
-    ports:
-      - "8761:8761"
+    # Internal network only: the registry has no authentication, so it must not be reachable from outside Compose.
+    expose:
+      - "8761"
     restart: unless-stopped
 
   identity-service:
     build: ./identity-service
     container_name: identity-service
-    ports:
-      - "8081:8081"
+    # Not published: every request enters through nginx -> api-gateway, which sets the visitor address header.
+    expose:
+      - "8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/adlita_project1
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-postgres}"
@@ -61,8 +64,8 @@ services:
   reference-service:
     build: ./reference-service
     container_name: reference-service
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reference_service_db
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-postgres}"
@@ -79,8 +82,8 @@ services:
   function-catalog-service:
     build: ./function-catalog-service
     container_name: function-catalog-service
-    ports:
-      - "8085:8085"
+    expose:
+      - "8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/function_catalog_db
       SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-postgres}"
@@ -102,9 +105,13 @@ services:
     build: ./api-gateway
     container_name: api-gateway
     ports:
-      - "8082:8082"
+      # Loopback only, for the Vite dev server proxy. Host callers arrive from the Docker bridge address, which is
+      # not a trusted proxy, so their X-Real-IP is overwritten with the real remote address.
+      - "127.0.0.1:8082:8082"
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      # Only nginx (static address below) may pass the visitor address through.
+      GATEWAY_TRUSTED_PROXIES: "${GATEWAY_TRUSTED_PROXIES:-172.28.0.10/32}"
     depends_on:
       - eureka-server
       - identity-service
@@ -119,7 +126,16 @@ services:
       - "3000:80"
     depends_on:
       - api-gateway
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
     restart: unless-stopped
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   pgdata:

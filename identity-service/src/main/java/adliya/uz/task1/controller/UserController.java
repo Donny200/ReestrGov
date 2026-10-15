@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,10 +44,22 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(request));
     }
 
+    /**
+     * Without {@code page}/{@code size} the full list is returned (existing contract). With them, one page ordered by
+     * id is returned and {@code X-Total-Count} carries the overall number of users.
+     */
     @GetMapping
     @PreAuthorize("hasAuthority('USERS_VIEW')")
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(userService.withMfaStatus(userService.getAllForLegacyApi(), mfaService));
+    public ResponseEntity<List<UserResponse>> getAllUsers(@RequestParam(required = false) Integer page,
+                                                          @RequestParam(required = false) Integer size) {
+        if (page == null && size == null) {
+            return ResponseEntity.ok(userService.withMfaStatus(userService.getAllForLegacyApi(), mfaService));
+        }
+        var users = userService.getPageForLegacyApi(Math.max(0, page == null ? 0 : page),
+                Math.min(Math.max(1, size == null ? 50 : size), 200));
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(users.getTotalElements()))
+                .body(userService.withMfaStatus(users.getContent(), mfaService));
     }
 
     /** SUPER_ADMIN only: enrollment state (never the secret or codes). */

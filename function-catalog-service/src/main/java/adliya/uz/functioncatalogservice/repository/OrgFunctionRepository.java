@@ -1,10 +1,13 @@
 package adliya.uz.functioncatalogservice.repository;
 
 import adliya.uz.functioncatalogservice.entity.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.*;
 
 public interface OrgFunctionRepository extends JpaRepository<OrgFunction, Long> {
+    Page<OrgFunction> findAllByOrganizationIdIn(Collection<Long> organizationIds, Pageable pageable);
     List<OrgFunction> findAllByStatus(FunctionStatus status);
     Optional<OrgFunction> findByIdAndStatus(Long id, FunctionStatus status);
     List<OrgFunction> findAllByOrganizationIdAndStatus(Long organizationId, FunctionStatus status);

@@ -104,6 +104,14 @@ public class UserService {
                 .toList();
     }
 
+    /** One page of users (ordered by id) for callers that opt into server-side paging. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<UserResponse> getPageForLegacyApi(int page, int size) {
+        requirePermission(USERS_VIEW);
+        return userRepository.findAll(org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by("id"))).map(UserResponse::from);
+    }
+
     @Transactional(readOnly = true)
     public UserResponse getForLegacyApi(Long id) {
         requirePermission(USERS_VIEW);

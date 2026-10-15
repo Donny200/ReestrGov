@@ -82,6 +82,9 @@ public class PasswordResetService {
         if (!isSuperAdmin(admin)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can initiate a password reset");
         }
+        if (admin.getId() != null && admin.getId().equals(userId)) {
+            throw new AccessDeniedException("Change your own password with the current password; an admin reset link cannot target your own account");
+        }
         User target = users.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found, ID: " + userId));
         if (!Boolean.TRUE.equals(target.getEnabled())) {

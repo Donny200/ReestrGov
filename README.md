@@ -93,13 +93,13 @@ ReestrGov — это реестр государственных услуг («�
 
 | Модуль | Порт | Роль | Хранилище данных |
 | --- | --- | --- | --- |
-| `eureka-server` | 8761 | Реестр сервисов и обнаружение. Не регистрирует сам себя; режим самосохранения отключён для быстрой локальной работы. | нет |
-| `api-gateway` | 8082 | Единая публичная точка входа. Маршрутизирует по пути к идентификаторам сервисов `lb://`, разрешаемым через Eureka, применяет глобальный CORS для dev-источников (`localhost:3000`, `localhost:5173`) с учётными данными и устраняет дублирование CORS-заголовков ответа. | нет |
-| `identity-service` | 8081 | Аутентификация (вход, обновление токена, выход, смена пароля), выпуск JWT, управление пользователями и сотрудниками, организации, роли, права и реестр языков интерфейса. Создаёт первого `SUPER_ADMIN`. | `adlita_project1` |
-| `reference-service` | 8084 | Справочные данные: регионы, словари переводов интерфейса для каждого языка и ключи переводов с отчётами о покрытии и пробелах. Кэширует запросы с помощью Caffeine. | `reference_service_db` |
-| `function-catalog-service` | 8085 | Публичный и административный каталог услуг («функций»), категории, редакционный процесс с правами, журнал аудита, импорт CSV, ручные переводы и переводы через Azure. | `function_catalog_db` |
+| `eureka-server` | 8761 (только внутри Compose) | Реестр сервисов и обнаружение. Не регистрирует сам себя; режим самосохранения отключён для быстрой локальной работы. | нет |
+| `api-gateway` | 8082 (на хосте только `127.0.0.1`) | Единая точка входа для SPA. Маршрутизирует по пути к идентификаторам сервисов `lb://`, разрешаемым через Eureka, применяет глобальный CORS для dev-источников (`localhost:3000`, `localhost:5173`) с учётными данными и устраняет дублирование CORS-заголовков ответа. | нет |
+| `identity-service` | 8081 (только внутри Compose) | Аутентификация (вход, обновление токена, выход, смена пароля), выпуск JWT, управление пользователями и сотрудниками, организации, роли, права и реестр языков интерфейса. Создаёт первого `SUPER_ADMIN`. | `adlita_project1` |
+| `reference-service` | 8084 (только внутри Compose) | Справочные данные: регионы, словари переводов интерфейса для каждого языка и ключи переводов с отчётами о покрытии и пробелах. Кэширует запросы с помощью Caffeine. | `reference_service_db` |
+| `function-catalog-service` | 8085 (только внутри Compose) | Публичный и административный каталог услуг («функций»), категории, редакционный процесс с правами, журнал аудита, импорт CSV, ручные переводы и переводы через Azure. | `function_catalog_db` |
 | `front` | 3000 → 80 | SPA на Vite/React, обслуживаемое Nginx с gzip, неизменяемым кэшированием ресурсов, SPA-фолбэком, `/healthz` и same-origin обратным прокси `/api/` на `api-gateway:8082`. | нет |
-| `postgres` | 5433 → 5432 | PostgreSQL 16 с init-скриптом, который создаёт три базы данных при первом запуске. | том `pgdata` |
+| `postgres` | `127.0.0.1:5433` → 5432 | PostgreSQL 16 с init-скриптом, который создаёт три базы данных при первом запуске. | том `pgdata` |
 
 ### 2.2 Маршрутизация шлюза
 
@@ -183,6 +183,7 @@ Docker Compose читает корневой `.env` автоматически. 
 | `AZURE_TRANSLATOR_ENDPOINT` | нет | function-catalog-service | Endpoint Azure Translator (например `https://api.cognitive.microsofttranslator.com`). Пока любое из трёх значений пусто, автоматический перевод не выполняется: содержимое сохраняется и ждёт в очереди, редактор видит «Автоматический перевод недоступен» |
 | `AZURE_TRANSLATOR_KEY` | нет | function-catalog-service | Ключ ресурса Azure Translator. Читается только из окружения/`.env`, никогда не логируется и не попадает в ответы API |
 | `AZURE_TRANSLATOR_REGION` | нет | function-catalog-service | Регион ресурса Azure Translator |
+| `GATEWAY_TRUSTED_PROXIES` | нет (по умолчанию `172.28.0.10/32`, статический адрес nginx в Compose) | api-gateway | IP или CIDR обратных прокси, которым разрешено передавать `X-Real-IP`/`X-Forwarded-For`. Остальным вызывающим шлюз подставляет их реальный адрес, поэтому лимиты на клиента нельзя обойти подменой заголовка |
 | `CATALOG_TRANSLATION_ENABLED` | нет (по умолчанию `true`) | function-catalog-service | `false` приостанавливает фоновый воркер перевода; задачи копятся в `translation_jobs` и выполняются после включения (см. [docs/machine-translation.md](docs/machine-translation.md)) |
 | `IDENTITY_DB_PASSWORD` | нет | identity-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы identity |
 | `REFERENCE_DB_PASSWORD` | нет | reference-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы reference |
@@ -196,15 +197,15 @@ Docker Compose читает корневой `.env` автоматически. 
 
 | Сервис | Порт контейнера | Порт хоста | Источник данных внутри Compose | Источник данных вне Compose (по умолчанию в `application.yml`) |
 | --- | --- | --- | --- | --- |
-| postgres | 5432 | 5433 | н/д | н/д |
-| eureka-server | 8761 | 8761 | н/д | н/д |
-| api-gateway | 8082 | 8082 | н/д | н/д |
-| identity-service | 8081 | 8081 | `jdbc:postgresql://postgres:5432/adlita_project1` | `jdbc:postgresql://localhost:5433/adlita_project1` |
-| reference-service | 8084 | 8084 | `jdbc:postgresql://postgres:5432/reference_service_db` | `jdbc:postgresql://localhost:5433/reference_service_db` |
-| function-catalog-service | 8085 | 8085 | `jdbc:postgresql://postgres:5432/function_catalog_db` | `jdbc:postgresql://localhost:5433/function_catalog_db` |
+| postgres | 5432 | `127.0.0.1:5433` | н/д | н/д |
+| eureka-server | 8761 | не публикуется | н/д | н/д |
+| api-gateway | 8082 | `127.0.0.1:8082` | н/д | н/д |
+| identity-service | 8081 | не публикуется | `jdbc:postgresql://postgres:5432/adlita_project1` | `jdbc:postgresql://localhost:5433/adlita_project1` |
+| reference-service | 8084 | не публикуется | `jdbc:postgresql://postgres:5432/reference_service_db` | `jdbc:postgresql://localhost:5433/reference_service_db` |
+| function-catalog-service | 8085 | не публикуется | `jdbc:postgresql://postgres:5432/function_catalog_db` | `jdbc:postgresql://localhost:5433/function_catalog_db` |
 | front | 80 | 3000 | н/д | Dev-сервер Vite на 5173 проксирует `/api` на `localhost:8082` |
 
-Внутри Compose каждый Spring-сервис обнаруживает реестр через `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka`; вне Compose значение по умолчанию — `http://localhost:8761/eureka`.
+Внутри Compose каждый Spring-сервис обнаруживает реестр через `EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka`; вне Compose значение по умолчанию — `http://localhost:8761/eureka`. Compose создаёт сеть `172.28.0.0/16`, в которой nginx (`front`) имеет статический адрес `172.28.0.10` — единственный доверенный источник заголовка `X-Real-IP` для шлюза. Бэкенды и Eureka не публикуются на хосте: все запросы идут `nginx → api-gateway → сервис`.
 
 ### 4.3 Пример `.env`
 
@@ -272,15 +273,17 @@ docker compose ps
 docker compose logs -f                       # everything
 docker compose logs -f identity-service      # one service
 curl -s http://localhost:3000/healthz        # nginx -> "ok"
-open http://localhost:8761                   # Eureka dashboard, all four services should be UP
+curl -s http://localhost:3000/api/public/organizations   # JSON through nginx and the gateway
+docker compose exec api-gateway wget -qO- http://eureka-server:8761/eureka/apps | grep -o '<app>[A-Z-]*' # registry, internal only
 ```
 
 | URL | Что вы должны увидеть |
 | --- | --- |
 | `http://localhost:3000` | Публичный каталог; `/login` открывает административную консоль |
-| `http://localhost:8761` | Панель Eureka со списком `API-GATEWAY`, `IDENTITY-SERVICE`, `REFERENCE-SERVICE`, `FUNCTION-CATALOG-SERVICE` |
-| `http://localhost:8082/api/public/organizations` | JSON через шлюз |
-| `http://localhost:8081/swagger`, `:8084/swagger`, `:8085/swagger` | Swagger UI для каждого сервиса |
+| `http://localhost:3000/api/public/organizations` | JSON через nginx и шлюз |
+| `http://127.0.0.1:8082/api/public/organizations` | JSON напрямую через шлюз (только с этого хоста; для dev-сервера Vite) |
+
+Eureka и Swagger сервисов с хоста недоступны: реестр не имеет аутентификации и живёт только во внутренней сети Compose, а порты сервисов не публикуются. Для Swagger запустите нужный сервис из IDE (раздел 6) или временно пробросьте порт через `docker compose exec`.
 
 Войдите под учётной записью bootstrap-администратора. Учётная запись обязана сменить пароль, прежде чем любой другой вызов бэкенда будет выполнен; после этого удалите `BOOTSTRAP_SUPER_ADMIN_PASSWORD` из `.env`.
 
@@ -354,10 +357,13 @@ npm run preview      # serve dist/ locally
 - **Один общий HMAC-ключ.** identity-service подписывает токены ключом `JWT_SECRET`; reference-service и function-catalog-service проверяют их локально тем же ключом, поэтому сетевой вызов на каждый запрос не требуется.
 - **Обязательная смена пароля.** Подписанный токен содержит `mustChangePassword`. identity-service ограничивает такие сессии профилем, сменой пароля, выходом и входом; остальные сервисы отклоняют токены, у которых этот флаг равен true или отсутствует. Успешная смена выдаёт новые cookie.
 - **Отключённые пользователи отклоняются** на уровне JWT-фильтра, даже если у них есть действительный токен.
+- **Защита входа от перебора.** `POST /api/auth/login` ограничен на клиента (20 попыток за 15 минут по `X-Real-IP`) и на учётную запись (10 неверных паролей за 15 минут по введённому e-mail, независимо от того, существует ли аккаунт, чтобы ответ не раскрывал его наличие); превышение даёт 429 с общим сообщением, успешный вход сбрасывает счётчик. Настройки: `app.login.*` в `application.yaml`.
+- **Администратор не может обойти собственную защиту.** `POST /api/user/{id}/mfa/reset` и `POST /api/user/{id}/password-reset` отвергают собственный id вызывающего: свой второй фактор отключается только с паролем и кодом, свой пароль меняется только через текущий пароль, поэтому перехваченная сессия `SUPER_ADMIN` не даёт постоянного захвата аккаунта.
+- **Адрес клиента нельзя подменить.** Шлюз (`ClientAddressFilter`) оставляет `X-Real-IP`/`X-Forwarded-For` только от доверенных прокси (`GATEWAY_TRUSTED_PROXIES`, в Compose — статический адрес nginx) и для всех остальных подставляет реальный адрес соединения; сервисы и Eureka не публикуются на хосте, поэтому лимиты на клиента (вход, сброс пароля, MFA, сообщения, отзывы) нельзя обойти прямым обращением.
 - **Второй фактор и сессии.** Второй фактор отключён конфигурацией (`MFA_ENABLED=false` по умолчанию в `application.yaml`, `docker-compose.yml` и `.env.example`); код, миграция `V5` и таблицы сохранены, включение описано в разделе 12. При `MFA_ENABLED=true` `SUPER_ADMIN` и `ORG_ADMIN` после пароля подтверждают вход TOTP-кодом (или кодом восстановления); до этого браузер держит только одноразовый challenge-cookie с путём `/api/auth/mfa`, а access/refresh не выдаются. Секреты шифруются `MFA_ENCRYPTION_KEY`, коды восстановления хранятся как хэши. Пользователь видит и завершает свои сессии (`/api/auth/sessions`), `SUPER_ADMIN` — сессии любого пользователя с аудитом; access-токен несёт `sid` и отклоняется identity-service сразу после отзыва (см. [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md)).
 - **Сброс пароля без раскрытия паролей.** Пароли хранятся только как BCrypt-хэши; ни один endpoint не показывает, не генерирует и не логирует пароль. `SUPER_ADMIN` вызывает `POST /api/user/{id}/password-reset` и получает одноразовую ссылку ровно один раз (в базе остаётся только SHA-256 хэш токена, инициатор, цель и время); пользователь задаёт новый пароль через `/reset-password?token=…`. Токен случайный (256 бит), одноразовый, живёт `PASSWORD_RESET_TOKEN_TTL`, новый сброс аннулирует предыдущие. Успешный сброс (и обычная смена пароля) записывает `credentials_updated_at`: refresh-токены отзываются, а access-токены, выпущенные раньше, отклоняются. «Забыли пароль?» появляется только при настроенной SMTP-доставке (`PASSWORD_RESET_MAIL_ENABLED`), ответ не раскрывает существование учётной записи; запросы и попытки ввода токена ограничены по частоте (на клиента по `X-Real-IP` и глобально).
 - **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW` или `ORG_REPORTS_MANAGE`, а их статус меняется с `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`. Панель организации, очередь качества, напоминания и выгрузки требуют `ORG_ANALYTICS_VIEW`. Все проверки и ограничение по организации выполняются на бэкенде (см. [docs/organization-analytics.md](docs/organization-analytics.md)). Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации; отметка означает внутреннюю проверку организацией (с указанием сотрудника и даты), а не официальное подтверждение, и не требует внешней ссылки. Опубликованная карточка редактируется только через черновую редакцию (`POST /api/functions/{id}/revisions`, `FUNCTIONS_EDIT` в пределах своей организации; `SUPER_ADMIN` и `FUNCTIONS_MANAGE_ANY_ORGANIZATION` — для любой), публичная версия меняется только при публикации редакции рецензентом (см. [docs/function-editorial-workflow.md](docs/function-editorial-workflow.md)).
-- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports` и `POST /api/analytics/events`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза 8082 не следует публиковать в production, иначе клиент сможет подменить `X-Real-IP` в обход Nginx.
+- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports` и `POST /api/analytics/events`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза публикуется только на `127.0.0.1`, и даже прямой вызов не может подменить `X-Real-IP`: шлюз перезаписывает его для всех, кроме доверенных прокси.
 - **Никаких встроенных учётных данных.** Первый администратор берётся из `BOOTSTRAP_SUPER_ADMIN_EMAIL` и `BOOTSTRAP_SUPER_ADMIN_PASSWORD`; identity-service отказывается запускаться без них, пока не существует ни одного `SUPER_ADMIN`. Демо-аккаунты существуют только при `APP_DEMO_USERS_ENABLED=true` в непродакшен-профиле.
 - **Ротация секретов.** При изменении `JWT_SECRET` или пароля базы данных переразверните все три сервиса с данными вместе и отзовите действующие refresh-сессии (`UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` в базе identity), чтобы старый refresh-токен не мог выпустить заново подписанный access-токен.
 
@@ -375,10 +381,11 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 
 | Модуль | Что запускается | Инфраструктура |
 | --- | --- | --- |
-| identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена | нет |
+| identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена; `LoginProtectionTest`/`LoginAttemptGuardTest` проверяют защиту входа | нет |
 | reference-service | Модульные тесты и тесты веб-слоя | нет |
 | function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest`, `FunctionRevisionPostgresTest`, `PublicHistoryAssignmentFeedbackPostgresTest`, `MachineTranslationPostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
-| api-gateway, eureka-server | Тестов нет; `mvn test` только компилирует модуль | нет |
+| api-gateway | `ClientAddressFilterTest` (доверенные прокси, перезапись `X-Real-IP`, разбор CIDR) | нет |
+| eureka-server | Тестов нет; `mvn test` только компилирует модуль | нет |
 
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
@@ -418,7 +425,7 @@ cd front && npm run typecheck && npm run lint && npm run build && npm run test
 - Симптом: `dependency failed to start: container postgres is unhealthy` или повторяющиеся `Connection refused` в логе сервиса.
 - Проверка работоспособности выполняет `pg_isready -h 127.0.0.1 -U $POSTGRES_USER -d postgres` каждые 5 с со стартовым периодом 10 с и 12 повторами. На медленных дисках первая инициализация (создание трёх баз данных) может превысить это окно. Выполните `docker compose logs postgres`; если init-скрипт всё ещё выполняется, подождите и снова выполните `docker compose up -d`.
 - Если в логе указано `FATAL: password authentication failed`, том `pgdata` был инициализирован с другим `POSTGRES_PASSWORD`. Либо восстановите старое значение, либо сбросьте базу данных (см. ниже).
-- Если `init-multiple-dbs.sh` завершается с ошибкой `/bin/bash^M: bad interpreter`, файл был извлечён с окончаниями строк CRLF. Преобразуйте его в LF (`git config core.autocrlf input` и повторное извлечение, либо `sed -i '' 's/\r$//' init-multiple-dbs.sh`).
+- Базы создаёт `init-multiple-dbs.sql` только при первой инициализации пустого тома `pgdata` (SQL-файл не требует прав на выполнение, в отличие от прежнего `init-multiple-dbs.sh`, который на bind-mount с macOS/Windows падал с `bad interpreter: Permission denied`). Если том уже существует, а баз нет, создайте их вручную: `docker compose exec postgres psql -U postgres -c 'CREATE DATABASE adlita_project1' -c 'CREATE DATABASE reference_service_db' -c 'CREATE DATABASE function_catalog_db'`.
 - Порт `5433` уже занят: измените хостовую сторону сопоставления портов `postgres` в `docker-compose.yml` и URL `localhost:5433` в трёх файлах `application.yml` для локальных запусков.
 - Исчерпание пула соединений (`HikariPool ... Connection is not available`) обычно означает, что сервис перезапускается в цикле, пока PostgreSQL ещё прогревается. Проверьте счётчики перезапусков в `docker compose ps` и сначала исправьте исходную ошибку в этом сервисе.
 
@@ -504,7 +511,7 @@ ReestrGov/
 ├── front/                       React 18 + Vite 8 SPA, Nginx image, Playwright tests
 ├── docs/                        Functional specifications (admin functions UI, editorial workflow, machine translation, MFA)
 ├── docker-compose.yml           Full stack: postgres, eureka, 3 services, gateway, front
-├── init-multiple-dbs.sh         Creates the three databases on first PostgreSQL start
+├── init-multiple-dbs.sql         Creates the three databases on first PostgreSQL start
 ├── .env.example                 Template for the local environment file
 ├── pom.xml                      Maven aggregator for the five Java modules
 ├── frontend-pages-api.json      Historical page-to-endpoint map used during frontend planning
@@ -622,3 +629,63 @@ PostgreSQL 16 на порту 55432, без касания существующ�
 - Проверить, что в CI/на сервере после `git pull` выполняется `docker compose up --build`, чтобы применились новые
   миграции и образы.
 - Решить, когда включать MFA в production, и сохранить ключ шифрования в менеджере секретов.
+
+### Продолжение от 15.10.2026: сборка, безопасность, миграции
+
+**Причина сбоя сборки.** Коммиты `fb61744`/`132cbd2` включили изменённые файлы (`OrgFunctionService`,
+`OrgFunctionController`, `FunctionAutoTranslationController` и др.), которые ссылаются на `TranslationTarget`,
+`MachineTranslationQueue`, `MachineTranslationSummary`, `TranslationBackfillResponse`, но 14 новых файлов очереди
+перевода (сущности, репозиторий, сервисы, миграции `V9`, тест, документ) остались неотслеживаемыми. Чистая сборка из
+Git не находила символы. Файлы добавлены в индекс (`git add`); их нужно закоммитить вместе с остальными изменениями.
+
+**Безопасность.**
+- Вход: лимит на клиента и на учётную запись (`app.login.*`, см. раздел 7), 429 с общим сообщением.
+- `POST /api/user/{id}/mfa/reset` и `POST /api/user/{id}/password-reset` больше не принимают собственный id.
+- Шлюз: `ClientAddressFilter` перезаписывает `X-Real-IP` для всех вызывающих, кроме `GATEWAY_TRUSTED_PROXIES`.
+- Compose: Eureka, identity, reference и каталог больше не публикуются на хосте; шлюз и PostgreSQL — только на
+  `127.0.0.1`; сеть `172.28.0.0/16` со статическим адресом nginx `172.28.0.10`.
+- `MFA_ENABLED=false` остаётся значением по умолчанию; код и миграция `V5` сохранены.
+
+**Миграции.**
+- identity-service `V6__baseline_schema_and_indexes.sql`: `V1`–`V5` были обёрнуты в `to_regclass()` и на пустой базе
+  ничего не делали, схему создавал Hibernate без индексов. `V6` создаёт все таблицы `IF NOT EXISTS` (с теми же
+  именами ограничений, что генерирует Hibernate) и безусловно создаёт индексы (`refresh_tokens_session_idx`,
+  `refresh_tokens_user_idx`, `security_audit_events_user_idx`, `password_reset_tokens_user_idx`, `mfa_*_user_idx`,
+  `users_role_idx`, `user_organizations_organization_idx`, индексы по `expires_at`). Проверено на одноразовых базах:
+  обновление базы, созданной старой версией (таблицы есть, индексов нет) добавило 11 индексов и сохранило данные;
+  пустая база получила таблицы и индексы без дублирующих ограничений.
+- function-catalog-service `V9__translation_jobs.sql` (очередь перевода, `function_categories.source_language`) и
+  `V10__list_indexes.sql` (`audit_logs(entity_type, entity_id, performed_at)`, `org_functions(organization_id)`,
+  `engagement_daily_counts(activity_date)`).
+
+**Производительность.** Списки пользователей identity-service загружают роль, права и организации одним запросом
+(`@EntityGraph`) вместо N+1; `GET /api/user` и `GET /api/functions/admin` принимают необязательные `page`/`size`
+(ответ — та же страница-массив плюс заголовок `X-Total-Count`); без параметров контракт не изменился.
+
+**Инициализация баз.** `init-multiple-dbs.sh` заменён на `init-multiple-dbs.sql`: на bind-mount с macOS образ
+PostgreSQL не мог выполнить скрипт (`bad interpreter: Permission denied`), и базы не создавались; SQL-файл не требует
+прав на выполнение. Для уже инициализированного тома без баз см. раздел 9.
+
+**Проверки, выполненные 15.10.2026 (после изменений).**
+
+| Проверка | Результат |
+| --- | --- |
+| `identity-service` `mvn test` | 161 тестов, 0 ошибок (новые: `LoginProtectionTest` ×3, `LoginAttemptGuardTest`, самозащита в `MfaServiceTest`/`PasswordResetServiceTest`) |
+| `function-catalog-service` `mvn test` (Testcontainers PostgreSQL 16) | 216 тестов, 0 ошибок (новый: постраничный список в `MachineTranslationPostgresTest`) |
+| `reference-service` `mvn test` | 24, 0 ошибок |
+| `api-gateway` `mvn test` | 3 (`ClientAddressFilterTest`), 0 ошибок |
+| `eureka-server` `mvn test` | компиляция, тестов нет |
+| `front`: typecheck, lint, build, Playwright | без ошибок, 58 сценариев |
+| Миграция identity `V6` | одноразовая база, созданная старой версией (таблицы без индексов): `V6` добавила 11 индексов, данные сохранены; пустая база: таблицы и индексы созданы, ограничения без дублей |
+| `docker compose config` | валиден |
+| `docker compose up --build -d` (одноразовые секреты через переменные окружения, не через `.env`) | 7 контейнеров запущены; `/healthz`, `/api/public/organizations`, `/api/functions`, вход `SUPER_ADMIN` через nginx — 200; identity `V1`–`V6`, каталог `V1`–`V10`, reference `V9` применены; индексы на месте; 15 задач перевода в `PENDING` (ключи Azure не заданы), содержимое сохранено |
+| Защита входа через nginx | 10 неверных паролей → `401`, 11-й → `429` |
+| Подмена `X-Real-IP` напрямую в шлюз (`127.0.0.1:8082`, 21 разный адрес и e-mail) | 20 × `401`, затем `429`: шлюз подставил реальный адрес, лимит на клиента сработал |
+| Опубликованные порты | только `3000`, `127.0.0.1:8082`, `127.0.0.1:5433`; Eureka и сервисы недоступны с хоста |
+
+На этой машине порт `127.0.0.1:5433` был занят устаревшей привязкой Docker Desktop (ни один процесс и контейнер его
+не держал), поэтому для проверки PostgreSQL временно публиковался на `127.0.0.1:55436` через override-файл вне
+репозитория; `docker-compose.yml` не менялся. Том `reestrgov_pgdata` создан этой проверкой (ранее томов проекта на
+машине не было) и сохранён; контейнеры остановлены `docker compose down` без `-v`. Учётные данные Azure Translator в
+окружении по-прежнему отсутствуют: живой вызов Azure не выполнялся, очередь ждёт `AZURE_TRANSLATOR_ENDPOINT`,
+`AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION`.

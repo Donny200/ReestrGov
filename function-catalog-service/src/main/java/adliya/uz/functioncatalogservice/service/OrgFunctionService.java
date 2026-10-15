@@ -87,6 +87,15 @@ public class OrgFunctionService {
                 : orgFunctionRepository.findAllByOrganizationIdIn(access.principal().organizationIds());
     }
 
+    /** One page of the staff list (ordered by id) for callers that opt into server-side paging. */
+    public org.springframework.data.domain.Page<OrgFunction> getPageForAdmin(int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by("id"));
+        return access.global()
+                ? orgFunctionRepository.findAll(pageable)
+                : orgFunctionRepository.findAllByOrganizationIdIn(access.principal().organizationIds(), pageable);
+    }
+
     public OrgFunction getForAdmin(Long id) {
         return scoped(id);
     }

@@ -218,7 +218,10 @@ class AuthControllerMandatoryPasswordChangeTest {
     private AuthController controller() {
         org.mockito.Mockito.lenient().when(mfaService.decide(any())).thenReturn(MfaService.Decision.FULL_SESSION);
         SessionCookies sessionCookies = new SessionCookies(cookieUtil, jwtService, refreshTokenService, new CookieProperties());
-        return new AuthController(authService, sessionCookies, refreshTokenService, mfaService, sessionService, new MfaProperties());
+        adliya.uz.task1.config.LoginProperties loginProperties = new adliya.uz.task1.config.LoginProperties();
+        return new AuthController(authService, sessionCookies, refreshTokenService, mfaService, sessionService, new MfaProperties(),
+                loginProperties, new adliya.uz.task1.service.LoginRateLimiter(loginProperties),
+                new adliya.uz.task1.service.LoginAttemptGuard(loginProperties));
     }
 
     private User user(boolean mustChangePassword) {
