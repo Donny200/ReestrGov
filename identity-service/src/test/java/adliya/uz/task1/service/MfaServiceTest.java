@@ -79,6 +79,7 @@ class MfaServiceTest {
     @BeforeEach
     void setUp() {
         properties = new MfaProperties();
+        properties.setEnabled(true);
         properties.setEncryptionKey(Base64.getEncoder().encodeToString(new byte[32]));
         properties.setPerClientLimit(10);
         clock = new MutableClock(NOW);

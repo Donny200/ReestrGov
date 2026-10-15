@@ -74,10 +74,15 @@ public class AuditWriter {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void seedTranslations(OrgFunction function) {
-        write("FUNCTION", function.getId(), AuditAction.TRANSLATION_EDIT,
-                "Generated missing en/uz translations through Azure Translator",
-                new Actor(null, "system:editorial-seed"), Set.of(function.getId()));
+    public void machineTranslation(OrgFunction function, String details) {
+        write("FUNCTION", function.getId(), AuditAction.TRANSLATION_EDIT, details,
+                new Actor(null, "system:machine-translation"), Set.of(function.getId()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void categoryMachineTranslation(Long categoryId, String details) {
+        write("FUNCTION_CATEGORY", categoryId, AuditAction.TRANSLATION_EDIT, details,
+                new Actor(null, "system:machine-translation"), Set.of());
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

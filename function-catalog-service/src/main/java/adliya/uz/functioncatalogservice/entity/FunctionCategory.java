@@ -18,6 +18,9 @@ public class FunctionCategory {
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, TranslatedText> nameTranslations = new LinkedHashMap<>();
+    /** Language of {@code name} as entered by staff; null means the catalog default (en). */
+    @Column(length = 35)
+    private String sourceLanguage;
     @Version
     private Long version;
 }

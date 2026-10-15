@@ -63,6 +63,17 @@ catalog:
     global-window: 1h
   public-history:
     backfill-enabled: true
+  translation:
+    # Background machine translation of drafts and category names into every active language (azure.translator.*
+    # supplies the provider). Jobs are queued on create/update/import/seed and processed in small batches; nothing is
+    # requested during start-up and existing translations are never replaced.
+    enabled: ${CATALOG_TRANSLATION_ENABLED:true}
+    batch-size: 5
+    initial-delay: PT30S
+    interval: PT20S
+    max-attempts: 8
+    lease: PT5M
+    backfill-max-limit: 200
   reminders:
     renotify-after: 14d
     scan-initial-delay: PT2M

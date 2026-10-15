@@ -1,6 +1,8 @@
 package adliya.uz.functioncatalogservice.controller;
 
 import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
+import adliya.uz.functioncatalogservice.dto.MachineTranslationSummary;
+import adliya.uz.functioncatalogservice.service.MachineTranslationQueue;
 import adliya.uz.functioncatalogservice.dto.OrgFunctionResponse;
 import adliya.uz.functioncatalogservice.dto.PublicChangeResponse;
 import adliya.uz.functioncatalogservice.service.PublicChangeService;
@@ -24,6 +26,7 @@ public class OrgFunctionController {
 
     private final OrgFunctionService orgFunctionService;
     private final PublicChangeService publicChanges;
+    private final MachineTranslationQueue translations;
 
     @GetMapping
     public ResponseEntity<List<OrgFunctionResponse>> getAll(
@@ -52,8 +55,10 @@ public class OrgFunctionController {
     public ResponseEntity<List<OrgFunctionResponse>> getAllForAdmin() {
         List<OrgFunction> functions = orgFunctionService.getAllForAdmin();
         Map<Long, OrgFunction> revisions = orgFunctionService.draftRevisionsOf(functions);
+        Map<Long, MachineTranslationSummary> summaries = translations.summaries(functions);
         return ResponseEntity.ok(functions.stream()
-                .map(function -> OrgFunctionResponse.from(function, revisions.get(function.getId())))
+                .map(function -> OrgFunctionResponse.from(function, revisions.get(function.getId()))
+                        .withMachineTranslation(summaries.get(function.getId())))
                 .toList());
     }
 
@@ -61,7 +66,8 @@ public class OrgFunctionController {
     @PreAuthorize("hasAuthority('FUNCTIONS_VIEW')")
     public OrgFunctionResponse getForAdmin(@PathVariable Long id) {
         OrgFunction function = orgFunctionService.getForAdmin(id);
-        return OrgFunctionResponse.from(function, orgFunctionService.draftRevisionsOf(List.of(function)).get(function.getId()));
+        return OrgFunctionResponse.from(function, orgFunctionService.draftRevisionsOf(List.of(function)).get(function.getId()))
+                .withMachineTranslation(translations.summary(function));
     }
 
     /** Opens (or returns) the draft revision through which a published card is edited; the public version stays as is. */
@@ -87,14 +93,16 @@ public class OrgFunctionController {
     @PostMapping
     @PreAuthorize("hasAuthority('FUNCTIONS_CREATE')")
     public ResponseEntity<OrgFunctionResponse> create(@Valid @RequestBody CreateOrgFunctionRequest request) {
-        return ResponseEntity.status(201).body(OrgFunctionResponse.from(orgFunctionService.create(request)));
+        OrgFunction function = orgFunctionService.create(request);
+        return ResponseEntity.status(201).body(OrgFunctionResponse.from(function).withMachineTranslation(translations.summary(function)));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('FUNCTIONS_EDIT')")
     public ResponseEntity<OrgFunctionResponse> update(
             @PathVariable Long id, @Valid @RequestBody UpdateOrgFunctionRequest request) {
-        return ResponseEntity.ok(OrgFunctionResponse.from(orgFunctionService.update(id, request)));
+        OrgFunction function = orgFunctionService.update(id, request);
+        return ResponseEntity.ok(OrgFunctionResponse.from(function).withMachineTranslation(translations.summary(function)));
     }
 
     @PutMapping("/{id}/requirements")

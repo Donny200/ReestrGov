@@ -17,8 +17,17 @@ public record OrgFunctionResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL) Long revisionOfId,
         @JsonInclude(JsonInclude.Include.NON_NULL) RevisionSummary revision,
         @JsonInclude(JsonInclude.Include.NON_NULL) Instant lastUpdatedAt,
-        @JsonInclude(JsonInclude.Include.NON_NULL) AssigneeSummary assignee
+        @JsonInclude(JsonInclude.Include.NON_NULL) AssigneeSummary assignee,
+        /** Background translation state; staff responses only. */
+        @JsonInclude(JsonInclude.Include.NON_NULL) MachineTranslationSummary machineTranslation
 ) {
+    public OrgFunctionResponse withMachineTranslation(MachineTranslationSummary summary) {
+        return new OrgFunctionResponse(id, name, description, organizationId, requirements, category, active,
+                nameTranslations, descriptionTranslations, status, categoryId, sourceLanguage, instructions,
+                instructionTranslations, officialSourceUrl, lastVerifiedAt, verificationStatus, verifiedByUserId,
+                revisionOfId, revision, lastUpdatedAt, assignee, summary);
+    }
+
     /** Pending draft revision of a published card, as seen by staff. */
     public record RevisionSummary(Long id, FunctionStatus status) {
         public static RevisionSummary of(OrgFunction revision) {
@@ -53,6 +62,6 @@ public record OrgFunctionResponse(
                 ServiceInstructions.of(function),
                 function.getInstructionTranslations() == null ? Map.of() : function.getInstructionTranslations(),
                 function.getOfficialSourceUrl(), function.getLastVerifiedAt(),
-                function.verificationStatus(Instant.now()), verifiedByUserId, revisionOfId, revision, lastUpdatedAt, assignee);
+                function.verificationStatus(Instant.now()), verifiedByUserId, revisionOfId, revision, lastUpdatedAt, assignee, null);
     }
 }

@@ -10,6 +10,23 @@ export interface FunctionRevisionSummary {
   status: FunctionStatus;
 }
 
+export type MachineTranslationStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED' | 'SKIPPED';
+
+/** State of the background machine translation of a service, as reported on staff responses. */
+export interface MachineTranslationSummary {
+  /** A provider is configured and the background worker is enabled. */
+  automatic: boolean;
+  status?: MachineTranslationStatus | null;
+  attempts: number;
+  requestedAt?: string | null;
+  nextAttemptAt?: string | null;
+  finishedAt?: string | null;
+  /** Short, secret-free note from the last run (why it waits, what was skipped). */
+  lastError?: string | null;
+  /** Active languages that still lack a complete translation. */
+  missingLanguages: string[];
+}
+
 export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 'categoryId' | 'sourceLanguage'> {
   organizationId: number | null;
   categoryId: number | null;
@@ -21,6 +38,8 @@ export interface AdminFunction extends Omit<CatalogFunction, 'organizationId' | 
   revision?: FunctionRevisionSummary | null;
   /** Responsible staff member; absent on public responses. */
   assignee?: AssigneeSummary | null;
+  /** Background translation state; absent on public responses. */
+  machineTranslation?: MachineTranslationSummary | null;
 }
 
 /** Content can be changed in place only for drafts and deactivated services; published ones go through a revision. */

@@ -200,3 +200,29 @@ test('requirements-only authority retains its existing endpoint without allowing
   expect(fixture.requests.some(item => item.method === 'PUT' && item.path === '/api/functions/1/requirements')).toBe(true);
   expect(fixture.requests.some(item => item.method === 'PUT' && item.path === '/api/functions/1')).toBe(false);
 });
+
+test('background translation state is shown and a failed job can be queued again', async ({ page }) => {
+  const failed = { ...card(), machineTranslation: { automatic: true, status: 'FAILED' as const, attempts: 8, requestedAt: '2026-10-14T09:00:00Z',
+    finishedAt: '2026-10-15T07:00:00Z', lastError: 'Gave up after 8 attempts: Translator rate limit reached; retry later', missingLanguages: ['fr'] } };
+  const fixture = await setup(page, { records: [failed], autoAvailable: true });
+  await page.goto('/admin/functions/1');
+  await expect(page.getByText('Missing languages are translated automatically in the background', { exact: false })).toBeVisible();
+  const alert = page.getByRole('alert').filter({ hasText: 'Automatic translation failed' });
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText('Attempts: 8');
+  await expect(alert).toContainText('Translator rate limit reached');
+  await page.getByRole('button', { name: 'Queue again', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Queued for automatic translation' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Queue again', exact: true })).toHaveCount(0);
+  expect(fixture.requests.filter(request => request.method === 'POST' && request.path === '/api/functions/1/translation-job')).toHaveLength(1);
+  // The immediate button stays available for staff who do not want to wait for the worker.
+  await expect(page.getByRole('button', { name: 'Translate missing languages', exact: true })).toBeVisible();
+});
+
+test('without a background worker the panel offers only on-demand translation', async ({ page }) => {
+  await setup(page, { records: [card()], autoAvailable: true, autoAutomatic: false });
+  await page.goto('/admin/functions/1');
+  await expect(page.getByRole('button', { name: 'Translate missing languages', exact: true })).toBeVisible();
+  await expect(page.getByText('translated automatically in the background', { exact: false })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Queue again', exact: true })).toHaveCount(0);
+});

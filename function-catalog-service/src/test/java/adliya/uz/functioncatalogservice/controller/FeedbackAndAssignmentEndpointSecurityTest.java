@@ -50,6 +50,7 @@ class FeedbackAndAssignmentEndpointSecurityTest {
     @MockitoBean FunctionAssignmentService assignments;
     @MockitoBean OrgFunctionService functions;
     @MockitoBean PublicChangeService publicChanges;
+    @MockitoBean adliya.uz.functioncatalogservice.service.MachineTranslationQueue translations;
     @MockitoBean SimpleJwtService jwt;
 
     @Test void anonymousVisitorsMayVoteAndReadPublicHistoryButNotAssignments() throws Exception {

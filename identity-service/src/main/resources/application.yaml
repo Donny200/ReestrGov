@@ -55,10 +55,12 @@ app:
       enabled: ${PASSWORD_RESET_MAIL_ENABLED:false}
       from: ${PASSWORD_RESET_MAIL_FROM:}
   mfa:
-    # Second factor for SUPER_ADMIN and ORG_ADMIN accounts (TOTP). The key encrypts secrets at rest and is required
-    # while enabled; generate it with: openssl rand -base64 32. MFA_ENROLLMENT_DEADLINE (ISO-8601 instant) lets
-    # existing staff keep signing in with the password alone until that moment while being asked to enroll.
-    enabled: ${MFA_ENABLED:true}
+    # Second factor for SUPER_ADMIN and ORG_ADMIN accounts (TOTP). Disabled unless MFA_ENABLED=true; while disabled no
+    # encryption key is needed and enrollment data stays untouched in the database. When enabling (again), supply the
+    # MFA_ENCRYPTION_KEY that encrypted the existing secrets (openssl rand -base64 32 for a fresh installation).
+    # MFA_ENROLLMENT_DEADLINE (ISO-8601 instant) lets existing staff keep signing in with the password alone until
+    # that moment while being asked to enroll.
+    enabled: ${MFA_ENABLED:false}
     encryption-key: ${MFA_ENCRYPTION_KEY:}
     enrollment-deadline: ${MFA_ENROLLMENT_DEADLINE:}
     issuer: ${MFA_ISSUER:ReestrGov}

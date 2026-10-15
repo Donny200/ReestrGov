@@ -29,6 +29,7 @@
 9. [Устранение неполадок](#9-устранение-неполадок)
 10. [Стандарты чистого кода и участия в разработке](#10-стандарты-чистого-кода-и-участия-в-разработке)
 11. [Структура репозитория](#11-структура-репозитория)
+12. [Изменения от 15.10.2026: автоперевод, MFA, очистка](#12-изменения-от-15102026-автоперевод-mfa-очистка)
 
 ---
 
@@ -167,8 +168,9 @@ Docker Compose читает корневой `.env` автоматически. 
 | `POSTGRES_USER` | нет (по умолчанию `postgres`) | postgres, все сервисы с данными | Суперпользователь PostgreSQL, используемый init-скриптом и сервисами |
 | `POSTGRES_PASSWORD` | **да** | postgres, все сервисы с данными | Пароль для `POSTGRES_USER`. Compose отказывается запускаться без него |
 | `JWT_SECRET` | **да** | identity, reference, function-catalog | Общий ключ HMAC-SHA256. Должен быть не короче 32 байт (256 бит). Сгенерируйте с помощью `openssl rand -base64 48` |
-| `MFA_ENCRYPTION_KEY` | **да** (пока `MFA_ENABLED=true`) | identity-service | Base64-ключ в 32 байта (`openssl rand -base64 32`) для шифрования секретов TOTP. Без него identity-service не стартует. Не используйте `JWT_SECRET` повторно |
-| `MFA_ENABLED`, `MFA_ENROLLMENT_DEADLINE` | нет | identity-service | Второй фактор для `SUPER_ADMIN` и `ORG_ADMIN` (по умолчанию включён). Срок в ISO-8601 даёт существующим администраторам переходный период; см. [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md) |
+| `MFA_ENABLED` | нет (по умолчанию `false`) | identity-service | Второй фактор (TOTP) для `SUPER_ADMIN` и `ORG_ADMIN`. **В этом окружении отключён конфигурацией**: при `false` код не запрашивается, ключ не нужен, таблицы и данные enrollment сохраняются. `true` включает MFA снова; см. раздел 12 и [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md) |
+| `MFA_ENCRYPTION_KEY` | только при `MFA_ENABLED=true` | identity-service | Base64-ключ в 32 байта (`openssl rand -base64 32`) для шифрования секретов TOTP; без него включённый MFA не даёт identity-service стартовать. При повторном включении нужен **тот же** ключ, которым зашифрованы существующие enrollment. Не используйте `JWT_SECRET` повторно |
+| `MFA_ENROLLMENT_DEADLINE` | нет | identity-service | Срок в ISO-8601, до которого существующие администраторы могут входить без второго фактора (только при включённом MFA) |
 | `APP_COOKIE_SECURE` | **да** | identity-service | `false` для локального HTTP-стека за same-origin прокси Nginx, `true` для любого HTTPS-развёртывания |
 | `APP_COOKIE_SAME_SITE` | **да** | identity-service | `Lax` для same-origin конфигураций, `None` (вместе с `APP_COOKIE_SECURE=true`), когда SPA обслуживается с другого источника |
 | `BOOTSTRAP_SUPER_ADMIN_EMAIL` | только при первом запуске | identity-service | E-mail начального `SUPER_ADMIN`. Обязателен, пока в базе identity нет пользователя с `ROLE_SUPER_ADMIN` |
@@ -178,9 +180,10 @@ Docker Compose читает корневой `.env` автоматически. 
 | `PASSWORD_RESET_MAIL_FROM` | нет | identity-service | Адрес отправителя писем со ссылкой сброса |
 | `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | нет | identity-service | SMTP-сервер для писем сброса пароля (стандартные свойства Spring `spring.mail.*`) |
 | `PASSWORD_RESET_TOKEN_TTL` | нет | identity-service | Срок действия одноразовой ссылки сброса, ISO-8601 (по умолчанию `PT60M`) |
-| `AZURE_TRANSLATOR_ENDPOINT` | нет | function-catalog-service | Endpoint Azure Translator; пустое значение отключает автоматический перевод |
-| `AZURE_TRANSLATOR_KEY` | нет | function-catalog-service | Ключ Azure Translator |
-| `AZURE_TRANSLATOR_REGION` | нет | function-catalog-service | Регион Azure Translator |
+| `AZURE_TRANSLATOR_ENDPOINT` | нет | function-catalog-service | Endpoint Azure Translator (например `https://api.cognitive.microsofttranslator.com`). Пока любое из трёх значений пусто, автоматический перевод не выполняется: содержимое сохраняется и ждёт в очереди, редактор видит «Автоматический перевод недоступен» |
+| `AZURE_TRANSLATOR_KEY` | нет | function-catalog-service | Ключ ресурса Azure Translator. Читается только из окружения/`.env`, никогда не логируется и не попадает в ответы API |
+| `AZURE_TRANSLATOR_REGION` | нет | function-catalog-service | Регион ресурса Azure Translator |
+| `CATALOG_TRANSLATION_ENABLED` | нет (по умолчанию `true`) | function-catalog-service | `false` приостанавливает фоновый воркер перевода; задачи копятся в `translation_jobs` и выполняются после включения (см. [docs/machine-translation.md](docs/machine-translation.md)) |
 | `IDENTITY_DB_PASSWORD` | нет | identity-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы identity |
 | `REFERENCE_DB_PASSWORD` | нет | reference-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы reference |
 | `FUNCTION_CATALOG_DB_PASSWORD` | нет | function-catalog-service вне Compose | Переопределяет `POSTGRES_PASSWORD` для базы каталога |
@@ -218,9 +221,16 @@ APP_COOKIE_SAME_SITE=Lax
 BOOTSTRAP_SUPER_ADMIN_EMAIL=admin@example.uz
 BOOTSTRAP_SUPER_ADMIN_PASSWORD=REPLACE_WITH_A_LONG_RANDOM_INITIAL_PASSWORD
 
+# MFA отключён; для включения задайте true и ТОТ ЖЕ ключ, которым зашифрованы существующие enrollment
+MFA_ENABLED=false
+MFA_ENCRYPTION_KEY=
+MFA_ENROLLMENT_DEADLINE=
+
+# Azure Translator: пустые значения = перевод ждёт в очереди; заполните из портала Azure, не коммитьте
 AZURE_TRANSLATOR_ENDPOINT=
 AZURE_TRANSLATOR_KEY=
 AZURE_TRANSLATOR_REGION=
+CATALOG_TRANSLATION_ENABLED=true
 ```
 
 ---
@@ -344,7 +354,7 @@ npm run preview      # serve dist/ locally
 - **Один общий HMAC-ключ.** identity-service подписывает токены ключом `JWT_SECRET`; reference-service и function-catalog-service проверяют их локально тем же ключом, поэтому сетевой вызов на каждый запрос не требуется.
 - **Обязательная смена пароля.** Подписанный токен содержит `mustChangePassword`. identity-service ограничивает такие сессии профилем, сменой пароля, выходом и входом; остальные сервисы отклоняют токены, у которых этот флаг равен true или отсутствует. Успешная смена выдаёт новые cookie.
 - **Отключённые пользователи отклоняются** на уровне JWT-фильтра, даже если у них есть действительный токен.
-- **Второй фактор и сессии.** `SUPER_ADMIN` и `ORG_ADMIN` после пароля подтверждают вход TOTP-кодом (или кодом восстановления); до этого браузер держит только одноразовый challenge-cookie с путём `/api/auth/mfa`, а access/refresh не выдаются. Секреты шифруются `MFA_ENCRYPTION_KEY`, коды восстановления хранятся как хэши. Пользователь видит и завершает свои сессии (`/api/auth/sessions`), `SUPER_ADMIN` — сессии любого пользователя с аудитом; access-токен несёт `sid` и отклоняется identity-service сразу после отзыва (см. [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md)).
+- **Второй фактор и сессии.** Второй фактор отключён конфигурацией (`MFA_ENABLED=false` по умолчанию в `application.yaml`, `docker-compose.yml` и `.env.example`); код, миграция `V5` и таблицы сохранены, включение описано в разделе 12. При `MFA_ENABLED=true` `SUPER_ADMIN` и `ORG_ADMIN` после пароля подтверждают вход TOTP-кодом (или кодом восстановления); до этого браузер держит только одноразовый challenge-cookie с путём `/api/auth/mfa`, а access/refresh не выдаются. Секреты шифруются `MFA_ENCRYPTION_KEY`, коды восстановления хранятся как хэши. Пользователь видит и завершает свои сессии (`/api/auth/sessions`), `SUPER_ADMIN` — сессии любого пользователя с аудитом; access-токен несёт `sid` и отклоняется identity-service сразу после отзыва (см. [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md)).
 - **Сброс пароля без раскрытия паролей.** Пароли хранятся только как BCrypt-хэши; ни один endpoint не показывает, не генерирует и не логирует пароль. `SUPER_ADMIN` вызывает `POST /api/user/{id}/password-reset` и получает одноразовую ссылку ровно один раз (в базе остаётся только SHA-256 хэш токена, инициатор, цель и время); пользователь задаёт новый пароль через `/reset-password?token=…`. Токен случайный (256 бит), одноразовый, живёт `PASSWORD_RESET_TOKEN_TTL`, новый сброс аннулирует предыдущие. Успешный сброс (и обычная смена пароля) записывает `credentials_updated_at`: refresh-токены отзываются, а access-токены, выпущенные раньше, отклоняются. «Забыли пароль?» появляется только при настроенной SMTP-доставке (`PASSWORD_RESET_MAIL_ENABLED`), ответ не раскрывает существование учётной записи; запросы и попытки ввода токена ограничены по частоте (на клиента по `X-Real-IP` и глобально).
 - **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW` или `ORG_REPORTS_MANAGE`, а их статус меняется с `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`. Панель организации, очередь качества, напоминания и выгрузки требуют `ORG_ANALYTICS_VIEW`. Все проверки и ограничение по организации выполняются на бэкенде (см. [docs/organization-analytics.md](docs/organization-analytics.md)). Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации; отметка означает внутреннюю проверку организацией (с указанием сотрудника и даты), а не официальное подтверждение, и не требует внешней ссылки. Опубликованная карточка редактируется только через черновую редакцию (`POST /api/functions/{id}/revisions`, `FUNCTIONS_EDIT` в пределах своей организации; `SUPER_ADMIN` и `FUNCTIONS_MANAGE_ANY_ORGANIZATION` — для любой), публичная версия меняется только при публикации редакции рецензентом (см. [docs/function-editorial-workflow.md](docs/function-editorial-workflow.md)).
 - **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports` и `POST /api/analytics/events`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза 8082 не следует публиковать в production, иначе клиент сможет подменить `X-Real-IP` в обход Nginx.
@@ -367,7 +377,8 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 | --- | --- | --- |
 | identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена | нет |
 | reference-service | Модульные тесты и тесты веб-слоя | нет |
-| function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
+| function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest`, `FunctionRevisionPostgresTest`, `PublicHistoryAssignmentFeedbackPostgresTest`, `MachineTranslationPostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
+| api-gateway, eureka-server | Тестов нет; `mvn test` только компилирует модуль | нет |
 
 ```shell
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
@@ -491,13 +502,12 @@ ReestrGov/
 ├── reference-service/           Regions, interface translations, translation keys
 ├── function-catalog-service/    Service catalog, editorial workflow, categories, audit, translation
 ├── front/                       React 18 + Vite 8 SPA, Nginx image, Playwright tests
-├── docs/                        Functional specifications (admin functions UI, editorial workflow)
+├── docs/                        Functional specifications (admin functions UI, editorial workflow, machine translation, MFA)
 ├── docker-compose.yml           Full stack: postgres, eureka, 3 services, gateway, front
 ├── init-multiple-dbs.sh         Creates the three databases on first PostgreSQL start
 ├── .env.example                 Template for the local environment file
 ├── pom.xml                      Maven aggregator for the five Java modules
 ├── frontend-pages-api.json      Historical page-to-endpoint map used during frontend planning
-├── section3.patch, .section3-*  Archived snapshot of an earlier security iteration; not part of the build
 └── README.md
 ```
 
@@ -508,4 +518,107 @@ ReestrGov/
 - `docs/public-catalog-enhancements.md` описывает структурированные инструкции, контакты организаций, подбор услуг, сообщения об ошибках, проверку по официальному источнику, сохранение, печать и отправку ссылок.
 - `docs/public-search-and-visitor-tools.md` описывает многоязычный поиск (правила нормализации и транслитерации), сравнение услуг, чек-лист подготовки, публичную историю изменений и отзывы «Была ли информация полезной?».
 - `docs/mfa-sessions-and-assignments.md` описывает второй фактор, управление сессиями, ответственных сотрудников карточек и право `FUNCTIONS_ASSIGN`.
+- `docs/machine-translation.md` описывает фоновую очередь автоматического перевода (Azure Translator), правила замены переводов, повторы и backfill.
 - `front/README.md` содержит заметки по развёртыванию, специфичные для фронтенда.
+
+---
+
+## 12. Изменения от 15.10.2026: автоперевод, MFA, очистка
+
+### Что изменилось
+
+**Автоматический перевод (function-catalog-service, front).** Раньше Azure вызывался только по клику редактора или при
+переходе на страницу карточки сразу после создания; импорт, сиды и API оставляли карточки без переводов, а сиды
+обращались к Azure при каждом запуске для жёстко заданных `en`/`uz`. Теперь:
+
+- создание и изменение карточки (`POST/PUT /api/functions`), CSV-импорт, редакционные сиды и категории ставят запись
+  в очередь `translation_jobs` (миграция `V9__translation_jobs.sql`, колонка `function_categories.source_language`);
+- фоновый воркер (`catalog.translation.*`: первый тик через 30 с, далее каждые 20 с, по 5 задач) переводит название,
+  описание, все поля инструкций и названия категорий **во все активные языки** из identity-service
+  (`GET /api/languages`), исключая исходный язык; жёстко заданного списка языков больше нет;
+- заполняются только отсутствующие переводы; ручные и уже существующие машинные переводы не заменяются. Машинный
+  перевод заменяется только когда редактор меняет исходный текст поля или нажимает «Перегенерировать»;
+- оригинал сохраняется всегда; при тайм-ауте, 429, 5xx или недоступности identity-service задача ждёт с отсрочкой
+  (1 мин → 5 мин → 15 мин → 1 ч → 6 ч), после 8 попыток — `FAILED` с кнопкой «Поставить в очередь снова»
+  (`POST /api/functions/{id}/translation-job`). Перезапуск сервиса не создаёт повторных вызовов провайдера;
+- `POST /api/functions/translations/backfill?organizationId=&limit=` — ограниченный, идемпотентный backfill только для
+  черновиков с недостающими языками; при старте массовых вызовов Azure нет;
+- редактор карточки показывает состояние задачи (в очереди / выполняется / завершена / не удалась / пропущена),
+  следующую попытку, число попыток и заметку, и опрашивает запись каждые 10 с, пока задача открыта;
+- один HTTP-запрос к Azure на набор недостающих языков (до 25 текстов), 429 отличается от прочих ошибок.
+  Подробности: [docs/machine-translation.md](docs/machine-translation.md).
+
+**MFA (identity-service).** Второй фактор отключён конфигурацией: `MFA_ENABLED` по умолчанию `false` в
+`MfaProperties`, `application.yaml`, `docker-compose.yml` и `.env.example`. При отключённом MFA ключ шифрования не
+требуется, сервис стартует без него, вход выдаёт полную сессию сразу после пароля, `GET /api/auth/mfa` отвечает
+`enabled=false`. Код MFA, миграция `V5__mfa_and_sessions.sql`, таблицы `user_mfa`, `mfa_recovery_codes`,
+`mfa_challenges`, `security_audit_events` и уже существующие enrollment не удалялись.
+
+**Очистка.** Удалены из репозитория `.section3-git/` (21 файл), `.section3-work/` (315 файлов), `.section3.index`,
+`section3.patch` и `.vscode/` (одна настройка Postman). Это архивный снимок более ранней, не применённой итерации
+безопасности (интроспекция токенов в шлюзе, CSRF-фильтры): ни один файл не участвовал в сборке, ссылок из кода нет,
+worktree или вложенных `.git` не было, патч не накладывается на текущий код. Уникальное содержимое остаётся в истории
+Git (коммиты `fb80438`, `e4435bf`): `git show fb80438:.section3-work/<путь>`. `frontend-pages-api.json` оставлен —
+на него ссылается `identity-service/API_USER_MIGRATION.md`. Оптимизация: `ActiveLanguageClient` больше не роняет
+административные ответы, когда identity-service не зарегистрирован в Eureka (использует кэш/пустой результат).
+
+### Как запустить
+
+1. `cp .env.example .env`, заполните `POSTGRES_PASSWORD`, `JWT_SECRET`, `BOOTSTRAP_SUPER_ADMIN_*`
+   (раздел 4). `MFA_ENABLED=false` уже стоит; ключ MFA не нужен.
+2. Для автоперевода впишите `AZURE_TRANSLATOR_ENDPOINT`, `AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION` из портала
+   Azure (ресурс Translator). `.env` игнорируется Git; значения не должны попадать в коммиты, логи и тикеты.
+3. `docker compose up --build -d` (раздел 5) или запуск из IDE (раздел 6). Существующие тома не трогаются: Flyway
+   применяет `V9` каталога и `V9` reference-service поверх текущих данных.
+4. После старта воркер начнёт переводить новые/изменённые карточки. Для старых черновиков без переводов выполните
+   один раз от имени `SUPER_ADMIN` (или редактора с `FUNCTIONS_EDIT` + `FUNCTIONS_TRANSLATIONS_EDIT`):
+   `POST /api/functions/translations/backfill?limit=50` — повторяйте, пока `queued` не станет 0.
+5. Чтобы включить MFA снова: `MFA_ENABLED=true` и `MFA_ENCRYPTION_KEY` = тот же ключ, которым были зашифрованы
+   существующие enrollment (иначе их нельзя расшифровать; сначала сбросьте их через `POST /api/user/{id}/mfa/reset`
+   или удалите строки `user_mfa`). Для новой установки: `openssl rand -base64 32`. При необходимости задайте
+   `MFA_ENROLLMENT_DEADLINE`; затем пересоздайте только identity-service: `docker compose up -d --build identity-service`.
+
+### Проверки, выполненные 15.10.2026
+
+| Проверка | До изменений | После изменений |
+| --- | --- | --- |
+| `identity-service` `mvn test` | 156 тестов, 0 ошибок | 156 тестов, 0 ошибок |
+| `reference-service` `mvn test` | 24, 0 ошибок | 24, 0 ошибок |
+| `function-catalog-service` `mvn test` (Testcontainers PostgreSQL 16) | 206, 0 ошибок | 215, 0 ошибок (новые: `MachineTranslationPostgresTest` ×8, пакетный запрос и 429 в `AzureTranslationClientTest`) |
+| `api-gateway`, `eureka-server` `mvn test` | компиляция, тестов нет | компиляция, тестов нет |
+| `front`: `npm run typecheck`, `npm run lint` | без ошибок | без ошибок, 0 предупреждений |
+| `front`: `npm run build` | успешно | успешно |
+| `front`: `npm run test` (Playwright, Chromium) | 56 сценариев | 58 сценариев, 0 ошибок |
+| `docker compose config` | — | валиден (`MFA_ENABLED=false`, `CATALOG_TRANSLATION_ENABLED` передаётся в каталог) |
+
+Живой запуск (jar-файлы eureka-server, identity-service и function-catalog-service против одноразового контейнера
+PostgreSQL 16 на порту 55432, без касания существующих томов; контейнер удалён после проверки):
+
+- identity-service стартовал **без `MFA_ENCRYPTION_KEY`**, Flyway дошёл до `V5`; вход `SUPER_ADMIN` вернул 200 и cookie
+  сессии (не 202 с challenge), `/api/auth/me` → `mfa.required=false`, `/api/auth/mfa` → `enabled=false`; смена
+  обязательного пароля прошла;
+- function-catalog-service применил `V9`, воркер поставил в очередь 8 редакционных черновиков и 7 категорий и перевёл
+  их в `en`/`uz` (активные языки identity-service: `en`, `ru`, `uz`; исходный `ru` исключён). Первая попытка не
+  удалась из-за ошибки самой заглушки (она не читала chunked-тело запроса), после чего воркер, как и задумано,
+  повторил задачи через 1 минуту и завершил их;
+- созданная через API карточка (`en`, с инструкциями): ручной перевод названия на `ru`, добавленный до тика воркера,
+  сохранён как `human`; `uz` и остальные поля заполнены как `machine` двумя запросами к провайдеру (1 и 4 текста);
+  запись аудита `system:machine-translation`; `machineTranslation.status=DONE` в административном ответе;
+- карточка, для которой провайдер отвечает 429: `status=PENDING`, `attempts=1`, следующая попытка через 5 минут,
+  `lastError` «rate limit»; `POST …/translation-job` → 202 и обнулённый счётчик; `GET /api/functions/{id}` черновика —
+  404, без полей перевода; ключ провайдера в логах не встречается.
+
+**Ограничение.** Провайдером в живом запуске служила локальная заглушка протокола Azure Translator
+(`/translate?api-version=3.0`), потому что настоящих учётных данных в окружении и `.env` нет. Реальный вызов Azure не
+проверялся. Чтобы проверить его, задайте три переменные `AZURE_TRANSLATOR_*`, создайте один тестовый черновик и
+убедитесь через `GET /api/functions/{id}/admin`, что `machineTranslation.status=DONE`, а `missingLanguages` пуст; затем
+удалите черновик или оставьте его неопубликованным.
+
+### Оставшиеся ручные шаги
+
+- Заполнить `AZURE_TRANSLATOR_ENDPOINT`, `AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION` в `.env` рабочего окружения
+  и пересоздать function-catalog-service (`docker compose up -d --build function-catalog-service`).
+- Запустить backfill для существующих черновиков (п. 4 выше).
+- Проверить, что в CI/на сервере после `git pull` выполняется `docker compose up --build`, чтобы применились новые
+  миграции и образы.
+- Решить, когда включать MFA в production, и сохранить ключ шифрования в менеджере секретов.

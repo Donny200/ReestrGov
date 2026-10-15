@@ -14,6 +14,7 @@ import {
   getFunctionAudit,
   getFunctionCategories,
   getTranslationCapabilities,
+  requeueTranslation,
   saveFunctionTranslation,
   transitionFunction,
   translateFunction,
@@ -38,8 +39,19 @@ import { analyticsKeys, functionKeys } from '../queryKeys';
 export const useAdminFunctions = (enabled = true) =>
   useQuery({ queryKey: functionKeys.admin(), queryFn: getAdminFunctions, enabled });
 
+const POLL_WHILE_TRANSLATING_MS = 10_000;
+
 export const useAdminFunction = (id: number) =>
-  useQuery({ queryKey: functionKeys.detail(id), queryFn: () => getAdminFunction(id), enabled: Number.isFinite(id) });
+  useQuery({
+    queryKey: functionKeys.detail(id),
+    queryFn: () => getAdminFunction(id),
+    enabled: Number.isFinite(id),
+    // While the background worker still owes this service a translation, refresh so staff see it land.
+    refetchInterval: (query) => {
+      const status = query.state.data?.machineTranslation?.status;
+      return status === 'PENDING' || status === 'RUNNING' ? POLL_WHILE_TRANSLATING_MS : false;
+    },
+  });
 
 export const useFunctionCategories = () =>
   useQuery({ queryKey: functionKeys.categories(), queryFn: getFunctionCategories, staleTime: 5 * 60_000 });
@@ -136,6 +148,19 @@ export const useDiscardFunctionRevision = (id: number) =>
 export const useAutoTranslateFunction = (id: number) =>
   useFunctionMutation(({ languages, overwriteMachine }: { languages: string[]; overwriteMachine: boolean }) =>
     translateFunction(id, languages, overwriteMachine));
+
+/** Re-queues the background translation and reflects the new job state on the cached record. */
+export function useRequeueTranslation(id: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => requeueTranslation(id),
+    onSuccess: async (summary) => {
+      client.setQueryData<AdminFunction>(functionKeys.detail(id), (current) =>
+        current ? { ...current, machineTranslation: summary } : current);
+      await client.invalidateQueries({ queryKey: functionKeys.admin() });
+    },
+  });
+}
 
 function useAssignmentMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<AdminFunction>) {
   const client = useQueryClient();

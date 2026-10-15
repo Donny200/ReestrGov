@@ -46,6 +46,30 @@ class AzureTranslationClientTest {
                 .hasMessageNotContaining("sensitive-provider-body").hasMessageNotContaining("test-only");
         server.verify();
     }
+    @Test void batchSendsEveryTextInOneRequestAndKeepsOrder() {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://translator.example/translate?api-version=3.0&from=en&to=ru&to=uz"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("[{\"Text\":\"Name\"},{\"Text\":\"Description\"}]"))
+                .andRespond(withSuccess("[{\"translations\":[{\"to\":\"ru\",\"text\":\"Имя\"},{\"to\":\"uz\",\"text\":\"Nom\"}]},"
+                        + "{\"translations\":[{\"to\":\"ru\",\"text\":\"Описание\"}]}]", MediaType.APPLICATION_JSON));
+        var result = new AzureTranslationClient(properties(), builder.build()).translateBatch(List.of("Name", "Description"), "en", List.of("ru", "uz", "en"));
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0)).containsEntry("ru", "Имя").containsEntry("uz", "Nom");
+        assertThat(result.get(1)).containsOnlyKeys("ru");
+        server.verify();
+    }
+    @Test void rateLimitIsReportedAsSuchSoTheQueueBacksOffLonger() {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(anything()).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                new AzureTranslationClient(properties(), builder.build()).translateBatch(List.of("Text"), "en", List.of("ru")))
+                .isInstanceOfSatisfying(adliya.uz.functioncatalogservice.exception.TranslationUnavailableException.class,
+                        e -> assertThat(e.status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+        server.verify();
+    }
     private AzureTranslatorProperties properties() {
         var p = new AzureTranslatorProperties(); p.setEndpoint("https://translator.example"); p.setKey("test-only"); p.setRegion("test-region"); return p;
     }

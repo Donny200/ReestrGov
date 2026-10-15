@@ -14,8 +14,11 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "app.mfa")
 public class MfaProperties {
-    /** Master switch. When false, no second factor is required or offered (not recommended outside local development). */
-    private boolean enabled = true;
+    /**
+     * Master switch (MFA_ENABLED). Off by default: no second factor is required or offered and no encryption key is
+     * needed. Switch it on for production and supply the same MFA_ENCRYPTION_KEY that encrypted existing enrollments.
+     */
+    private boolean enabled = false;
     /** Base64-encoded 32-byte key that encrypts TOTP secrets at rest (MFA_ENCRYPTION_KEY). Required when enabled. */
     private String encryptionKey = "";
     /** Roles that must complete a second factor before receiving a full session. */

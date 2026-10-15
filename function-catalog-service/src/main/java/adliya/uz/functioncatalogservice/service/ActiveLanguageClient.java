@@ -45,7 +45,8 @@ public class ActiveLanguageClient {
             }
             snapshot = new Snapshot(now, codes);
             return Optional.of(codes);
-        } catch (RestClientException exception) {
+        } catch (RestClientException | IllegalStateException exception) {
+            // Transport failure or no registered identity-service instance: fall back to the cached list, if any.
             return Optional.ofNullable(current).map(Snapshot::codes);
         }
     }

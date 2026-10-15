@@ -44,6 +44,8 @@ export function card(id = 1, status: AdminFunction['status'] = 'DRAFT'): AdminFu
 export interface FixtureOptions {
   records?: AdminFunction[]; permissions?: string[]; role?: string; selfServiceReset?: boolean; legacyUsers?: LegacyUserApi[];
   autoAvailable?: boolean; realBackend?: string; token?: string;
+  /** Background translation worker enabled (defaults to autoAvailable). */
+  autoAutomatic?: boolean;
   organizations?: Organization[]; regions?: Region[]; reports?: InformationReport[]; anonymous?: boolean;
   summary?: OrganizationSummary; engagement?: EngagementReport; qualityQueue?: QualityQueue; reminders?: QualityReminder[];
   organizationIds?: number[];
@@ -331,7 +333,8 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       return reply({ counts: { assigned: items.filter(i => i.state === 'ASSIGNED').length, unassigned: items.filter(i => i.state === 'UNASSIGNED').length,
         needsReassignment: items.filter(i => i.state === 'NEEDS_REASSIGNMENT').length }, membersChecked: true, items: items.filter(i => !wanted || i.state === wanted) });
     }
-    if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false });
+    if (path === '/api/functions/translation-capabilities') return reply({ available: options.autoAvailable ?? false, automatic: options.autoAutomatic ?? options.autoAvailable ?? false });
+    if (path === '/api/functions/translations/backfill') return reply({ examined: 0, queued: 0, alreadyQueued: 0, limit: 50, limitReached: false }, 202);
     if (path === '/api/functions/admin') return permissions.includes('FUNCTIONS_VIEW') ? reply(records.map(withRevision)) : reply({}, 403);
     if (path === '/api/functions' && method === 'GET') return reply(records.filter(item => item.status === 'PUBLISHED'));
     if (path === '/api/functions' && method === 'POST') {
@@ -347,6 +350,11 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     if (!record) return reply({ message: 'Not found' }, 404);
     const action = match[2];
     if (action === 'admin') return reply(withRevision(record));
+    if (action === 'translation-job' && method === 'POST') {
+      if (!permissions.includes('FUNCTIONS_TRANSLATIONS_EDIT')) return reply({ message: 'Forbidden' }, 403);
+      record.machineTranslation = { automatic: true, status: 'PENDING', attempts: 0, requestedAt: '2026-10-15T08:00:00Z', nextAttemptAt: '2026-10-15T08:00:00Z', lastError: null, missingLanguages: record.machineTranslation?.missingLanguages ?? [] };
+      return reply(record.machineTranslation, 202);
+    }
     if (action === 'history' && method === 'GET') return record.status === 'PUBLISHED' ? reply(publicHistory[record.id] ?? []) : reply({ message: 'Not found' }, 404);
     if (action === 'assignee/candidates') {
       if (!permissions.includes('FUNCTIONS_ASSIGN')) return reply({ message: 'Forbidden' }, 403);

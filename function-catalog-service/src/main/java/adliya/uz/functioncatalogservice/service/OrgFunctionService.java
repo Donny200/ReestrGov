@@ -13,6 +13,7 @@ import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
+import adliya.uz.functioncatalogservice.entity.TranslationTarget;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
 import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
@@ -62,6 +63,7 @@ public class OrgFunctionService {
     private final IdentityOrganizationClient organizations;
     private final ReportReviewService reports;
     private final PublicChangeService publicChanges;
+    private final MachineTranslationQueue translations;
 
     public List<OrgFunction> getAll() {
         return orgFunctionRepository.findAllByStatus(PUBLISHED);
@@ -121,6 +123,7 @@ public class OrgFunctionService {
         OrgFunction function = newDraft(request);
         orgFunctionRepository.saveAndFlush(function);
         audit.function(function, AuditAction.CREATE, "Draft created");
+        translations.enqueue(TranslationTarget.FUNCTION, function.getId());
         return function;
     }
 
@@ -249,7 +252,11 @@ public class OrgFunctionService {
         if (!changed.isEmpty()) {
             recordChange(function, changed);
         }
-        return orgFunctionRepository.saveAndFlush(function);
+        OrgFunction saved = orgFunctionRepository.saveAndFlush(function);
+        if (nameChanged || descriptionChanged || languageChanged || !instructionsChanged.isEmpty()) {
+            translations.enqueue(TranslationTarget.FUNCTION, saved.getId());
+        }
+        return saved;
     }
 
     @Transactional
@@ -414,6 +421,9 @@ public class OrgFunctionService {
         function.setStatus(to);
         orgFunctionRepository.saveAndFlush(function);
         audit.function(function, action, reason == null ? from + " -> " + to : reason);
+        if (to == DRAFT) {
+            translations.resume(TranslationTarget.FUNCTION, function.getId());
+        }
         return function;
     }
 
@@ -423,6 +433,7 @@ public class OrgFunctionService {
         auditLogs.copyFunctionLinks(revision.getId(), published.getId());
         auditLogs.deleteFunctionLinks(revision.getId());
         reminders.deleteAllByFunctionId(revision.getId());
+        translations.remove(TranslationTarget.FUNCTION, revision.getId());
         orgFunctionRepository.delete(revision);
         orgFunctionRepository.flush();
     }

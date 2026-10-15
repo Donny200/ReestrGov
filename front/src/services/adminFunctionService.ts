@@ -7,6 +7,7 @@ import type {
   FunctionAuditEntry,
   FunctionCategory,
   FunctionTransition,
+  MachineTranslationSummary,
   UpdateFunctionRequest,
 } from '../types/adminFunctions';
 
@@ -65,7 +66,11 @@ export const assignFunction = (id: number, userId: number) =>
 export const unassignFunction = (id: number) => apiRequest<AdminFunction>(`/api/functions/${id}/assignee`, { method: 'DELETE' });
 
 export const getTranslationCapabilities = () =>
-  apiRequest<{ available: boolean }>('/api/functions/translation-capabilities');
+  apiRequest<{ available: boolean; automatic: boolean }>('/api/functions/translation-capabilities');
+
+/** Puts the service back on the background translation queue (after a failed or skipped run). */
+export const requeueTranslation = (id: number) =>
+  apiRequest<MachineTranslationSummary>(`/api/functions/${id}/translation-job`, { method: 'POST' });
 
 export const translateFunction = (id: number, languages: string[], overwriteMachine = false) =>
   apiRequest<AdminFunction>(`/api/functions/${id}/translate`, { method: 'POST', body: { languages, overwriteMachine } });
