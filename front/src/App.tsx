@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Loader2Icon } from 'lucide-react';
 import { queryClient } from './lib/queryClient';
@@ -22,8 +22,7 @@ const OrganizationDetail = lazy(() => import('./pages/OrganizationDetail').then(
 const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module) => ({ default: module.FunctionDetail })));
 const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
 const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
-const HelpCenter = lazy(() => import('./pages/HelpCenter').then((module) => ({ default: module.HelpCenter })));
-const HelpConversation = lazy(() => import('./pages/HelpConversation').then((module) => ({ default: module.HelpConversation })));
+const Support = lazy(() => import('./pages/Support').then((module) => ({ default: module.Support })));
 const VisitorQuestions = lazy(() => import('./pages/admin/VisitorQuestions').then((module) => ({ default: module.VisitorQuestions })));
 const MfaChallenge = lazy(() => import('./pages/MfaChallenge').then((module) => ({ default: module.MfaChallenge })));
 const Reports = lazy(() => import('./pages/admin/Reports').then((module) => ({ default: module.Reports })));
@@ -61,6 +60,12 @@ function RouteLoading() {
   );
 }
 
+/** Earlier links to the question form (/help?service=…) open the support thread with the same subject. */
+function LegacyHelpRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/support${search}`} replace />;
+}
+
 function PageBoundary({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
 }
@@ -81,8 +86,9 @@ export function App() {
                       <Route path="/functions/:id" element={<PageBoundary><FunctionDetail /></PageBoundary>} />
                       <Route path="/finder" element={<PageBoundary><ServiceFinder /></PageBoundary>} />
                       <Route path="/saved" element={<PageBoundary><SavedServices /></PageBoundary>} />
-                      <Route path="/help" element={<PageBoundary><HelpCenter /></PageBoundary>} />
-                      <Route path="/help/conversation" element={<PageBoundary><HelpConversation /></PageBoundary>} />
+                      <Route path="/support" element={<PageBoundary><Support /></PageBoundary>} />
+                      <Route path="/help" element={<LegacyHelpRedirect />} />
+                      <Route path="/help/conversation" element={<Navigate to="/support" replace />} />
                       <Route path="*" element={<PageBoundary><NotFound /></PageBoundary>} />
                     </Route>
 

@@ -24,7 +24,7 @@ test('the removed service comparison leaves no controls, links or route behind',
   await expect(page.getByRole('button', { name: /^Compare/ })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: /Compare/ })).toHaveCount(0);
   await expect(page.getByRole('contentinfo').getByRole('link', { name: /Compare/ })).toHaveCount(0);
-  await expect(nav.getByRole('link', { name: 'Ask a question' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
 
   await page.goto('/functions/1');
   await expect(page.getByRole('heading', { level: 1, name: 'Service 1' })).toBeVisible();

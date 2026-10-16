@@ -11,10 +11,12 @@ import java.time.Instant;
 public class HelpConversation {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    /** SHA-256 (hex) of the visitor's access token; the token itself is never stored. */
-    @Column(nullable = false, unique = true, length = 64)
+    /** Legacy (V11) per-conversation access token hash; support-chat conversations belong to a guest instead. */
+    @Column(unique = true, length = 64)
     private String accessTokenHash;
-    /** Published service the question is about; null for a general question. */
+    /** Support identity (anonymous browser or signed-in account) that owns the thread; null once it expired. */
+    private Long guestId;
+    /** Service most recently discussed in this conversation; null for central support without a service. */
     private Long functionId;
     /** Responsible organization (from the service); null routes the question to global staff. */
     private Long organizationId;
@@ -28,7 +30,7 @@ public class HelpConversation {
     private Long assignedUserId;
     @Column(length = 320)
     private String assignedUserName;
-    /** Optional, only for reply notifications; never shown to staff and cleared on close. */
+    /** Legacy (V11) notification address; the support chat keeps the optional contact on the guest instead. */
     @Column(length = 254)
     private String notifyEmail;
     @Column(nullable = false)
@@ -38,6 +40,8 @@ public class HelpConversation {
     @Column(nullable = false)
     private Instant lastVisitorMessageAt;
     private Instant lastStaffReplyAt;
+    /** Latest visitor or staff message; orders the inbox. */
+    private Instant lastMessageAt;
     private Instant closedAt;
     @Version
     private Long version;

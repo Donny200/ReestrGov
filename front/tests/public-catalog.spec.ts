@@ -164,32 +164,32 @@ test('guided finder shows only published services and recovers from an empty res
   expect(writes(fixture.requests)).toEqual([]);
 });
 
-test('anonymous visitor reports a problem with validation, privacy notice and rate-limit feedback', async ({ page }) => {
+test('anonymous visitor reports a problem in the support thread with validation, privacy notice and rate-limit feedback', async ({ page }) => {
   const fixture = await setup(page, { anonymous: true, records: [structuredCard()] });
   await openPublic(page, '/functions/1');
   await page.getByRole('button', { name: 'Report a problem' }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Reports are private and never change the page automatically', { exact: false })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Send report' }).click();
-  await expect(dialog.getByRole('alert').filter({ hasText: 'This field is required' })).toBeVisible();
-  await expect(dialog.getByRole('alert').filter({ hasText: 'Describe the problem in at least 10 characters' })).toBeVisible();
-  await dialog.getByLabel('What is wrong?').click();
+  await expect(page).toHaveURL(/\/support\?service=1&report=1$/);
+  await expect(page.getByText('Do not send passwords', { exact: false })).toBeVisible();
+  const composer = page.getByRole('textbox', { name: 'Message' });
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('Write a message', { exact: true })).toBeVisible();
+  await composer.fill('Too short');
+  await composer.press('Enter');
+  await expect(page.getByText('Choose what is wrong')).toBeVisible();
+  await page.getByRole('combobox', { name: 'What is wrong?' }).click();
   await page.getByRole('option', { name: 'Fee or processing time is wrong' }).click();
-  await dialog.getByLabel('Describe the problem').fill('The fee changed in September.');
-  await dialog.getByLabel('Email or phone for questions').fill('not a contact');
-  await dialog.getByRole('button', { name: 'Send report' }).click();
-  await expect(dialog.getByText('Enter an email address or a phone number', { exact: false })).toBeVisible();
-  await dialog.getByLabel('Email or phone for questions').fill('');
-  fixture.failures.set('POST /api/reports', 429);
-  await dialog.getByRole('button', { name: 'Send report' }).click();
-  await expect(dialog.getByText('Too many reports were sent from your connection', { exact: false })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Send report' }).click();
-  await expect(dialog.getByText('Thank you, your report was sent')).toBeVisible();
-  const sent = fixture.requests.filter(request => request.method === 'POST' && request.path === '/api/reports').at(-1);
-  expect(sent?.body).toEqual({
-    entityType: 'FUNCTION', entityId: 1, category: 'FEES_OR_TIMING',
-    description: 'The fee changed in September.', contact: '', language: 'en', website: '',
-  });
+  await composer.press('Enter');
+  await expect(page.getByText('Describe the problem in at least 10 characters')).toBeVisible();
+  await composer.fill('The fee changed in September.');
+  fixture.failures.set('POST /api/help/support/messages', 429);
+  await composer.press('Enter');
+  const thread = page.getByRole('log', { name: 'Your conversation with support' });
+  await expect(thread.getByText('Too many messages in a short time', { exact: false })).toBeVisible();
+  await thread.getByRole('button', { name: 'Try again' }).click();
+  await expect(thread.getByText('Report of incorrect information: Fee or processing time is wrong')).toBeVisible();
+  const sent = fixture.requests.filter(request => request.method === 'POST' && request.path === '/api/help/support/messages').at(-1);
+  expect(sent?.body).toMatchObject({ body: 'The fee changed in September.', serviceId: 1, reportCategory: 'FEES_OR_TIMING', language: 'en', website: '' });
+  expect(fixture.requests.filter(request => request.method === 'POST' && request.path === '/api/reports')).toEqual([]);
 });
 
 test('organization page shows the full address with a free map link and lets visitors report contact errors', async ({ page }) => {
@@ -207,13 +207,14 @@ test('organization page shows the full address with a free map link and lets vis
   await expect(main.getByRole('link', { name: /Open in OpenStreetMap/ })).toHaveAttribute('href', /openstreetmap\.org\/\?mlat=41\.311&mlon=69\.279/);
   await expect(main.getByText('Not provided yet', { exact: true })).toBeVisible();
   await main.getByRole('button', { name: 'Report a problem' }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('What is wrong?').click();
+  await expect(page).toHaveURL(/\/support\?organization=10&report=1$/);
+  await page.getByRole('combobox', { name: 'What is wrong?' }).click();
   await expect(page.getByRole('option', { name: 'Address, phone or hours are wrong' })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Fee or processing time is wrong' })).toHaveCount(0);
   await page.getByRole('option', { name: 'Address, phone or hours are wrong' }).click();
-  await dialog.getByLabel('Describe the problem').fill('The phone number does not answer.');
-  await dialog.getByRole('button', { name: 'Send report' }).click();
-  await expect(dialog.getByText('Thank you, your report was sent')).toBeVisible();
-  expect(fixture.requests.find(request => request.path === '/api/reports')?.body).toMatchObject({ entityType: 'ORGANIZATION', entityId: 10 });
+  await page.getByRole('textbox', { name: 'Message' }).fill('The phone number does not answer.');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByRole('log').getByText('Report of incorrect information: Address, phone or hours are wrong')).toBeVisible();
+  expect(fixture.requests.find(request => request.path === '/api/help/support/messages')?.body)
+    .toMatchObject({ organizationId: 10, reportCategory: 'CONTACT_DETAILS' });
 });

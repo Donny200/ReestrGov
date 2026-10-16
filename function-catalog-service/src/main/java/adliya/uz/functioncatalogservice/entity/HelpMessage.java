@@ -26,4 +26,19 @@ public class HelpMessage {
     private String body;
     @Column(nullable = false)
     private Instant createdAt;
+    /** Sender-generated key; a retry with the same key returns the stored message instead of a duplicate. */
+    @Column(length = 64)
+    private String clientMessageId;
+    /** When the other side (visitor for staff replies, staff for visitor messages) viewed the message. */
+    private Instant readAt;
+    /** Service the message is about, if the visitor chose one. */
+    private Long functionId;
+    /** Name of that service (or organization) when the message was written. */
+    @Column(length = 150)
+    private String contextLabel;
+    /** Set for a report of incorrect information: the report category, e.g. INCORRECT_INFORMATION. */
+    @Column(length = 40)
+    private String category;
+    /** The information report created for the editorial workflow from this message. */
+    private Long reportId;
 }

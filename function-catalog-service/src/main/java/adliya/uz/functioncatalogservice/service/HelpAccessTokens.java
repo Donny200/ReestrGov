@@ -9,8 +9,8 @@ import java.util.HexFormat;
 import java.util.regex.Pattern;
 
 /**
- * Bearer tokens that let an anonymous visitor return to their conversation: 256 random bits, URL-safe Base64 without
- * padding (43 characters). Only the SHA-256 hash is persisted, so a database dump does not reveal working links.
+ * Opaque secrets of anonymous support browsers (the HttpOnly guest cookie): 256 random bits, URL-safe Base64 without
+ * padding (43 characters). Only the SHA-256 hash is persisted, so a database dump does not reveal working sessions.
  */
 public final class HelpAccessTokens {
 

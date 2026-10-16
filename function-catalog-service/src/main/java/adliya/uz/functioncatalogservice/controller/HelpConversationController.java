@@ -2,16 +2,18 @@ package adliya.uz.functioncatalogservice.controller;
 
 import adliya.uz.functioncatalogservice.dto.HelpAssigneeRequest;
 import adliya.uz.functioncatalogservice.dto.HelpConversationSummary;
-import adliya.uz.functioncatalogservice.dto.HelpConversationView;
 import adliya.uz.functioncatalogservice.dto.HelpMessageRequest;
 import adliya.uz.functioncatalogservice.dto.HelpStatusRequest;
 import adliya.uz.functioncatalogservice.dto.StaffMember;
-import adliya.uz.functioncatalogservice.dto.StartHelpConversationRequest;
+import adliya.uz.functioncatalogservice.dto.SupportDtos;
+import adliya.uz.functioncatalogservice.security.ChatOriginGuard;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.HelpConversationService;
+import adliya.uz.functioncatalogservice.service.SupportIdentityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -22,68 +24,133 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/help")
 @RequiredArgsConstructor
-@Tag(name = "Visitor questions", description = "Questions from visitors without accounts about published services, answered by "
-        + "the responsible organization (general questions by global support). Not a live chat: replies arrive when staff "
-        + "answer. Visitors follow a conversation only with the private access token returned once on creation.")
+@Tag(name = "Support chat", description = "One private support thread per visitor (anonymous browser or signed-in account), "
+        + "routed per responsible organization, and the staff inbox that answers it. Not a live chat: clients poll for "
+        + "new messages. Visitor endpoints are identified by an HttpOnly guest cookie or the account; never by a conversation id.")
 public class HelpConversationController {
 
-    /** The visitor's private access token travels in this header, never in a URL that could end up in logs. */
-    public static final String TOKEN_HEADER = "X-Conversation-Token";
     static final String VIEW = "hasAuthority('VISITOR_QUESTIONS_VIEW')";
     static final String REPLY = "hasAuthority('VISITOR_QUESTIONS_VIEW') and hasAuthority('VISITOR_QUESTIONS_REPLY')";
 
     private final HelpConversationService help;
+    private final SupportIdentityService identities;
     private final ClientAddressResolver clientAddresses;
+    private final ChatOriginGuard origins;
 
     @GetMapping("/options")
-    @Operation(summary = "What the visitor form can offer", description = "Whether e-mail reply notifications are configured, and length limits.")
+    @Operation(summary = "What the support page can offer", description = "Whether e-mail reply notices are configured, and length limits.")
     public Map<String, Object> options() {
-        return Map.of("notificationsAvailable", help.notificationsAvailable(), "minLength", 10, "maxLength", 2000);
+        return Map.of("notificationsAvailable", help.notificationsAvailable(), "maxLength", 2000);
     }
 
-    @PostMapping("/conversations")
-    @Operation(summary = "Ask a question (anonymous)",
-            description = "Returns the private access token once. serviceId routes the question to that service's organization; "
-                    + "without it the question goes to global support. The e-mail address is optional and kept only when "
-                    + "notifications are configured. Rate limited per visitor address.")
-    public ResponseEntity<HelpConversationView.Started> start(@Valid @RequestBody StartHelpConversationRequest request,
-                                                              HttpServletRequest http) {
-        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
-                .body(help.start(request, clientAddresses.resolve(http)));
+    // ---------------------------------------------------------------- visitor
+
+    @GetMapping("/support")
+    @Operation(summary = "My support thread", description = "Empty (identity NONE) until the first message; nothing is created by reading.")
+    public ResponseEntity<SupportDtos.Thread> thread(HttpServletRequest request) {
+        return noStore(help.thread(identities.current(request)));
     }
 
-    @GetMapping("/conversation")
-    @Operation(summary = "Read my conversation (anonymous, with the access token header)")
-    public ResponseEntity<HelpConversationView> conversation(@RequestHeader(name = TOKEN_HEADER, required = false) String token) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(help.visitorConversation(token));
+    @GetMapping("/support/updates")
+    @Operation(summary = "Poll for new messages", description = "Messages after the given id (plus the last minute) and the unread count.")
+    public ResponseEntity<SupportDtos.Updates> updates(@RequestParam(required = false) Long after, HttpServletRequest request) {
+        return noStore(help.updates(identities.current(request), after));
     }
 
-    @PostMapping("/conversation/messages")
-    @Operation(summary = "Write again in my conversation (anonymous, with the access token header)")
-    public ResponseEntity<HelpConversationView> followUp(@RequestHeader(name = TOKEN_HEADER, required = false) String token,
-                                                         @Valid @RequestBody HelpMessageRequest request, HttpServletRequest http) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(help.visitorFollowUp(token, request.message(), request.website(), clientAddresses.resolve(http)));
+    @GetMapping("/support/unread")
+    @Operation(summary = "Unread staff replies", description = "Cheap badge poll; 0 without a support identity.")
+    public ResponseEntity<SupportDtos.Unread> unread(HttpServletRequest request) {
+        return noStore(help.unreadFor(identities.current(request)));
     }
+
+    @PostMapping("/support/messages")
+    @Operation(summary = "Send a message", description = "Creates the visitor's support identity on first use (HttpOnly cookie for "
+            + "anonymous visitors). Idempotent by clientMessageId. serviceId/organizationId route the message to that "
+            + "organization; reportCategory also files a report of incorrect information.")
+    public ResponseEntity<SupportDtos.Message> send(@Valid @RequestBody SupportDtos.SendRequest body, HttpServletRequest request,
+                                                    HttpServletResponse response) {
+        origins.check(request);
+        String address = clientAddresses.resolve(request);
+        SupportIdentityService.Identity identity = identities.currentOrCreate(request, response, address);
+        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(help.send(identity, body, address));
+    }
+
+    @PostMapping("/support/read")
+    @Operation(summary = "Mark staff replies as read up to a message id")
+    public ResponseEntity<SupportDtos.Unread> read(@Valid @RequestBody SupportDtos.ReadRequest body, HttpServletRequest request) {
+        origins.check(request);
+        return noStore(help.markRead(required(request), body.upTo()));
+    }
+
+    @PutMapping("/support/contact")
+    @Operation(summary = "Optional contact for support follow-up", description = "An empty e-mail removes it. Notices only if configured.")
+    public ResponseEntity<SupportDtos.Contact> contact(@Valid @RequestBody SupportDtos.ContactRequest body, HttpServletRequest request) {
+        origins.check(request);
+        return noStore(help.updateContact(required(request), body));
+    }
+
+    @PostMapping("/support/recovery-code")
+    @Operation(summary = "Create a recovery code", description = "Anonymous threads only; shown once, only its hash is stored. Replaces an older code.")
+    public ResponseEntity<SupportDtos.RecoveryCode> recoveryCode(HttpServletRequest request) {
+        origins.check(request);
+        return noStore(new SupportDtos.RecoveryCode(identities.issueRecoveryCode(required(request))));
+    }
+
+    @PostMapping("/support/recover")
+    @Operation(summary = "Open an anonymous thread in this browser with its recovery code", description = "Rate limited per address.")
+    public ResponseEntity<SupportDtos.Thread> recover(@Valid @RequestBody SupportDtos.RecoverRequest body, HttpServletRequest request,
+                                                      HttpServletResponse response) {
+        origins.check(request);
+        SupportIdentityService.Identity identity = identities.recover(body.code(), request, response, clientAddresses.resolve(request));
+        return noStore(help.thread(java.util.Optional.of(identity)));
+    }
+
+    @DeleteMapping("/support/session")
+    @Operation(summary = "Forget this browser", description = "Removes this browser's access; staff keep the conversation.")
+    public ResponseEntity<Void> forget(HttpServletRequest request, HttpServletResponse response) {
+        origins.check(request);
+        identities.forgetBrowser(request, response);
+        return ResponseEntity.noContent().build();
+    }
+
+    private SupportIdentityService.Identity required(HttpServletRequest request) {
+        return identities.current(request).orElseThrow(() -> new NoSuchElementException("No support conversation in this browser"));
+    }
+
+    private static <T> ResponseEntity<T> noStore(T body) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+
+    // ---------------------------------------------------------------- staff
 
     @GetMapping("/inbox")
     @PreAuthorize(VIEW)
-    @Operation(summary = "Staff inbox", description = "status: OPEN (new and in progress, default), NEW, IN_PROGRESS, ANSWERED, "
-            + "CLOSED or ALL. Organization staff see their organizations only; general questions (general=true) are global-only.")
+    @Operation(summary = "Support inbox", description = "status: ACTIVE (default), OPEN (waiting for staff), NEW, IN_PROGRESS, ANSWERED, "
+            + "CLOSED or ALL; unread=true; sort=LAST_MESSAGE|UNREAD_FIRST. Organization staff see their organizations only; "
+            + "central conversations (general=true) only global staff.")
     public List<HelpConversationSummary> inbox(@RequestParam(required = false) String status,
                                                @RequestParam(required = false) Long organizationId,
                                                @RequestParam(required = false) Long serviceId,
                                                @RequestParam(defaultValue = "false") boolean general,
+                                               @RequestParam(defaultValue = "false") boolean unread,
+                                               @RequestParam(defaultValue = "LAST_MESSAGE") HelpConversationService.InboxSort sort,
                                                @RequestParam(required = false) String assignee) {
         if (assignee != null && !assignee.isBlank() && !"me".equalsIgnoreCase(assignee.trim())) {
             throw new IllegalArgumentException("assignee accepts only \"me\"");
         }
         return help.inbox(new HelpConversationService.InboxQuery(HelpConversationService.statuses(status), organizationId, serviceId,
-                general, assignee != null && !assignee.isBlank()));
+                general, assignee != null && !assignee.isBlank(), unread, sort));
+    }
+
+    @GetMapping("/inbox/unread")
+    @PreAuthorize(VIEW)
+    public HelpConversationSummary.Unread inboxUnread() {
+        return help.staffUnread();
     }
 
     @GetMapping("/inbox/{id}")
@@ -92,16 +159,23 @@ public class HelpConversationController {
         return help.detail(id);
     }
 
+    @PostMapping("/inbox/{id}/read")
+    @PreAuthorize(VIEW)
+    @Operation(summary = "Mark visitor messages as read up to a message id")
+    public HelpConversationSummary.Detail read(@PathVariable Long id, @Valid @RequestBody SupportDtos.ReadRequest request) {
+        return help.markReadByStaff(id, request.upTo());
+    }
+
     @PostMapping("/inbox/{id}/replies")
     @PreAuthorize(REPLY)
-    @Operation(summary = "Reply to the visitor", description = "Sets the status to ANSWERED and, if requested and configured, e-mails a notice.")
+    @Operation(summary = "Reply to the visitor", description = "Idempotent by clientMessageId. Sets ANSWERED; e-mails a notice only if the visitor opted in and mail is configured.")
     public HelpConversationSummary.Detail reply(@PathVariable Long id, @Valid @RequestBody HelpMessageRequest request) {
-        return help.reply(id, request.message());
+        return help.reply(id, request.message(), request.clientMessageId());
     }
 
     @PutMapping("/inbox/{id}/status")
     @PreAuthorize(REPLY)
-    @Operation(summary = "Mark in progress or close", description = "Closing removes the visitor's e-mail address.")
+    @Operation(summary = "Mark open, in progress or closed; reopen")
     public HelpConversationSummary.Detail status(@PathVariable Long id, @Valid @RequestBody HelpStatusRequest request) {
         return help.changeStatus(id, request.status());
     }

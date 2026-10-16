@@ -4,7 +4,8 @@ import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFun
 import type { LegacyUserApi, Organization, PublicChange, Region, SessionInfo, StaffMember } from '../src/types/api';
 import type { EngagementCounts, EngagementReport, OrganizationSummary, QualityQueue, QualityReminder } from '../src/types/analytics';
 import type { InformationReport, ReportHistoryEntry } from '../src/types/reports';
-import type { HelpConversationStatus } from '../src/types/help';
+import type { HelpConversationStatus, SupportContact } from '../src/types/help';
+import type { ReportCategory } from '../src/types/reports';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
 
 const MIGRATIONS = '../reference-service/src/main/resources/db/migration';
@@ -57,17 +58,21 @@ export interface FixtureOptions {
   /** Second-factor state of the signed-in user and whether the password step must be followed by a code or enrollment. */
   mfa?: { enrolled: boolean; required: boolean; loginRequires?: 'verify' | 'enroll'; deadline?: string | null };
   sessions?: SessionInfo[];
-  /** E-mail notifications for visitor questions configured on the server. */
-  helpNotifications?: boolean;
-  helpConversations?: HelpFixture[];
+  /** E-mail notices for support replies configured on the server. */
+  supportNotifications?: boolean;
+  /** Routed conversations of the one visitor of this page (and what staff see). */
+  supportConversations?: SupportFixture[];
+  /** The visitor already has a support identity in this browser (cookie) before the test starts. */
+  supportIdentity?: 'NONE' | 'BROWSER' | 'ACCOUNT';
 }
-export interface HelpFixture {
-  id: number; token: string; status: HelpConversationStatus; serviceId: number | null; serviceName: string | null;
-  organizationId: number | null; notificationRequested: boolean; assignedUserId: number | null; assignedUserName: string | null;
-  createdAt: string; messages: { author: 'VISITOR' | 'STAFF'; body: string; createdAt: string; staffLabel?: string | null }[];
+export interface SupportFixtureMessage {
+  id: number; author: 'VISITOR' | 'STAFF'; body: string; createdAt: string; clientMessageId?: string | null; serviceId?: number | null;
+  contextLabel?: string | null; category?: ReportCategory | null; reportId?: number | null; readAt?: string | null; staffLabel?: string | null;
 }
-/** 43 URL-safe characters, like a real access token. */
-export const helpToken = (seed: string) => (seed + '_').repeat(43).slice(0, 43);
+export interface SupportFixture {
+  id: number; status: HelpConversationStatus; organizationId: number | null; serviceId: number | null; serviceName: string | null;
+  assignedUserId: number | null; assignedUserName: string | null; messages: SupportFixtureMessage[];
+}
 const csv = (rows: string[]) => '\uFEFF' + rows.join('\r\n') + '\r\n';
 export function counts(values: Partial<EngagementCounts> = {}): EngagementCounts {
   return { CATALOG_VIEW: 0, SERVICE_VIEW: 0, OFFICIAL_LINK_CLICK: 0, PHONE_CLICK: 0, MAP_CLICK: 0, PRINT: 0, ...values };
@@ -102,24 +107,43 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
   const sessions = structuredClone(options.sessions ?? [{ sessionId: 'current', createdAt: '2026-10-12T08:00:00Z', lastUsedAt: '2026-10-12T09:00:00Z',
     expiresAt: '2026-10-19T08:00:00Z', userAgent: 'Firefox on macOS', current: true }]);
   const feedbackVotes: { serviceId: number; helpful: boolean }[] = [];
-  const helpConversations: HelpFixture[] = structuredClone(options.helpConversations ?? []);
-  const helpVisitorView = (item: HelpFixture) => ({ status: item.status, serviceId: item.serviceId, serviceName: item.serviceName,
-    organizationId: item.organizationId, general: item.organizationId === null, createdAt: item.createdAt, updatedAt: item.createdAt,
-    notificationRequested: item.notificationRequested, canWrite: item.status !== 'CLOSED',
-    messages: item.messages.map(message => ({ author: message.author, body: message.body, createdAt: message.createdAt })) });
-  const helpSummary = (item: HelpFixture) => ({ id: item.id, status: item.status, serviceId: item.serviceId, serviceName: item.serviceName,
-    organizationId: item.organizationId, general: item.organizationId === null, language: 'en', assignedUserId: item.assignedUserId,
-    assignedUserName: item.assignedUserName, createdAt: item.createdAt, updatedAt: item.createdAt,
-    lastVisitorMessageAt: item.createdAt, lastStaffReplyAt: null, messageCount: item.messages.length, notificationRequested: item.notificationRequested });
-  const helpDetail = (item: HelpFixture) => ({ conversation: helpSummary(item),
-    messages: item.messages.map((message, index) => ({ id: index + 1, author: message.author, body: message.body, createdAt: message.createdAt,
-      staffUserId: message.author === 'STAFF' ? user.id : null, staffLabel: message.staffLabel ?? null })) });
+  const supportConversations: SupportFixture[] = structuredClone(options.supportConversations ?? []);
+  const support = { identity: options.supportIdentity ?? (supportConversations.length ? 'BROWSER' : 'NONE'),
+    contact: { email: null, notifyByEmail: false } as SupportContact, recoveryCode: null as string | null };
+  let supportMessageId = Math.max(100, ...supportConversations.flatMap(item => item.messages.map(message => message.id)));
+  const supportMessages = () => supportConversations.flatMap(item => item.messages.map(message => ({ message, conversation: item })))
+    .sort((a, b) => a.message.id - b.message.id);
+  const visitorMessage = ({ message, conversation }: { message: SupportFixtureMessage; conversation: SupportFixture }) => ({
+    id: message.id, author: message.author, body: message.body, createdAt: message.createdAt,
+    clientMessageId: message.author === 'VISITOR' ? message.clientMessageId ?? null : null, serviceId: message.serviceId ?? null,
+    contextLabel: message.contextLabel ?? null, organizationId: conversation.organizationId, category: message.category ?? null, readAt: message.readAt ?? null });
+  const supportUnread = () => {
+    const replies = supportMessages().filter(entry => entry.message.author === 'STAFF');
+    return { unread: replies.filter(entry => !entry.message.readAt).length, latestReplyId: replies.length ? replies[replies.length - 1].message.id : null };
+  };
+  const supportThread = () => ({ identity: support.identity, messages: supportMessages().map(visitorMessage), unread: supportUnread().unread,
+    contact: support.contact, notificationsAvailable: options.supportNotifications ?? false, recoveryCodeSet: support.recoveryCode !== null });
+  const supportSummary = (item: SupportFixture) => {
+    const last = item.messages[item.messages.length - 1];
+    return { id: item.id, status: item.status, serviceId: item.serviceId, serviceName: item.serviceName, organizationId: item.organizationId,
+      general: item.organizationId === null, language: 'en', assignedUserId: item.assignedUserId, assignedUserName: item.assignedUserName,
+      createdAt: item.messages[0]?.createdAt ?? '2026-10-16T08:00:00Z', updatedAt: last?.createdAt ?? '2026-10-16T08:00:00Z',
+      lastMessageAt: last?.createdAt ?? null, lastMessagePreview: last?.body ?? null, lastMessageAuthor: last?.author ?? null,
+      messageCount: item.messages.length, unreadCount: item.messages.filter(message => message.author === 'VISITOR' && !message.readAt).length,
+      contactAvailable: Boolean(support.contact.email) };
+  };
+  const supportDetail = (item: SupportFixture, revealContact: boolean) => ({ conversation: supportSummary(item),
+    messages: item.messages.map(message => ({ id: message.id, author: message.author, body: message.body, createdAt: message.createdAt,
+      staffUserId: message.author === 'STAFF' ? 42 : null, staffLabel: message.staffLabel ?? null, serviceId: message.serviceId ?? null,
+      contextLabel: message.contextLabel ?? null, category: message.category ?? null, reportId: message.reportId ?? null, readAt: message.readAt ?? null })),
+    contact: revealContact && support.contact.email ? support.contact : null });
   let mfaEnrolled = mfa.enrolled;
   let pendingSecret: string | null = null;
   let challengePending: 'verify' | 'enroll' | null = null;
   type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
     status?: InformationReport['status'] | HelpConversationStatus; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string;
-    code?: string; password?: string; serviceId?: number; helpful?: boolean; userId?: number };
+    code?: string; password?: string; serviceId?: number; helpful?: boolean; userId?: number; body?: string; clientMessageId?: string;
+    organizationId?: number; reportCategory?: ReportCategory; upTo?: number; message?: string; notifyByEmail?: boolean };
   const organizations = structuredClone(options.organizations ?? [organization as Organization]);
   const reports = structuredClone(options.reports ?? []);
   const reminders = structuredClone(options.reminders ?? []);
@@ -357,58 +381,110 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       const canView = permissions.includes('VISITOR_QUESTIONS_VIEW');
       const canReply = canView && permissions.includes('VISITOR_QUESTIONS_REPLY');
       const global = role === 'ROLE_SUPER_ADMIN';
-      const visibleToStaff = (item: HelpFixture) => (item.organizationId === null ? global : global || organizationIds.includes(item.organizationId));
-      if (path === '/api/help/options') return reply({ notificationsAvailable: options.helpNotifications ?? false, minLength: 10, maxLength: 2000 });
-      if (path === '/api/help/conversations' && method === 'POST') {
-        const message = String((body as { message?: string }).message ?? '').trim();
-        if (message.length < 10) return reply({ message: 'message: too short', fieldErrors: { message: 'Write your question in at least 10 characters' } }, 400);
-        const service = records.find(item => item.id === body.serviceId && item.status === 'PUBLISHED');
-        if (body.serviceId && !service) return reply({ message: 'Service not found' }, 404);
-        const created: HelpFixture = { id: helpConversations.length + 1, token: helpToken('t' + (helpConversations.length + 1)), status: 'NEW',
-          serviceId: service?.id ?? null, serviceName: service?.name ?? null, organizationId: service?.organizationId ?? null,
-          notificationRequested: Boolean(options.helpNotifications && body.email), assignedUserId: null, assignedUserName: null,
-          createdAt: '2026-10-16T08:00:00Z', messages: [{ author: 'VISITOR', body: message, createdAt: '2026-10-16T08:00:00Z' }] };
-        helpConversations.push(created);
-        return reply({ accessToken: created.token, notificationsAvailable: options.helpNotifications ?? false, conversation: helpVisitorView(created) }, 201);
+      const visibleToStaff = (item: SupportFixture) => (item.organizationId === null ? global : global || organizationIds.includes(item.organizationId));
+      const now = () => new Date().toISOString();
+      if (path === '/api/help/options') return reply({ notificationsAvailable: options.supportNotifications ?? false, maxLength: 2000 });
+      if (path === '/api/help/support' && method === 'GET') return reply(supportThread());
+      if (path === '/api/help/support/unread') return reply(supportUnread());
+      if (path === '/api/help/support/updates') {
+        const after = Number(query.get('after') ?? '0');
+        return reply({ messages: supportMessages().filter(entry => entry.message.id > after).map(visitorMessage), ...supportUnread() });
       }
-      const token = request.headers()['x-conversation-token'];
-      const own = helpConversations.find(item => item.token === token);
-      if (path === '/api/help/conversation' && method === 'GET') return own ? reply(helpVisitorView(own)) : reply({ message: 'Conversation not found' }, 404);
-      if (path === '/api/help/conversation/messages' && method === 'POST') {
-        if (!own) return reply({ message: 'Conversation not found' }, 404);
-        if (own.status === 'CLOSED') return reply({ message: 'This conversation is closed.' }, 409);
-        own.messages.push({ author: 'VISITOR', body: String((body as { message?: string }).message ?? ''), createdAt: '2026-10-16T09:00:00Z' });
-        if (own.status === 'ANSWERED') own.status = 'IN_PROGRESS';
-        return reply(helpVisitorView(own));
+      if (path === '/api/help/support/messages' && method === 'POST') {
+        const text = (body.body ?? '').trim();
+        if (!text) return reply({ message: 'body: Write a message', fieldErrors: { body: 'Write a message' } }, 400);
+        const repeated = supportMessages().find(entry => entry.message.clientMessageId === body.clientMessageId);
+        if (repeated) return reply(visitorMessage(repeated), 201);
+        const service = body.serviceId ? records.find(item => item.id === body.serviceId && item.status === 'PUBLISHED') : undefined;
+        if (body.serviceId && !service) return reply({ message: 'Service not found' }, 404);
+        if (body.reportCategory && !service && !body.organizationId) return reply({ message: 'reportCategory: choose', fieldErrors: { reportCategory: 'Choose the service or organization the report is about' } }, 400);
+        const organizationId = service?.organizationId ?? body.organizationId ?? null;
+        let conversation = supportConversations.find(item => item.organizationId === organizationId);
+        if (!conversation) {
+          conversation = { id: supportConversations.length + 1, status: 'NEW', organizationId, serviceId: service?.id ?? null, serviceName: service?.name ?? null,
+            assignedUserId: null, assignedUserName: null, messages: [] };
+          supportConversations.push(conversation);
+        }
+        let reportId: number | null = null;
+        if (body.reportCategory) {
+          reportId = reports.length + 1;
+          reports.push({ id: reportId, entityType: service ? 'FUNCTION' : 'ORGANIZATION', entityId: service?.id ?? (body.organizationId as number),
+            entityLabel: service?.name ?? 'Organization', organizationId: organizationId ?? 10, category: body.reportCategory, description: text, contact: null,
+            contactAvailable: false, language: 'en', status: 'NEW', resolutionNote: null, handledByUserId: null, createdAt: now(), updatedAt: now(),
+            serviceChangedSinceReport: null } as InformationReport);
+        }
+        const message: SupportFixtureMessage = { id: ++supportMessageId, author: 'VISITOR', body: text, createdAt: now(), clientMessageId: body.clientMessageId,
+          serviceId: service?.id ?? null, contextLabel: service?.name ?? null, category: body.reportCategory ?? null, reportId, readAt: null };
+        conversation.messages.push(message);
+        if (conversation.status === 'CLOSED') conversation.status = 'NEW';
+        else if (conversation.status === 'ANSWERED') conversation.status = 'IN_PROGRESS';
+        if (support.identity === 'NONE') support.identity = 'BROWSER';
+        return reply(visitorMessage({ message, conversation }), 201);
+      }
+      if (path === '/api/help/support/read' && method === 'POST') {
+        supportMessages().forEach(entry => { if (entry.message.author === 'STAFF' && entry.message.id <= (body.upTo ?? 0) && !entry.message.readAt) entry.message.readAt = now(); });
+        return reply(supportUnread());
+      }
+      if (path === '/api/help/support/contact' && method === 'PUT') {
+        support.contact = { email: body.email || null, notifyByEmail: Boolean(body.email && body.notifyByEmail) };
+        return reply(support.contact);
+      }
+      if (path === '/api/help/support/recovery-code' && method === 'POST') {
+        support.recoveryCode = 'ABCDE-FGHJK-LMNPQ-RSTVW';
+        return reply({ code: support.recoveryCode });
+      }
+      if (path === '/api/help/support/recover' && method === 'POST') {
+        const canonical = (value: string | null | undefined) => (value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!support.recoveryCode || canonical(body.code) !== canonical(support.recoveryCode)) {
+          return reply({ message: 'code: This recovery code is not valid', fieldErrors: { code: 'This recovery code is not valid' } }, 400);
+        }
+        support.identity = 'BROWSER';
+        return reply(supportThread());
+      }
+      if (path === '/api/help/support/session' && method === 'DELETE') {
+        support.identity = 'NONE';
+        return route.fulfill({ status: 204 });
       }
       if (!canView) return reply({ message: 'Forbidden' }, 403);
-      if (path === '/api/help/inbox') {
-        const status = query.get('status') ?? 'OPEN';
-        return reply(helpConversations.filter(visibleToStaff)
-          .filter(item => status === 'ALL' || (status === 'OPEN' ? ['NEW', 'IN_PROGRESS'].includes(item.status) : item.status === status))
-          .filter(item => query.get('general') !== 'true' || item.organizationId === null)
-          .map(helpSummary));
+      if (path === '/api/help/inbox/unread') {
+        const mine = supportConversations.filter(visibleToStaff).map(supportSummary).filter(item => item.unreadCount > 0);
+        return reply({ conversations: mine.length, messages: mine.reduce((sum, item) => sum + item.unreadCount, 0) });
       }
-      const inbox = path.match(/^\/api\/help\/inbox\/(\d+)(?:\/(replies|status|candidates|assignee))?$/);
-      const found = inbox ? helpConversations.find(item => item.id === Number(inbox[1])) : undefined;
+      if (path === '/api/help/inbox') {
+        const status = query.get('status') ?? 'ACTIVE';
+        return reply(supportConversations.filter(visibleToStaff)
+          .filter(item => status === 'ALL' || (status === 'ACTIVE' ? item.status !== 'CLOSED' : status === 'OPEN' ? ['NEW', 'IN_PROGRESS'].includes(item.status) : item.status === status))
+          .filter(item => query.get('general') !== 'true' || item.organizationId === null)
+          .map(supportSummary).filter(item => query.get('unread') !== 'true' || item.unreadCount > 0));
+      }
+      const inbox = path.match(/^\/api\/help\/inbox\/(\d+)(?:\/(replies|status|candidates|assignee|read))?$/);
+      const found = inbox ? supportConversations.find(item => item.id === Number(inbox[1])) : undefined;
       if (!inbox || !found) return reply({ message: 'Conversation not found' }, 404);
       if (!visibleToStaff(found)) return reply({ message: 'Forbidden' }, 403);
-      if (!inbox[2]) return reply(helpDetail(found));
+      if (!inbox[2]) return reply(supportDetail(found, canReply));
+      if (inbox[2] === 'read') {
+        found.messages.forEach(message => { if (message.author === 'VISITOR' && message.id <= (body.upTo ?? 0) && !message.readAt) message.readAt = now(); });
+        return reply(supportDetail(found, canReply));
+      }
       if (!canReply) return reply({ message: 'Forbidden' }, 403);
       if (inbox[2] === 'candidates') return reply(members[found.organizationId ?? 0] ?? []);
       if (inbox[2] === 'replies') {
-        if (found.status === 'CLOSED') return reply({ message: 'Reopen the conversation first' }, 409);
-        found.messages.push({ author: 'STAFF', body: String((body as { message?: string }).message ?? ''), createdAt: '2026-10-16T10:00:00Z', staffLabel: user.email });
-        found.status = 'ANSWERED';
-        if (!found.assignedUserId) { found.assignedUserId = user.id; found.assignedUserName = user.email; }
-        return reply(helpDetail(found));
+        if (found.status === 'CLOSED') return reply({ message: 'Reopen the conversation before replying' }, 409);
+        if (!found.messages.some(message => message.author === 'STAFF' && message.clientMessageId && message.clientMessageId === body.clientMessageId)) {
+          found.messages.forEach(message => { if (message.author === 'VISITOR' && !message.readAt) message.readAt = now(); });
+          found.messages.push({ id: ++supportMessageId, author: 'STAFF', body: String(body.message ?? ''), createdAt: now(), staffLabel: user.email,
+            clientMessageId: body.clientMessageId, readAt: null });
+          found.status = 'ANSWERED';
+          if (!found.assignedUserId) { found.assignedUserId = user.id; found.assignedUserName = user.email; }
+        }
+        return reply(supportDetail(found, canReply));
       }
-      if (inbox[2] === 'status') { found.status = body.status as HelpConversationStatus; return reply(helpDetail(found)); }
+      if (inbox[2] === 'status') { found.status = body.status as HelpConversationStatus; return reply(supportDetail(found, canReply)); }
       if (inbox[2] === 'assignee') {
         const member = (members[found.organizationId ?? 0] ?? []).find(item => item.id === body.userId);
         found.assignedUserId = member?.id ?? null;
         found.assignedUserName = member ? [member.firstName, member.lastName].filter(Boolean).join(' ') : null;
-        return reply(helpDetail(found));
+        return reply(supportDetail(found, canReply));
       }
     }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
@@ -534,5 +610,5 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens, feedbackVotes, sessions, helpConversations };
+  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens, feedbackVotes, sessions, supportConversations, support };
 }

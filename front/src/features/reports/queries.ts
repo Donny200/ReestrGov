@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getReport, getReportHistory, getReports, submitReport, updateReportStatus } from '../../services/reportService';
-import type { ReportQuery, ReportStatus, SubmitReportRequest } from '../../types/reports';
+import { getReport, getReportHistory, getReports, updateReportStatus } from '../../services/reportService';
+import type { ReportQuery, ReportStatus } from '../../types/reports';
 import { analyticsKeys, reportKeys } from '../queryKeys';
 
 export const useReports = (query: ReportQuery, enabled = true) =>
@@ -12,7 +12,6 @@ export const useReport = (id: number | null) =>
 export const useReportHistory = (id: number | null) =>
   useQuery({ queryKey: reportKeys.history(id ?? 0), queryFn: () => getReportHistory(id ?? 0), enabled: id !== null });
 
-export const useSubmitReport = () => useMutation({ mutationFn: (body: SubmitReportRequest) => submitReport(body) });
 
 export function useUpdateReportStatus() {
   const client = useQueryClient();

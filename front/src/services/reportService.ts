@@ -1,9 +1,6 @@
 import { apiDownload, apiRequest } from './http';
 import type { CsvDelimiter } from '../types/analytics';
-import type { InformationReport, ReportHistoryEntry, ReportQuery, ReportStatus, SubmitReportRequest } from '../types/reports';
-
-export const submitReport = (body: SubmitReportRequest) =>
-  apiRequest<{ received: boolean }>('/api/reports', { method: 'POST', body, skipRefresh: true, skipUnauthorizedHandler: true });
+import type { InformationReport, ReportHistoryEntry, ReportQuery, ReportStatus } from '../types/reports';
 
 export const getReports = (query: ReportQuery) => apiRequest<InformationReport[]>('/api/reports', { query: { ...query } });
 

@@ -11,6 +11,7 @@ import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { useSavedServices } from '../../features/saved/useSavedServices';
+import { useSupportBadge } from '../../features/help/useSupportBadge';
 
 const links = [
   { to: '/', key: 'nav.home', fallback: 'Home' },
@@ -18,7 +19,7 @@ const links = [
   { to: '/#functions', key: 'nav.functions', fallback: 'Services' },
   { to: '/finder', key: 'nav.finder', fallback: 'Service finder' },
   { to: '/saved', key: 'nav.saved', fallback: 'Saved' },
-  { to: '/help', key: 'nav.help', fallback: 'Ask a question' },
+  { to: '/support', key: 'nav.support', fallback: 'Support' },
 ] as const;
 
 const STAGGER_MS = 45;
@@ -68,6 +69,7 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
   }, [open]);
 
   const savedCount = useSavedServices().items.length;
+  const supportUnread = useSupportBadge()?.unread ?? 0;
 
   const isActive = (to: (typeof links)[number]['to']) => {
     const target = new URL(to, window.location.origin);
@@ -78,6 +80,9 @@ export function PublicHeader({ transparent = false }: { transparent?: boolean })
   };
 
   const linkLabel = (link: (typeof links)[number]) => {
+    if (link.to === '/support' && supportUnread > 0) {
+      return `${t(link.key, link.fallback)} (${supportUnread} ${t('support.newReplies', 'new')})`;
+    }
     const count = link.to === '/saved' ? savedCount : 0;
     return count > 0 ? `${t(link.key, link.fallback)} (${count})` : t(link.key, link.fallback);
   };

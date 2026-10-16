@@ -29,6 +29,8 @@ import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/DropdownMenu';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
+import { HELP_VIEW_PERMISSION } from '../../features/help/helpOptions';
+import { useHelpInboxUnread } from '../../features/help/queries';
 import { fullName, roleLabel } from '../../utils/format';
 
 export { PageHeader } from './PageHeader';
@@ -50,7 +52,7 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
 
 const TOP_BAR_HEIGHT = '4.5rem';
 
-function SidebarNav({ items, onNavigate }: { items: AdminNavItem[]; onNavigate?: () => void }) {
+function SidebarNav({ items, onNavigate, badges = {} }: { items: AdminNavItem[]; onNavigate?: () => void; badges?: Record<string, number> }) {
   const { t } = useI18n();
   return (
     <nav aria-label={t('nav.admin')} className="flex-1 overflow-y-auto px-3 py-4">
@@ -74,6 +76,11 @@ function SidebarNav({ items, onNavigate }: { items: AdminNavItem[]; onNavigate?:
                   <>
                     <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                    {(badges[item.to] ?? 0) > 0 && (
+                      <span className="rounded-pill bg-accent px-2 py-0.5 text-xs font-semibold tabular-nums text-ink" aria-label={`${badges[item.to]} ${t('support.unreadConversations', 'conversations with unread messages')}`}>
+                        {badges[item.to]}
+                      </span>
+                    )}
                     {isActive && <span className="h-1.5 w-1.5 shrink-0 rounded-pill bg-accent" aria-hidden="true" />}
                   </>
                 )}
@@ -107,6 +114,8 @@ export function AdminLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerTitleId = useId();
   const items = navForRole(user?.role, user?.permissions);
+  const supportUnread = useHelpInboxUnread(user?.permissions.includes(HELP_VIEW_PERMISSION) ?? false).data?.conversations ?? 0;
+  const badges = { '/admin/questions': supportUnread };
 
   useEffect(() => setDrawerOpen(false), [location.pathname]);
   useBodyScrollLock(drawerOpen);
@@ -143,7 +152,7 @@ export function AdminLayout() {
           <div className="flex h-[4.5rem] items-center border-b border-ink-line px-6">
             <Logo to="/admin" onInk />
           </div>
-          <SidebarNav items={items} />
+          <SidebarNav badges={badges} items={items} />
           <SidebarFooter />
         </div>
       </aside>
@@ -170,7 +179,7 @@ export function AdminLayout() {
                 <XIcon aria-hidden="true" />
               </Button>
             </div>
-            <SidebarNav items={items} onNavigate={() => setDrawerOpen(false)} />
+            <SidebarNav badges={badges} items={items} onNavigate={() => setDrawerOpen(false)} />
             <SidebarFooter />
           </div>
         </div>

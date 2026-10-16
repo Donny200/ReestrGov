@@ -60,7 +60,7 @@ export function OrganizationDetail() {
                 <p lang={locale} className="max-w-3xl text-lg leading-8 text-foreground wrap-anywhere">{organizationDescription ?? '—'}</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-2">
-                <ReportProblemButton entityType="ORGANIZATION" entityId={organization.data.id} entityName={organizationName ?? organization.data.name} />
+                <ReportProblemButton entityType="ORGANIZATION" entityId={organization.data.id} />
               </div>
             </div>
           ) : null}

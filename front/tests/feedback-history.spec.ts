@@ -47,7 +47,7 @@ test('anonymous visitors answer the usefulness question once per browser and sta
   expect(fixture.feedbackVotes).toHaveLength(1);
   expect(await page.evaluate(() => Object.keys(JSON.parse(window.localStorage.getItem('reestr-feedback-votes') ?? '{}')))).toEqual(['1']);
   await main.getByRole('button', { name: 'Report a problem' }).first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL(/\/support\?service=1&report=1$/);
 
   await setup(page, { records: [published] });
   await page.goto('/functions/1');

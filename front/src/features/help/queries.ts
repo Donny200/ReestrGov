@@ -1,47 +1,90 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   assignHelpConversation,
+  createRecoveryCode,
+  forgetSupportBrowser,
   getHelpAssigneeCandidates,
-  getHelpConversation,
   getHelpInbox,
   getHelpInboxDetail,
-  getHelpOptions,
+  getHelpInboxUnread,
+  getSupportThread,
+  getSupportUnread,
+  markHelpConversationRead,
+  markSupportRead,
+  recoverSupport,
   replyToHelpConversation,
-  sendHelpFollowUp,
+  sendSupportMessage,
   setHelpConversationStatus,
-  startHelpConversation,
+  updateSupportContact,
 } from '../../services/helpService';
-import type { HelpConversationDetail, HelpConversationStatus, HelpInboxQuery, StartHelpConversationRequest } from '../../types/help';
+import type { HelpConversationDetail, HelpConversationStatus, HelpInboxQuery, SendSupportMessage, SupportContact, SupportThread } from '../../types/help';
 import { helpKeys } from '../queryKeys';
+import { markSupportActive } from './supportActivity';
 
-export const useHelpOptions = () => useQuery({ queryKey: helpKeys.options(), queryFn: getHelpOptions, staleTime: 5 * 60_000 });
+/** Polling intervals: the project has no push channel, so clients ask; hidden tabs do not poll at all. */
+export const THREAD_POLL_MS = 10_000;
+export const BADGE_POLL_MS = 45_000;
+export const INBOX_POLL_MS = 20_000;
 
-export const useStartHelpConversation = () =>
-  useMutation({ mutationFn: (body: StartHelpConversationRequest) => startHelpConversation(body) });
+export const useSupportThread = () =>
+  useQuery({ queryKey: helpKeys.thread(), queryFn: getSupportThread, refetchInterval: THREAD_POLL_MS, refetchIntervalInBackground: false });
 
-/** Not cached after the page is left: the conversation is private to whoever holds the link. */
-export const useHelpConversation = (token: string | null) =>
-  useQuery({
-    queryKey: helpKeys.conversation(token ?? ''),
-    queryFn: () => getHelpConversation(token ?? ''),
-    enabled: Boolean(token),
-    gcTime: 0,
-    retry: false,
-  });
+export const useSupportUnread = (enabled: boolean) =>
+  useQuery({ queryKey: helpKeys.unread(), queryFn: getSupportUnread, enabled, refetchInterval: BADGE_POLL_MS, refetchIntervalInBackground: false });
 
-export function useHelpFollowUp(token: string) {
+export function useSendSupportMessage() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ message, website }: { message: string; website: string }) => sendHelpFollowUp(token, message, website),
-    onSuccess: (view) => client.setQueryData(helpKeys.conversation(token), view),
+    mutationFn: (body: SendSupportMessage) => sendSupportMessage(body),
+    onSuccess: (message) => {
+      markSupportActive();
+      client.setQueryData<SupportThread>(helpKeys.thread(), (current) =>
+        current && !current.messages.some((item) => item.id === message.id)
+          ? { ...current, identity: current.identity === 'NONE' ? 'BROWSER' : current.identity, messages: [...current.messages, message] }
+          : current);
+      return client.invalidateQueries({ queryKey: helpKeys.thread() });
+    },
   });
 }
 
+export function useMarkSupportRead() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (upTo: number) => markSupportRead(upTo),
+    onSuccess: (unread) => {
+      client.setQueryData(helpKeys.unread(), unread);
+      return client.invalidateQueries({ queryKey: helpKeys.thread() });
+    },
+  });
+}
+
+export function useSupportSettings() {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: helpKeys.all });
+  return {
+    contact: useMutation({ mutationFn: (contact: SupportContact) => updateSupportContact(contact), onSuccess: refresh }),
+    recoveryCode: useMutation({ mutationFn: createRecoveryCode, onSuccess: refresh }),
+    recover: useMutation({
+      mutationFn: (code: string) => recoverSupport(code),
+      onSuccess: (thread) => {
+        markSupportActive();
+        client.setQueryData(helpKeys.thread(), thread);
+        return refresh();
+      },
+    }),
+    forget: useMutation({ mutationFn: forgetSupportBrowser, onSuccess: refresh }),
+  };
+}
+
 export const useHelpInbox = (query: HelpInboxQuery, enabled = true) =>
-  useQuery({ queryKey: helpKeys.inbox(query), queryFn: () => getHelpInbox(query), enabled });
+  useQuery({ queryKey: helpKeys.inbox(query), queryFn: () => getHelpInbox(query), enabled, refetchInterval: INBOX_POLL_MS, refetchIntervalInBackground: false });
+
+export const useHelpInboxUnread = (enabled: boolean) =>
+  useQuery({ queryKey: helpKeys.inboxUnread(), queryFn: getHelpInboxUnread, enabled, refetchInterval: BADGE_POLL_MS, refetchIntervalInBackground: false });
 
 export const useHelpInboxDetail = (id: number | null) =>
-  useQuery({ queryKey: helpKeys.detail(id ?? 0), queryFn: () => getHelpInboxDetail(id ?? 0), enabled: id !== null });
+  useQuery({ queryKey: helpKeys.detail(id ?? 0), queryFn: () => getHelpInboxDetail(id ?? 0), enabled: id !== null,
+    refetchInterval: THREAD_POLL_MS, refetchIntervalInBackground: false });
 
 export const useHelpCandidates = (id: number | null, enabled: boolean) =>
   useQuery({ queryKey: helpKeys.candidates(id ?? 0), queryFn: () => getHelpAssigneeCandidates(id ?? 0), enabled: enabled && id !== null });
@@ -52,12 +95,19 @@ function useInboxMutation<Input>(run: (input: Input) => Promise<HelpConversation
     mutationFn: run,
     onSuccess: (detail) => {
       client.setQueryData(helpKeys.detail(detail.conversation.id), detail);
-      return client.invalidateQueries({ queryKey: [...helpKeys.all, 'inbox'] });
+      return Promise.all([
+        client.invalidateQueries({ queryKey: [...helpKeys.all, 'inbox'] }),
+        client.invalidateQueries({ queryKey: helpKeys.inboxUnread() }),
+      ]);
     },
   });
 }
 
-export const useHelpReply = () => useInboxMutation(({ id, message }: { id: number; message: string }) => replyToHelpConversation(id, message));
+export const useHelpReply = () =>
+  useInboxMutation(({ id, message, clientMessageId }: { id: number; message: string; clientMessageId: string }) =>
+    replyToHelpConversation(id, message, clientMessageId));
+
+export const useHelpMarkRead = () => useInboxMutation(({ id, upTo }: { id: number; upTo: number }) => markHelpConversationRead(id, upTo));
 
 export const useHelpStatus = () =>
   useInboxMutation(({ id, status }: { id: number; status: HelpConversationStatus }) => setHelpConversationStatus(id, status));

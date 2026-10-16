@@ -6,33 +6,59 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Visitor questions ("Ask a question"): abuse limits and the optional e-mail notification. */
+/** Support chat: abuse limits, the anonymous guest session cookie, recovery codes and optional e-mail notices. */
 @Component
 @ConfigurationProperties(prefix = "catalog.help")
 @Getter
 @Setter
 public class HelpProperties {
-    /** New questions and follow-ups per visitor address and window. */
-    private int perClientLimit = 6;
-    private Duration perClientWindow = Duration.ofMinutes(15);
-    private int globalLimit = 300;
+    /** Visitor messages per visitor address and window (rate limit; addresses are never stored). */
+    private int perClientLimit = 20;
+    private Duration perClientWindow = Duration.ofMinutes(10);
+    /** Visitor messages per support identity and window. */
+    private int perGuestLimit = 20;
+    private Duration perGuestWindow = Duration.ofMinutes(10);
+    /** New anonymous identities and recovery attempts, all visitors together. */
+    private int globalLimit = 2_000;
     private Duration globalWindow = Duration.ofHours(1);
     private int maxTrackedClients = 10_000;
-    /** Messages of any author in one conversation. */
-    private int maxMessages = 40;
-    /** Visitor messages in a row without a staff reply in between. */
-    private int maxUnansweredVisitorMessages = 4;
-    /** SPA path that opens a conversation; the token is appended as the URL fragment (#token), never as a query. */
-    private String conversationPath = "/help/conversation";
-    /** Absolute public origin of the SPA (e.g. https://reestr.example); needed for links in e-mails. */
+    /** Visitor messages in a row, in one routed conversation, without a staff reply in between. */
+    private int maxUnansweredVisitorMessages = 10;
+    /** Messages kept in one routed conversation. */
+    private int maxMessages = 500;
+    /** Recovery-code attempts per visitor address and window. */
+    private int recoveryAttemptLimit = 5;
+    private Duration recoveryAttemptWindow = Duration.ofMinutes(15);
+    /** Absolute public origin of the SPA (e.g. https://reestr.example); used in e-mail notices. */
     private String publicBaseUrl = "";
+    /** Browser origins allowed to send cookie-authenticated support requests (besides publicBaseUrl). */
+    private List<String> allowedOrigins = new ArrayList<>(List.of(
+            "http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5183"));
+    private Session session = new Session();
     private Mail mail = new Mail();
+
+    /** Anonymous guest session cookie (HttpOnly, SameSite=Strict, path /api/help). */
+    @Getter
+    @Setter
+    public static class Session {
+        private String cookieName = "reestr_support";
+        /** true for HTTPS deployments; the local HTTP Compose stack sets it from APP_COOKIE_SECURE=false. */
+        private boolean cookieSecure = true;
+        /** A browser session (and the guest's contact details) is dropped after this long without activity. */
+        private Duration idleTimeout = Duration.ofDays(180);
+        /** last_seen_at is written at most this often. */
+        private Duration touchInterval = Duration.ofMinutes(10);
+        /** Browsers attached to one guest through its recovery code. */
+        private int maxBrowsersPerGuest = 10;
+    }
 
     @Getter
     @Setter
     public static class Mail {
-        /** Reply notifications are offered only when this is true, a sender is set and SMTP (spring.mail.host) is configured. */
+        /** Reply notices are offered only when this is true, a sender is set and SMTP (spring.mail.host) is configured. */
         private boolean enabled = false;
         private String from = "";
     }

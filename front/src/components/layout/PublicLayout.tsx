@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useI18n } from '../../contexts/i18n';
 import { PublicHeader } from './PublicHeader';
 import { PublicFooter } from './PublicFooter';
+import { SupportReplyNotifier } from '../../features/help/SupportReplyNotifier';
 
 export function PublicLayout() {
   const location = useLocation();
@@ -47,6 +48,7 @@ export function PublicLayout() {
         <Outlet />
       </main>
       <PublicFooter />
+      <SupportReplyNotifier />
     </div>
   );
 }

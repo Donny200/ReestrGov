@@ -5,8 +5,10 @@ import adliya.uz.functioncatalogservice.dto.SubmitReportRequest;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.InformationReport;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
+import adliya.uz.functioncatalogservice.entity.ReportCategory;
 import adliya.uz.functioncatalogservice.entity.ReportEntityType;
 import adliya.uz.functioncatalogservice.entity.ReportStatus;
+import adliya.uz.functioncatalogservice.exception.InvalidFieldException;
 import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
 import adliya.uz.functioncatalogservice.repository.InformationReportRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
@@ -46,34 +48,50 @@ public class ReportSubmissionService {
         }
         String description = normalizedDescription(request.description());
         Target target = resolve(request.entityType(), request.entityId());
-        transaction.executeWithoutResult(status -> store(request, target, description));
+        transaction.executeWithoutResult(status -> store(request.entityType(), request.entityId(), request.category(),
+                request.contact(), request.language(), target, description));
     }
 
-    private void store(SubmitReportRequest request, Target target, String description) {
+    /**
+     * A report of incorrect information sent from the support chat (the chat message is the visitor's only channel);
+     * runs in the caller's transaction so the message and the report are stored together. Returns null when the same
+     * open report already exists.
+     */
+    public InformationReport fileFromSupport(ReportEntityType type, Long entityId, ReportCategory category, String text,
+                                             String language, String clientAddress) {
+        rateLimiter.acquire(clientAddress);
+        if (!category.appliesTo(type)) {
+            throw new InvalidFieldException("reportCategory", "Category " + category + " does not apply to " + type);
+        }
+        return store(type, entityId, category, null, language, resolve(type, entityId), normalizedDescription(text));
+    }
+
+    private InformationReport store(ReportEntityType type, Long entityId, ReportCategory category, String contact, String language,
+                                    Target target, String description) {
         Instant now = Instant.now();
         Instant since = now.minus(DEDUPLICATION_WINDOW);
-        if (reports.countByEntityTypeAndEntityIdAndCreatedAtAfter(request.entityType(), request.entityId(), since)
-                >= properties.getPerEntityDailyLimit()) {
+        if (reports.countByEntityTypeAndEntityIdAndCreatedAtAfter(type, entityId, since) >= properties.getPerEntityDailyLimit()) {
             throw new RateLimitExceededException(DEDUPLICATION_WINDOW);
         }
         if (reports.existsByEntityTypeAndEntityIdAndDescriptionAndStatusInAndCreatedAtAfter(
-                request.entityType(), request.entityId(), description, ReportStatus.OPEN, since)) {
-            return;
+                type, entityId, description, ReportStatus.OPEN, since)) {
+            return null;
         }
         InformationReport report = reports.save(InformationReport.builder()
-                .entityType(request.entityType())
-                .entityId(request.entityId())
+                .entityType(type)
+                .entityId(entityId)
                 .entityLabel(truncate(target.label()))
                 .organizationId(target.organizationId())
-                .category(request.category())
+                .category(category)
                 .description(description)
-                .contact(blankToNull(request.contact()))
-                .language(normalizedLanguage(request.language()))
+                .contact(blankToNull(contact))
+                .language(normalizedLanguage(language))
                 .status(ReportStatus.NEW)
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
         audit.reportReceived(report);
+        return report;
     }
 
     private Target resolve(ReportEntityType type, Long id) {

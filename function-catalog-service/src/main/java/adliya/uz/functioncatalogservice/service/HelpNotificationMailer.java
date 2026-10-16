@@ -11,11 +11,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Optional e-mail for visitor questions. Delivery counts as available only when the operator enabled it and configured
- * SMTP (spring.mail.host), a sender and the public SPA origin; otherwise visitors are told to keep their private link.
- * The confirmation e-mail carries the private link once (the server cannot rebuild it later because only the token's
- * hash is stored); reply notifications only say that a reply is waiting. Addresses, tokens and message texts are
- * never logged, and a delivery failure never fails the visitor's or the staff member's request.
+ * Optional e-mail notice for the support chat. Delivery counts as available only when the operator enabled it and
+ * configured SMTP (spring.mail.host), a sender and the public SPA origin; otherwise the visitor only gets the in-app
+ * unread indicator. Visitors opt in with their own address. The notice contains no message text and no secret;
+ * addresses and message texts are never logged, and a delivery failure never fails the staff member's request.
  */
 @Component
 @Slf4j
@@ -41,30 +40,18 @@ public class HelpNotificationMailer {
         return sender instanceof JavaMailSenderImpl impl ? StringUtils.hasText(impl.getHost()) : sender != null;
     }
 
-    public void sendConfirmation(String email, String token) {
-        String link = properties.getPublicBaseUrl().replaceAll("/+$", "") + properties.getConversationPath() + "#" + token;
-        send(email, "ReestrGov: your question / ваш вопрос / savolingiz", """
-                Your question was received. Keep this private link: it is the only way to read the answer and to write again.
-                Anyone who has the link can read the conversation, so do not forward it.
+    /** Only says that a reply is waiting; the message itself is read on the site, in the visitor's own support thread. */
+    public void sendReplyNotice(String email) {
+        String page = properties.getPublicBaseUrl().replaceAll("/+$", "") + "/support";
+        send(email, "ReestrGov: a reply from support / ответ поддержки / qo‘llab-quvvatlash javobi", """
+                Support replied to your message. Open the Support page in the browser you used (or restore it with your recovery code) to read it:
 
-                Ваш вопрос получен. Сохраните эту личную ссылку: только по ней можно прочитать ответ и написать снова.
-                Любой, у кого есть ссылка, может прочитать переписку, поэтому не пересылайте её.
+                Поддержка ответила на ваше сообщение. Откройте страницу «Поддержка» в том же браузере (или восстановите доступ кодом восстановления):
 
-                Savolingiz qabul qilindi. Ushbu shaxsiy havolani saqlang: javobni o‘qish va yana yozish faqat u orqali mumkin.
-                Havolaga ega har kim yozishmani o‘qiy oladi, shuning uchun uni hech kimga yubormang.
+                Qo‘llab-quvvatlash xabaringizga javob berdi. Javobni o‘qish uchun o‘sha brauzerda «Qo‘llab-quvvatlash» sahifasini oching (yoki tiklash kodi bilan kiring):
 
                 %s
-                """.formatted(link));
-    }
-
-    public void sendReplyNotice(String email) {
-        send(email, "ReestrGov: a reply to your question / ответ на ваш вопрос / savolingizga javob", """
-                The organization replied to your question. Open the private link from the confirmation e-mail (or the link you saved) to read it.
-
-                Организация ответила на ваш вопрос. Откройте личную ссылку из письма-подтверждения (или сохранённую ссылку), чтобы прочитать ответ.
-
-                Tashkilot savolingizga javob berdi. Javobni o‘qish uchun tasdiqlash xatidagi (yoki saqlab qo‘ygan) shaxsiy havolani oching.
-                """);
+                """.formatted(page));
     }
 
     private void send(String email, String subject, String text) {

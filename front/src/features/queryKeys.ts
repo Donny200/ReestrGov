@@ -62,9 +62,10 @@ export const reportKeys = {
 
 export const helpKeys = {
   all: ['help'] as const,
-  options: () => [...helpKeys.all, 'options'] as const,
-  conversation: (token: string) => [...helpKeys.all, 'conversation', token] as const,
+  thread: () => [...helpKeys.all, 'thread'] as const,
+  unread: () => [...helpKeys.all, 'unread'] as const,
   inbox: (query: HelpInboxQuery) => [...helpKeys.all, 'inbox', query] as const,
+  inboxUnread: () => [...helpKeys.all, 'inbox-unread'] as const,
   detail: (id: number) => [...helpKeys.all, 'detail', id] as const,
   candidates: (id: number) => [...helpKeys.all, 'candidates', id] as const,
 };

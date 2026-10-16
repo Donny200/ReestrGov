@@ -21,10 +21,10 @@ import { formatDateTime } from '../../utils/format';
 const LIST_LIMIT = 500;
 
 function parseStatus(value: string | null): HelpStatusFilter {
-  return HELP_STATUS_FILTERS.includes(value as HelpStatusFilter) ? (value as HelpStatusFilter) : 'OPEN';
+  return HELP_STATUS_FILTERS.includes(value as HelpStatusFilter) ? (value as HelpStatusFilter) : 'ACTIVE';
 }
 
-/** Inbox of visitor questions; the backend limits it to the caller's organizations (general questions: SUPER_ADMIN). */
+/** Support inbox; the backend limits it to the caller's organizations (central conversations: global staff only). */
 export function VisitorQuestions() {
   const { t, locale } = useI18n();
   const scope = useScopeOptions();
@@ -35,48 +35,52 @@ export function VisitorQuestions() {
     status: parseStatus(params.get('status')),
     organizationId: params.get('general') === 'true' ? undefined : parseId(params.get('organization')),
     general: scope.global && params.get('general') === 'true' ? true : undefined,
+    unread: params.get('unread') === 'true' ? true : undefined,
+    sort: params.get('sort') === 'UNREAD_FIRST' ? 'UNREAD_FIRST' : undefined,
     assignee: params.get('assignee') === 'me' ? 'me' : undefined,
   }), [params, scope.global]);
   const inbox = useHelpInbox(query);
 
-  const setParam = useCallback((name: string, value: string) => {
+  const setParam = useCallback((changes: Record<string, string>) => {
     setParams((current) => {
       const next = new URLSearchParams(current);
-      if (value) next.set(name, value);
-      else next.delete(name);
+      Object.entries(changes).forEach(([name, value]) => (value ? next.set(name, value) : next.delete(name)));
       return next;
     }, { replace: true });
   }, [setParams]);
 
   const columns = useMemo<ColumnDef<HelpConversationSummary>[]>(() => [
     {
-      accessorKey: 'lastVisitorMessageAt',
-      header: t('help.lastVisitorMessage', 'Last visitor message'),
-      cell: ({ row }) => <span className="tabular-nums text-secondary">{formatDateTime(row.original.lastVisitorMessageAt, locale)}</span>,
-    },
-    {
-      id: 'subject',
-      header: t('reports.subject', 'Subject'),
-      accessorFn: (row) => row.serviceName ?? '',
+      id: 'conversation',
+      header: t('support.lastMessage', 'Last message'),
+      accessorFn: (row) => row.lastMessageAt ?? row.updatedAt,
       cell: ({ row }) => (
-        <div className="min-w-0 max-w-md">
-          <span className="block font-medium text-foreground wrap-anywhere">
-            {row.original.general ? t('help.generalQuestionShort', 'General question') : row.original.serviceName ?? `#${row.original.serviceId}`}
+        <div className="min-w-0 max-w-xl">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className={row.original.unreadCount > 0 ? 'font-semibold text-foreground' : 'font-medium text-foreground'}>
+              {row.original.general ? t('support.generalContext', 'General support') : row.original.serviceName ?? scope.organizationName(row.original.organizationId)}
+            </span>
+            {row.original.unreadCount > 0 && <Badge size="sm" tone="accent">{row.original.unreadCount} {t('support.unread', 'unread')}</Badge>}
           </span>
-          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-secondary">
-            <span className="tabular-nums">#{row.original.id}</span>
+          {row.original.lastMessagePreview && (
+            <span className="mt-1 block truncate text-sm text-secondary">
+              {row.original.lastMessageAuthor === 'STAFF' ? `${t('support.you', 'You')}: ` : ''}{row.original.lastMessagePreview}
+            </span>
+          )}
+          <span className="mt-1 flex flex-wrap gap-1.5 text-xs text-secondary tabular-nums">
+            <span>#{row.original.id}</span>
+            {row.original.lastMessageAt && <span>· {formatDateTime(row.original.lastMessageAt, locale)}</span>}
             {!row.original.general && scope.showOrganizations && <span>· {scope.organizationName(row.original.organizationId)}</span>}
-            <span>· {row.original.messageCount} {t('help.messagesCount', 'messages')}</span>
           </span>
         </div>
       ),
     },
     {
       accessorKey: 'assignedUserName',
-      header: t('help.assignee', 'Responsible staff member'),
+      header: t('support.assignee', 'Responsible staff member'),
       enableSorting: false,
       meta: { hideBelow: 'md' },
-      cell: ({ row }) => <span className="text-secondary">{row.original.assignedUserName ?? t('help.unassigned', 'Nobody assigned')}</span>,
+      cell: ({ row }) => <span className="text-secondary">{row.original.assignedUserName ?? t('support.unassigned', 'Nobody assigned')}</span>,
     },
     {
       accessorKey: 'status',
@@ -88,7 +92,12 @@ export function VisitorQuestions() {
       header: t('field.actions'),
       enableSorting: false,
       meta: { align: 'right' },
-      cell: ({ row }) => <Button variant="outline" size="sm" onClick={() => setSelected(row.original)}>{t('help.open', 'Open')}</Button>,
+      cell: ({ row }) => (
+        <Button variant="outline" size="sm" onClick={() => setSelected(row.original)}
+          aria-label={`${t('support.open', 'Open')} #${row.original.id}`}>
+          {t('support.open', 'Open')}
+        </Button>
+      ),
     },
   ], [t, locale, scope]);
 
@@ -99,60 +108,51 @@ export function VisitorQuestions() {
     <div>
       <PageHeader
         eyebrow={t('nav.admin')}
-        title={t('help.inboxTitle', 'Visitor questions')}
-        description={t('help.inboxSubtitle', 'Questions visitors asked about services without an account. Reply here; visitors read the answer through their private link. This is not a live chat.')}
+        title={t('support.inboxTitle', 'Support inbox')}
+        description={t('support.inboxSubtitle', 'Visitors’ support conversations about your organization’s services. Reply in the same thread; visitors see the reply on their Support page. The list refreshes every 20 seconds.')}
       />
       <Card>
-        <div className="grid gap-3 border-b border-line px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
-            value={query.status ?? 'OPEN'}
-            aria-label={t('field.status')}
-            size="sm"
-            onValueChange={(value) => setParam('status', value === 'OPEN' ? '' : value)}
-            options={HELP_STATUS_FILTERS.map((value) => ({ value, label: helpStatusFilterLabel(value, t) }))}
-          />
+        <div className="grid gap-3 border-b border-line px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Select value={query.status ?? 'ACTIVE'} aria-label={t('field.status')} size="sm"
+            onValueChange={(value) => setParam({ status: value === 'ACTIVE' ? '' : value })}
+            options={HELP_STATUS_FILTERS.map((value) => ({ value, label: helpStatusFilterLabel(value, t) }))} />
+          <Select value={query.unread ? 'true' : ''} aria-label={t('support.readState', 'Read state')} size="sm"
+            onValueChange={(value) => setParam({ unread: value })}
+            options={[{ value: '', label: t('support.anyReadState', 'Read and unread') }, { value: 'true', label: t('support.unreadOnly', 'Only with unread messages') }]} />
           {scope.showOrganizations && (
             <Select
               value={params.get('general') === 'true' ? 'general' : query.organizationId ? String(query.organizationId) : ''}
-              aria-label={t('field.organization')}
-              size="sm"
-              onValueChange={(value) => {
-                setParam('general', value === 'general' ? 'true' : '');
-                setParam('organization', value === 'general' ? '' : value);
-              }}
-              options={[...scope.organizations, ...(scope.global ? [{ value: 'general', label: t('help.generalOnly', 'General questions (site support)') }] : [])]}
+              aria-label={t('field.organization')} size="sm"
+              onValueChange={(value) => setParam({ general: value === 'general' ? 'true' : '', organization: value === 'general' ? '' : value })}
+              options={[...scope.organizations, ...(scope.global ? [{ value: 'general', label: t('support.generalOnly', 'General support (central)') }] : [])]}
             />
           )}
-          <Select
-            value={query.assignee ?? ''}
-            aria-label={t('help.assignee', 'Responsible staff member')}
-            size="sm"
-            onValueChange={(value) => setParam('assignee', value)}
-            options={[
-              { value: '', label: t('reports.anyAssignee', 'Any responsible staff member') },
-              { value: 'me', label: t('help.assignedToMe', 'Assigned to me') },
-            ]}
-          />
+          <Select value={query.assignee ?? ''} aria-label={t('support.assignee', 'Responsible staff member')} size="sm"
+            onValueChange={(value) => setParam({ assignee: value })}
+            options={[{ value: '', label: t('reports.anyAssignee', 'Any responsible staff member') }, { value: 'me', label: t('support.assignedToMe', 'Assigned to me') }]} />
+          <Select value={query.sort ?? 'LAST_MESSAGE'} aria-label={t('support.sort', 'Sort')} size="sm"
+            onValueChange={(value) => setParam({ sort: value === 'LAST_MESSAGE' ? '' : value })}
+            options={[{ value: 'LAST_MESSAGE', label: t('support.sortLast', 'Newest message first') }, { value: 'UNREAD_FIRST', label: t('support.sortUnread', 'Unread first') }]} />
         </div>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
           {filtered && <Link to="/admin/questions" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>{t('action.reset', 'Reset')}</Link>}
-          {scope.global && <Badge size="sm">{t('help.globalScope', 'You see every organization and general questions')}</Badge>}
+          {scope.global && <Badge size="sm">{t('support.globalScope', 'You see every organization and central support')}</Badge>}
         </Toolbar>
         {rows.length >= LIST_LIMIT && (
           <div className="border-b border-line px-5 py-3">
-            <InlineAlert tone="warning">{t('help.limitNotice', 'Showing the 500 most recently updated conversations. Use the filters to narrow the list.')}</InlineAlert>
+            <InlineAlert tone="warning">{t('support.limitNotice', 'Showing the 500 conversations with the newest messages. Use the filters to narrow the list.')}</InlineAlert>
           </div>
         )}
         <DataTable
           columns={columns}
           data={rows}
           rowKey={(row) => row.id}
-          caption={t('help.inboxTitle', 'Visitor questions')}
+          caption={t('support.inboxTitle', 'Support inbox')}
           loading={inbox.isPending}
           error={inbox.error}
           onRetry={() => void inbox.refetch()}
           pageSize={25}
-          empty={{ title: t('help.emptyTitle', 'No questions here'), description: t('help.emptyText', 'Questions from visitors appear in this list.') }}
+          empty={{ title: t('support.emptyInboxTitle', 'No conversations here'), description: t('support.emptyInboxText', 'Visitor messages appear here as soon as they are sent.') }}
         />
       </Card>
       <QuestionReviewDialog conversation={selected} organizationName={scope.organizationName} onClose={() => setSelected(null)} />

@@ -93,7 +93,9 @@ services:
       AZURE_TRANSLATOR_KEY: "${AZURE_TRANSLATOR_KEY:-}"
       AZURE_TRANSLATOR_REGION: "${AZURE_TRANSLATOR_REGION:-}"
       CATALOG_TRANSLATION_ENABLED: "${CATALOG_TRANSLATION_ENABLED:-true}"
-      # Optional e-mail notifications for visitor questions (off unless HELP_MAIL_ENABLED=true and SMTP is set).
+      # Support chat guest cookie: Secure flag follows the same setting as the identity-service session cookies.
+      APP_COOKIE_SECURE: "${APP_COOKIE_SECURE:?APP_COOKIE_SECURE is required}"
+      # Optional e-mail notices for support replies (off unless HELP_MAIL_ENABLED=true and SMTP is set).
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
       HELP_MAIL_ENABLED: "${HELP_MAIL_ENABLED:-false}"
       HELP_MAIL_FROM: "${HELP_MAIL_FROM:-}"

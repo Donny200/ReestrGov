@@ -14,16 +14,6 @@ export type ReportCategory =
   | 'TRANSLATION'
   | 'OTHER';
 
-export interface SubmitReportRequest {
-  entityType: ReportEntityType;
-  entityId: number;
-  category: ReportCategory;
-  description: string;
-  contact: string;
-  language: string;
-  website: string;
-}
-
 export interface InformationReport {
   id: number;
   entityType: ReportEntityType;

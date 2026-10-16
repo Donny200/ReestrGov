@@ -2,11 +2,7 @@ import type { StatusTone } from '../../components/ui/Badge';
 import type { ReportCategory, ReportEntityType, ReportStatus, ReportStatusFilter } from '../../types/reports';
 import type { Translate } from '../../utils/errors';
 
-export const REPORT_DESCRIPTION_MIN = 10;
-export const REPORT_DESCRIPTION_MAX = 2000;
-export const REPORT_CONTACT_MAX = 254;
 export const REPORT_NOTE_MAX = 2000;
-export const REPORT_CONTACT_PATTERN = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$|^\+?[0-9][0-9 ()-]{5,24}$/;
 
 export const REPORT_CATEGORIES: Record<ReportEntityType, ReportCategory[]> = {
   FUNCTION: ['INCORRECT_INFORMATION', 'OUTDATED_INFORMATION', 'DOCUMENTS_OR_STEPS', 'FEES_OR_TIMING', 'BROKEN_LINK', 'TRANSLATION', 'OTHER'],

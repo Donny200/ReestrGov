@@ -54,15 +54,24 @@ catalog:
   # Public origin of the SPA (e.g. https://reestr.example); used for links in visitor e-mails and printed guides.
   public-base-url: ${PUBLIC_BASE_URL:}
   help:
-    # Anonymous visitor questions: new questions and follow-ups per visitor address, plus a global ceiling.
-    per-client-limit: 6
-    per-client-window: 15m
-    global-limit: 300
+    # Support chat. Visitor messages per address and per support identity, recovery-code attempts per address.
+    per-client-limit: 20
+    per-client-window: 10m
+    per-guest-limit: 20
+    per-guest-window: 10m
+    global-limit: 2000
     global-window: 1h
-    max-messages: 40
-    max-unanswered-visitor-messages: 4
-    conversation-path: /help/conversation
+    max-unanswered-visitor-messages: 10
+    max-messages: 500
+    recovery-attempt-limit: 5
+    recovery-attempt-window: 15m
     public-base-url: ${PUBLIC_BASE_URL:}
+    session:
+      # Anonymous guest cookie: HttpOnly, SameSite=Strict, path /api/help. Secure unless APP_COOKIE_SECURE=false
+      # (local HTTP stack). Idle browsers and the contact details of idle guests are removed after idle-timeout.
+      cookie-name: reestr_support
+      cookie-secure: ${APP_COOKIE_SECURE:true}
+      idle-timeout: 180d
     mail:
       enabled: ${HELP_MAIL_ENABLED:false}
       from: ${HELP_MAIL_FROM:}

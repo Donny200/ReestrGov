@@ -21,7 +21,7 @@ import { useEngagementTracker, usePageView, usePrintTracking } from '../features
 import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { SaveServiceButton } from '../features/saved/SaveServiceButton';
 import { FeedbackPrompt } from '../features/feedback/FeedbackPrompt';
-import { AskQuestionLink } from '../features/help/AskQuestionLink';
+import { AskAboutServiceLink } from '../features/help/AskAboutServiceLink';
 import { ServiceHistory } from '../features/history/ServiceHistory';
 import type { CatalogFunction } from '../types/api';
 import { hasContactDetails } from '../utils/contact';
@@ -86,9 +86,9 @@ export function FunctionDetail() {
               <ShareButton title={functionName} path={`/functions/${item.data.id}`} />
               <PrintButton label={t('print.checklist', 'Print checklist')} />
               <GuideDownloadLink serviceId={item.data.id} />
-              <AskQuestionLink serviceId={item.data.id} />
+              <AskAboutServiceLink serviceId={item.data.id} />
               <div ref={reportButtonRef} className="contents">
-                <ReportProblemButton entityType="FUNCTION" entityId={item.data.id} entityName={functionName} />
+                <ReportProblemButton entityType="FUNCTION" entityId={item.data.id} />
               </div>
             </div>
             {item.data.lastUpdatedAt && (

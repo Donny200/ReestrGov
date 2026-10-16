@@ -2,39 +2,56 @@ import { apiRequest } from './http';
 import type { StaffMember } from '../types/api';
 import type {
   HelpConversationDetail,
-  HelpConversationStarted,
   HelpConversationStatus,
   HelpConversationSummary,
-  HelpConversationView,
   HelpInboxQuery,
-  HelpOptions,
-  StartHelpConversationRequest,
+  HelpInboxUnread,
+  SendSupportMessage,
+  SupportContact,
+  SupportMessage,
+  SupportThread,
+  SupportUnread,
+  SupportUpdates,
 } from '../types/help';
 
-/** The private conversation token is sent in a header, never in the URL. */
-export const HELP_TOKEN_HEADER = 'X-Conversation-Token';
-const anonymous = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
+/** The visitor is recognised by an HttpOnly cookie or their account; no conversation id or secret is ever sent. */
+const visitor = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
 
-export const getHelpOptions = () => apiRequest<HelpOptions>('/api/help/options', anonymous);
+export const getSupportThread = () => apiRequest<SupportThread>('/api/help/support', visitor);
 
-export const startHelpConversation = (body: StartHelpConversationRequest) =>
-  apiRequest<HelpConversationStarted>('/api/help/conversations', { method: 'POST', body, ...anonymous });
+export const getSupportUpdates = (after: number | null) =>
+  apiRequest<SupportUpdates>('/api/help/support/updates', { query: { after }, ...visitor });
 
-export const getHelpConversation = (token: string) =>
-  apiRequest<HelpConversationView>('/api/help/conversation', { headers: { [HELP_TOKEN_HEADER]: token }, ...anonymous });
+export const getSupportUnread = () => apiRequest<SupportUnread>('/api/help/support/unread', visitor);
 
-export const sendHelpFollowUp = (token: string, message: string, website: string) =>
-  apiRequest<HelpConversationView>('/api/help/conversation/messages', {
-    method: 'POST', body: { message, website }, headers: { [HELP_TOKEN_HEADER]: token }, ...anonymous,
-  });
+export const sendSupportMessage = (body: SendSupportMessage) =>
+  apiRequest<SupportMessage>('/api/help/support/messages', { method: 'POST', body, ...visitor });
+
+export const markSupportRead = (upTo: number) =>
+  apiRequest<SupportUnread>('/api/help/support/read', { method: 'POST', body: { upTo }, ...visitor });
+
+export const updateSupportContact = (contact: SupportContact) =>
+  apiRequest<SupportContact>('/api/help/support/contact', { method: 'PUT', body: contact, ...visitor });
+
+export const createRecoveryCode = () => apiRequest<{ code: string }>('/api/help/support/recovery-code', { method: 'POST', ...visitor });
+
+export const recoverSupport = (code: string) =>
+  apiRequest<SupportThread>('/api/help/support/recover', { method: 'POST', body: { code }, ...visitor });
+
+export const forgetSupportBrowser = () => apiRequest<void>('/api/help/support/session', { method: 'DELETE', ...visitor });
 
 export const getHelpInbox = (query: HelpInboxQuery) =>
   apiRequest<HelpConversationSummary[]>('/api/help/inbox', { query: { ...query } });
 
+export const getHelpInboxUnread = () => apiRequest<HelpInboxUnread>('/api/help/inbox/unread');
+
 export const getHelpInboxDetail = (id: number) => apiRequest<HelpConversationDetail>(`/api/help/inbox/${id}`);
 
-export const replyToHelpConversation = (id: number, message: string) =>
-  apiRequest<HelpConversationDetail>(`/api/help/inbox/${id}/replies`, { method: 'POST', body: { message } });
+export const markHelpConversationRead = (id: number, upTo: number) =>
+  apiRequest<HelpConversationDetail>(`/api/help/inbox/${id}/read`, { method: 'POST', body: { upTo } });
+
+export const replyToHelpConversation = (id: number, message: string, clientMessageId: string) =>
+  apiRequest<HelpConversationDetail>(`/api/help/inbox/${id}/replies`, { method: 'POST', body: { message, clientMessageId } });
 
 export const setHelpConversationStatus = (id: number, status: HelpConversationStatus) =>
   apiRequest<HelpConversationDetail>(`/api/help/inbox/${id}/status`, { method: 'PUT', body: { status } });

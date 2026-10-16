@@ -37,10 +37,10 @@ export function ServiceAnswerPreview({ service, organization }: ServiceAnswerPre
     <section aria-labelledby="help-preview-title" className="rounded-card-sm border border-line p-5">
       <h2 id="help-preview-title" className="flex items-center gap-2 text-base font-semibold text-foreground">
         <BookOpenCheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {t('help.previewTitle', 'Before you ask: what the service page says')}
+        {t('support.previewTitle', 'Before you ask: what the service page says')}
       </h2>
       <p className="mt-1 text-sm leading-6 text-secondary">
-        {t('help.previewText', 'This is the information the organization has published for this service. If it answers your question, you do not need to send it.')}{' '}
+        {t('support.previewText', 'This is the information the organization has published for this service. If it answers your question, you do not need to send it.')}{' '}
         <Link to={`/functions/${service.id}`} className="font-medium text-accent-text underline-offset-4 fine:hover:underline" lang={locale}>{name}</Link>
       </p>
       <div className="mt-4 grid gap-5 md:grid-cols-2" lang={locale}>
