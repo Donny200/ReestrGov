@@ -32,6 +32,9 @@ public class SecurityConfig {
                                 "/api/functions/assignments", "/api/functions/*/assignee/candidates").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/functions/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/reports", "/api/analytics/events", "/api/feedback").permitAll()
+                        // Anonymous visitor questions: options, creation, and follow-up with the private access token.
+                        .requestMatchers(HttpMethod.GET, "/api/help/options", "/api/help/conversation").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/help/conversations", "/api/help/conversation/messages").permitAll()
                         .requestMatchers("/swagger", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 );

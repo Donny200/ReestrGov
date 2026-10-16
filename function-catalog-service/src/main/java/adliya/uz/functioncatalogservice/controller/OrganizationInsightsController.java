@@ -11,6 +11,7 @@ import adliya.uz.functioncatalogservice.entity.QualityIssueType;
 import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
 import adliya.uz.functioncatalogservice.service.CsvExport;
 import adliya.uz.functioncatalogservice.service.EngagementInsightsService;
+import adliya.uz.functioncatalogservice.service.OrganizationReportService;
 import adliya.uz.functioncatalogservice.service.OrganizationSummaryService;
 import adliya.uz.functioncatalogservice.service.QualityReminderService;
 import adliya.uz.functioncatalogservice.service.ServiceQualityService;
@@ -43,6 +44,7 @@ public class OrganizationInsightsController {
     private final QualityReminderService reminders;
     private final AnalyticsExportService exports;
     private final FeedbackService feedback;
+    private final OrganizationReportService reports;
 
     @GetMapping("/summary")
     @Operation(summary = "Dashboard summary",
@@ -78,6 +80,21 @@ public class OrganizationInsightsController {
                                                    @RequestParam(defaultValue = "SERVICES") AnalyticsExportService.Breakdown breakdown,
                                                    @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter) {
         return CsvExport.attachment(exports.engagement(organizationId, categoryId, from, to, breakdown, delimiter));
+    }
+
+    @GetMapping("/report/export")
+    @Operation(summary = "Export the organization report as Excel or PDF",
+            description = "Same filters and scope as the dashboard. XLSX has the sheets Summary, Service activity, Activity over "
+                    + "time, Quality issues and (with REPORTS_VIEW or ORG_REPORTS_MANAGE) Visitor reports; PDF is a printable "
+                    + "version of the same content. Labels follow lang (an interface language code). Visitor contact details, "
+                    + "report texts and staff identities are never included.")
+    public ResponseEntity<byte[]> exportReport(@RequestParam(required = false) Long organizationId,
+                                               @RequestParam(required = false) Long categoryId,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                               @RequestParam(defaultValue = "XLSX") OrganizationReportService.Format format,
+                                               @RequestParam(required = false) String lang) {
+        return reports.organizationReport(organizationId, categoryId, from, to, lang, format).attachment();
     }
 
     @GetMapping("/quality-queue")

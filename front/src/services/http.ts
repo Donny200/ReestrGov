@@ -31,6 +31,8 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
+  /** Extra request headers, e.g. a visitor's private conversation token (kept out of URLs and server logs). */
+  headers?: Record<string, string>;
     skipRefresh?: boolean;
     skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
@@ -162,13 +164,13 @@ export async function apiDownload(path: string, query?: RequestOptions['query'])
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, skipRefresh, skipUnauthorizedHandler, signal } = options;
+  const { method = 'GET', body, query, headers, skipRefresh, skipUnauthorizedHandler, signal } = options;
 
   const execute = (): Promise<Response> =>
   fetch(buildUrl(path, query), {
     method,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal
   });

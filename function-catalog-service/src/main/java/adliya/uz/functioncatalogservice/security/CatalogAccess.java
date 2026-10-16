@@ -55,6 +55,16 @@ public class CatalogAccess {
                 || (permissions.contains(REPORTS_VIEW) && permissions.contains(REPORTS_MANAGE));
     }
 
+    /** Same rule as the visitor-report list: REPORTS_VIEW or ORG_REPORTS_MANAGE. */
+    public boolean canViewReports() {
+        var permissions = principal().permissions();
+        return permissions.contains(REPORTS_VIEW) || permissions.contains(ORG_REPORTS_MANAGE);
+    }
+
+    public boolean hasPermission(String permission) {
+        return principal().permissions().contains(permission);
+    }
+
     public void requireReportManager() {
         if (!canManageReports()) {
             throw new AccessDeniedException("Required permission: " + ORG_REPORTS_MANAGE);

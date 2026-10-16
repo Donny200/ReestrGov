@@ -10,6 +10,7 @@ import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.UpdateRequirementsRequest;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.service.OrgFunctionService;
+import adliya.uz.functioncatalogservice.service.ServiceGuideService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ public class OrgFunctionController {
     private final OrgFunctionService orgFunctionService;
     private final PublicChangeService publicChanges;
     private final MachineTranslationQueue translations;
+    private final ServiceGuideService guides;
 
     @GetMapping
     public ResponseEntity<List<OrgFunctionResponse>> getAll(
@@ -42,6 +44,15 @@ public class OrgFunctionController {
         }
         Map<Long, java.time.Instant> updated = publicChanges.lastUpdatedAt(functions.stream().map(OrgFunction::getId).toList());
         return ResponseEntity.ok(functions.stream().map(function -> OrgFunctionResponse.publicFrom(function, updated.get(function.getId()))).toList());
+    }
+
+    /**
+     * Public printable guide (PDF) of a published card in the requested interface language; no sign-in needed. Only
+     * information published on this site is included and empty sections are omitted.
+     */
+    @GetMapping("/{id}/guide.pdf")
+    public ResponseEntity<byte[]> guide(@PathVariable Long id, @RequestParam(required = false) String lang) {
+        return guides.guide(id, lang).attachment();
     }
 
     /** Public, concise history of approved publications of a published card; nothing about drafts or staff. */

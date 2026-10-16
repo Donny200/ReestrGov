@@ -46,6 +46,7 @@ class AnalyticsEndpointSecurityTest {
     @MockitoBean AnalyticsExportService exports;
     @MockitoBean SimpleJwtService jwt;
     @MockitoBean adliya.uz.functioncatalogservice.service.FeedbackService feedback;
+    @MockitoBean adliya.uz.functioncatalogservice.service.OrganizationReportService reports;
 
     @Test void anonymousVisitorsMayOnlyPostAggregateEvents() throws Exception {
         mvc.perform(post("/api/analytics/events").header("X-Real-IP", "203.0.113.7").contentType("application/json")

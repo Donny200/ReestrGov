@@ -11,6 +11,7 @@ import {
   KeyIcon,
   LayoutDashboardIcon,
   LockIcon,
+  MessagesSquareIcon,
   LogOutIcon,
   MenuIcon,
   ShieldCheckIcon,
@@ -44,6 +45,7 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
   lock: LockIcon,
   reports: FlagIcon,
   analytics: BarChart3Icon,
+  questions: MessagesSquareIcon,
 };
 
 const TOP_BAR_HEIGHT = '4.5rem';

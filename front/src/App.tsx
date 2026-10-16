@@ -13,6 +13,7 @@ import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { Toaster } from './components/ui/Toaster';
 import { useI18n } from './contexts/i18n';
+import { HELP_VIEW_PERMISSION } from './features/help/helpOptions';
 import { REPORT_VIEW_PERMISSIONS } from './features/reports/reportOptions';
 import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
 
@@ -21,7 +22,9 @@ const OrganizationDetail = lazy(() => import('./pages/OrganizationDetail').then(
 const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module) => ({ default: module.FunctionDetail })));
 const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
 const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
-const CompareServices = lazy(() => import('./pages/CompareServices').then((module) => ({ default: module.CompareServices })));
+const HelpCenter = lazy(() => import('./pages/HelpCenter').then((module) => ({ default: module.HelpCenter })));
+const HelpConversation = lazy(() => import('./pages/HelpConversation').then((module) => ({ default: module.HelpConversation })));
+const VisitorQuestions = lazy(() => import('./pages/admin/VisitorQuestions').then((module) => ({ default: module.VisitorQuestions })));
 const MfaChallenge = lazy(() => import('./pages/MfaChallenge').then((module) => ({ default: module.MfaChallenge })));
 const Reports = lazy(() => import('./pages/admin/Reports').then((module) => ({ default: module.Reports })));
 const OrganizationDashboard = lazy(() =>
@@ -78,7 +81,8 @@ export function App() {
                       <Route path="/functions/:id" element={<PageBoundary><FunctionDetail /></PageBoundary>} />
                       <Route path="/finder" element={<PageBoundary><ServiceFinder /></PageBoundary>} />
                       <Route path="/saved" element={<PageBoundary><SavedServices /></PageBoundary>} />
-                      <Route path="/compare" element={<PageBoundary><CompareServices /></PageBoundary>} />
+                      <Route path="/help" element={<PageBoundary><HelpCenter /></PageBoundary>} />
+                      <Route path="/help/conversation" element={<PageBoundary><HelpConversation /></PageBoundary>} />
                       <Route path="*" element={<PageBoundary><NotFound /></PageBoundary>} />
                     </Route>
 
@@ -101,6 +105,9 @@ export function App() {
                         </Route>
                         <Route element={<RequireAuth anyPermissions={REPORT_VIEW_PERMISSIONS} />}>
                           <Route path="/admin/reports" element={<PageBoundary><Reports /></PageBoundary>} />
+                        </Route>
+                        <Route element={<RequireAuth anyPermissions={[HELP_VIEW_PERMISSION]} />}>
+                          <Route path="/admin/questions" element={<PageBoundary><VisitorQuestions /></PageBoundary>} />
                         </Route>
                         <Route element={<RequireAuth anyPermissions={['ORG_ANALYTICS_VIEW']} />}>
                           <Route path="/admin/organization-dashboard" element={<PageBoundary><OrganizationDashboard /></PageBoundary>} />

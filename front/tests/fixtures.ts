@@ -4,6 +4,7 @@ import type { CreateFunctionRequest, AdminFunction } from '../src/types/adminFun
 import type { LegacyUserApi, Organization, PublicChange, Region, SessionInfo, StaffMember } from '../src/types/api';
 import type { EngagementCounts, EngagementReport, OrganizationSummary, QualityQueue, QualityReminder } from '../src/types/analytics';
 import type { InformationReport, ReportHistoryEntry } from '../src/types/reports';
+import type { HelpConversationStatus } from '../src/types/help';
 import { FUNCTION_PERMISSIONS } from '../src/utils/functionPermissions';
 
 const MIGRATIONS = '../reference-service/src/main/resources/db/migration';
@@ -56,7 +57,17 @@ export interface FixtureOptions {
   /** Second-factor state of the signed-in user and whether the password step must be followed by a code or enrollment. */
   mfa?: { enrolled: boolean; required: boolean; loginRequires?: 'verify' | 'enroll'; deadline?: string | null };
   sessions?: SessionInfo[];
+  /** E-mail notifications for visitor questions configured on the server. */
+  helpNotifications?: boolean;
+  helpConversations?: HelpFixture[];
 }
+export interface HelpFixture {
+  id: number; token: string; status: HelpConversationStatus; serviceId: number | null; serviceName: string | null;
+  organizationId: number | null; notificationRequested: boolean; assignedUserId: number | null; assignedUserName: string | null;
+  createdAt: string; messages: { author: 'VISITOR' | 'STAFF'; body: string; createdAt: string; staffLabel?: string | null }[];
+}
+/** 43 URL-safe characters, like a real access token. */
+export const helpToken = (seed: string) => (seed + '_').repeat(43).slice(0, 43);
 const csv = (rows: string[]) => '\uFEFF' + rows.join('\r\n') + '\r\n';
 export function counts(values: Partial<EngagementCounts> = {}): EngagementCounts {
   return { CATALOG_VIEW: 0, SERVICE_VIEW: 0, OFFICIAL_LINK_CLICK: 0, PHONE_CLICK: 0, MAP_CLICK: 0, PRINT: 0, ...values };
@@ -91,11 +102,23 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
   const sessions = structuredClone(options.sessions ?? [{ sessionId: 'current', createdAt: '2026-10-12T08:00:00Z', lastUsedAt: '2026-10-12T09:00:00Z',
     expiresAt: '2026-10-19T08:00:00Z', userAgent: 'Firefox on macOS', current: true }]);
   const feedbackVotes: { serviceId: number; helpful: boolean }[] = [];
+  const helpConversations: HelpFixture[] = structuredClone(options.helpConversations ?? []);
+  const helpVisitorView = (item: HelpFixture) => ({ status: item.status, serviceId: item.serviceId, serviceName: item.serviceName,
+    organizationId: item.organizationId, general: item.organizationId === null, createdAt: item.createdAt, updatedAt: item.createdAt,
+    notificationRequested: item.notificationRequested, canWrite: item.status !== 'CLOSED',
+    messages: item.messages.map(message => ({ author: message.author, body: message.body, createdAt: message.createdAt })) });
+  const helpSummary = (item: HelpFixture) => ({ id: item.id, status: item.status, serviceId: item.serviceId, serviceName: item.serviceName,
+    organizationId: item.organizationId, general: item.organizationId === null, language: 'en', assignedUserId: item.assignedUserId,
+    assignedUserName: item.assignedUserName, createdAt: item.createdAt, updatedAt: item.createdAt,
+    lastVisitorMessageAt: item.createdAt, lastStaffReplyAt: null, messageCount: item.messages.length, notificationRequested: item.notificationRequested });
+  const helpDetail = (item: HelpFixture) => ({ conversation: helpSummary(item),
+    messages: item.messages.map((message, index) => ({ id: index + 1, author: message.author, body: message.body, createdAt: message.createdAt,
+      staffUserId: message.author === 'STAFF' ? user.id : null, staffLabel: message.staffLabel ?? null })) });
   let mfaEnrolled = mfa.enrolled;
   let pendingSecret: string | null = null;
   let challengePending: 'verify' | 'enroll' | null = null;
   type Payload = Partial<CreateFunctionRequest> & { reason?: string; languages?: string[]; overwriteMachine?: boolean;
-    status?: InformationReport['status']; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string;
+    status?: InformationReport['status'] | HelpConversationStatus; note?: string; instructions?: Record<string, string>; email?: string; token?: string; newPassword?: string;
     code?: string; password?: string; serviceId?: number; helpful?: boolean; userId?: number };
   const organizations = structuredClone(options.organizations ?? [organization as Organization]);
   const reports = structuredClone(options.reports ?? []);
@@ -281,6 +304,11 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         reminders.splice(index, 1);
         return route.fulfill({ status: 204 });
       }
+      if (path.endsWith('/export') && query.get('format')) {
+        const extension = query.get('format') === 'PDF' ? 'pdf' : 'xlsx';
+        return route.fulfill({ status: 200, contentType: extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          body: 'binary', headers: { 'Content-Disposition': 'attachment; filename="organization-report.' + extension + '"', 'X-Export-Truncated': 'false' } });
+      }
       if (path.endsWith('/export')) {
         return route.fulfill({ status: 200, contentType: 'text/csv;charset=UTF-8', body: csv(['service_id,service_name', '1,Service 1']),
           headers: { 'Content-Disposition': 'attachment; filename="' + path.split('/')[3] + '-export.csv"', 'X-Export-Truncated': 'false' } });
@@ -288,6 +316,11 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
     }
     if (path === '/api/reports/export' && method === 'GET') {
       if (!canViewReports) return reply({ message: 'Forbidden' }, 403);
+      if (query.get('format') === 'XLSX' || query.get('format') === 'PDF') {
+        const extension = query.get('format') === 'PDF' ? 'pdf' : 'xlsx';
+        return route.fulfill({ status: 200, contentType: extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          body: 'binary', headers: { 'Content-Disposition': 'attachment; filename="visitor-reports.' + extension + '"', 'X-Export-Truncated': 'false' } });
+      }
       return route.fulfill({ status: 200, contentType: 'text/csv;charset=UTF-8', body: csv(['report_id,status', '1,NEW']),
         headers: { 'Content-Disposition': 'attachment; filename="visitor-reports.csv"', 'X-Export-Truncated': 'false' } });
     }
@@ -319,6 +352,64 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
         return reply(visible(found));
       }
       return reply(visible(found));
+    }
+    if (path.startsWith('/api/help/')) {
+      const canView = permissions.includes('VISITOR_QUESTIONS_VIEW');
+      const canReply = canView && permissions.includes('VISITOR_QUESTIONS_REPLY');
+      const global = role === 'ROLE_SUPER_ADMIN';
+      const visibleToStaff = (item: HelpFixture) => (item.organizationId === null ? global : global || organizationIds.includes(item.organizationId));
+      if (path === '/api/help/options') return reply({ notificationsAvailable: options.helpNotifications ?? false, minLength: 10, maxLength: 2000 });
+      if (path === '/api/help/conversations' && method === 'POST') {
+        const message = String((body as { message?: string }).message ?? '').trim();
+        if (message.length < 10) return reply({ message: 'message: too short', fieldErrors: { message: 'Write your question in at least 10 characters' } }, 400);
+        const service = records.find(item => item.id === body.serviceId && item.status === 'PUBLISHED');
+        if (body.serviceId && !service) return reply({ message: 'Service not found' }, 404);
+        const created: HelpFixture = { id: helpConversations.length + 1, token: helpToken('t' + (helpConversations.length + 1)), status: 'NEW',
+          serviceId: service?.id ?? null, serviceName: service?.name ?? null, organizationId: service?.organizationId ?? null,
+          notificationRequested: Boolean(options.helpNotifications && body.email), assignedUserId: null, assignedUserName: null,
+          createdAt: '2026-10-16T08:00:00Z', messages: [{ author: 'VISITOR', body: message, createdAt: '2026-10-16T08:00:00Z' }] };
+        helpConversations.push(created);
+        return reply({ accessToken: created.token, notificationsAvailable: options.helpNotifications ?? false, conversation: helpVisitorView(created) }, 201);
+      }
+      const token = request.headers()['x-conversation-token'];
+      const own = helpConversations.find(item => item.token === token);
+      if (path === '/api/help/conversation' && method === 'GET') return own ? reply(helpVisitorView(own)) : reply({ message: 'Conversation not found' }, 404);
+      if (path === '/api/help/conversation/messages' && method === 'POST') {
+        if (!own) return reply({ message: 'Conversation not found' }, 404);
+        if (own.status === 'CLOSED') return reply({ message: 'This conversation is closed.' }, 409);
+        own.messages.push({ author: 'VISITOR', body: String((body as { message?: string }).message ?? ''), createdAt: '2026-10-16T09:00:00Z' });
+        if (own.status === 'ANSWERED') own.status = 'IN_PROGRESS';
+        return reply(helpVisitorView(own));
+      }
+      if (!canView) return reply({ message: 'Forbidden' }, 403);
+      if (path === '/api/help/inbox') {
+        const status = query.get('status') ?? 'OPEN';
+        return reply(helpConversations.filter(visibleToStaff)
+          .filter(item => status === 'ALL' || (status === 'OPEN' ? ['NEW', 'IN_PROGRESS'].includes(item.status) : item.status === status))
+          .filter(item => query.get('general') !== 'true' || item.organizationId === null)
+          .map(helpSummary));
+      }
+      const inbox = path.match(/^\/api\/help\/inbox\/(\d+)(?:\/(replies|status|candidates|assignee))?$/);
+      const found = inbox ? helpConversations.find(item => item.id === Number(inbox[1])) : undefined;
+      if (!inbox || !found) return reply({ message: 'Conversation not found' }, 404);
+      if (!visibleToStaff(found)) return reply({ message: 'Forbidden' }, 403);
+      if (!inbox[2]) return reply(helpDetail(found));
+      if (!canReply) return reply({ message: 'Forbidden' }, 403);
+      if (inbox[2] === 'candidates') return reply(members[found.organizationId ?? 0] ?? []);
+      if (inbox[2] === 'replies') {
+        if (found.status === 'CLOSED') return reply({ message: 'Reopen the conversation first' }, 409);
+        found.messages.push({ author: 'STAFF', body: String((body as { message?: string }).message ?? ''), createdAt: '2026-10-16T10:00:00Z', staffLabel: user.email });
+        found.status = 'ANSWERED';
+        if (!found.assignedUserId) { found.assignedUserId = user.id; found.assignedUserName = user.email; }
+        return reply(helpDetail(found));
+      }
+      if (inbox[2] === 'status') { found.status = body.status as HelpConversationStatus; return reply(helpDetail(found)); }
+      if (inbox[2] === 'assignee') {
+        const member = (members[found.organizationId ?? 0] ?? []).find(item => item.id === body.userId);
+        found.assignedUserId = member?.id ?? null;
+        found.assignedUserName = member ? [member.firstName, member.lastName].filter(Boolean).join(' ') : null;
+        return reply(helpDetail(found));
+      }
     }
     if (path === '/api/functions/categories') return reply([{ id: 1, name: 'Legal', nameTranslations: { ru: { text: 'Правовые услуги', source: 'human' } } }]);
     if (path === '/api/functions/assignments') {
@@ -401,6 +492,11 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       return reply(published);
     }
     if (action === 'audit') return reply(audits.filter(entry => entry.functionId === record.id));
+    if (action === 'guide.pdf') {
+      if (record.status !== 'PUBLISHED') return reply({ message: 'Not found' }, 404);
+      return route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4 guide',
+        headers: { 'Content-Disposition': 'attachment; filename="service-guide-' + record.id + '-' + (query.get('lang') ?? 'en') + '.pdf"' } });
+    }
     if (method === 'GET') return record.status === 'PUBLISHED' ? reply(record) : reply({}, 404);
     if (method === 'PUT' && !action) Object.assign(record, body);
     else if (method === 'PUT' && action === 'requirements') record.requirements = body.requirements ?? '';
@@ -438,5 +534,5 @@ export async function setup(page: Page, options: FixtureOptions = {}) {
       performedAt: new Date().toISOString(), action: action ?? 'UPDATE', details: body?.reason ?? 'Changed card' });
     return method === 'DELETE' ? route.fulfill({ status: 204 }) : reply(record);
   });
-  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens, feedbackVotes, sessions };
+  return { records, requests, failures, audits, organizations, reports, reminders, resetTokens, feedbackVotes, sessions, helpConversations };
 }

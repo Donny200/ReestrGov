@@ -27,8 +27,8 @@ public class DataInitializer implements CommandLineRunner {
     private static final List<String> ORG_ADMIN_PERMISSIONS = List.of(
             "ORGANIZATIONS_VIEW", "MODERATORS_VIEW", "MODERATORS_CREATE",
             "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE",
-            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN");
-    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW");
+            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY");
+    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW");
     private static final List<PermissionSeed> PERMISSION_SEEDS = List.of(
             new PermissionSeed("ORGANIZATIONS_VIEW", "View organizations", "Organization Management"),
             new PermissionSeed("ORGANIZATIONS_CREATE", "Create organizations", "Organization Management"),
@@ -89,7 +89,10 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("REPORTS_MANAGE", "Review and resolve information reports", "Reports"),
             new PermissionSeed("ORG_REPORTS_MANAGE", "Handle visitor reports for own organizations", "Reports"),
 
-            new PermissionSeed("ORG_ANALYTICS_VIEW", "View organization dashboard, catalog engagement and quality queue", "Analytics")
+            new PermissionSeed("ORG_ANALYTICS_VIEW", "View organization dashboard, catalog engagement and quality queue", "Analytics"),
+
+            new PermissionSeed("VISITOR_QUESTIONS_VIEW", "View visitor questions for own organizations", "Visitor questions"),
+            new PermissionSeed("VISITOR_QUESTIONS_REPLY", "Reply to, assign and close visitor questions", "Visitor questions")
     );
 
     private final RoleRepository roleRepository;

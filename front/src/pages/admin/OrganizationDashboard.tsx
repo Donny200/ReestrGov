@@ -13,6 +13,7 @@ import { ErrorState } from '../../components/ui/States';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { EngagementSection } from '../../features/analytics/EngagementSection';
+import { ExportButton } from '../../features/analytics/ExportButton';
 import {
   DEFAULT_PRESET,
   MAX_PERIOD_DAYS,
@@ -34,6 +35,7 @@ import { AssignmentsSection } from '../../features/analytics/AssignmentsSection'
 import { FeedbackSection } from '../../features/analytics/FeedbackSection';
 import { parseId, useScopeOptions } from '../../features/analytics/scope';
 import { InlineAlert } from '../../features/functions/InlineAlert';
+import { exportOrganizationReport } from '../../services/analyticsService';
 import { useHashTarget } from '../../hooks/useHashTarget';
 import { statusLabels, type FunctionStatus } from '../../types/adminFunctions';
 import { QUALITY_ISSUE_TYPES, type AnalyticsFilters, type QualityIssueType } from '../../types/analytics';
@@ -119,6 +121,12 @@ export function OrganizationDashboard() {
         eyebrow={t('nav.admin')}
         title={t('analytics.title', 'Organization dashboard')}
         description={t('analytics.subtitle', 'Service card status, quality issues, visitor reports and interest in your catalog information.')}
+        actions={
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('export.reportTitle', 'Download the report for these filters')}>
+            <ExportButton label={t('export.xlsx', 'Export Excel')} disabled={problem !== null} run={() => exportOrganizationReport(filters, 'XLSX', locale)} />
+            <ExportButton label={t('export.pdf', 'Export PDF')} disabled={problem !== null} run={() => exportOrganizationReport(filters, 'PDF', locale)} />
+          </div>
+        }
       />
 
       <Card>

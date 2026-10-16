@@ -16,3 +16,7 @@ export const updateReportStatus = (id: number, status: ReportStatus, note: strin
 
 export const exportReports = (query: ReportQuery, delimiter: CsvDelimiter) =>
   apiDownload('/api/reports/export', { ...query, delimiter });
+
+/** Excel or PDF list of visitor reports with the same filters; descriptions and contacts are not included. */
+export const exportReportsDocument = (query: ReportQuery, format: 'XLSX' | 'PDF', lang: string) =>
+  apiDownload('/api/reports/export', { ...query, format, lang });

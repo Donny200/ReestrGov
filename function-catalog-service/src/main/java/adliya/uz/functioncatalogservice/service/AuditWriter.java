@@ -14,6 +14,7 @@ import java.util.*;
 @Service @RequiredArgsConstructor
 public class AuditWriter {
     public static final String REPORT_ENTITY = "INFORMATION_REPORT";
+    public static final String HELP_ENTITY = "HELP_CONVERSATION";
     private final AuditLogRepository repository;
     private final CatalogAccess access;
 
@@ -97,6 +98,12 @@ public class AuditWriter {
         String transition = "Report #" + report.getId() + ": " + previous + " -> " + report.getStatus();
         write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_STATUS_CHANGE,
                 explanation == null ? transition : transition + "\n" + explanation, actor(), relatedFunctions(report));
+    }
+
+    /** Staff action on a visitor question; message texts are never copied into the audit log. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void helpConversation(HelpConversation conversation, AuditAction action, String details) {
+        write(HELP_ENTITY, conversation.getId(), action, details, actor(), Set.of());
     }
 
     private static Set<Long> relatedFunctions(InformationReport report) {

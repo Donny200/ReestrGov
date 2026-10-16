@@ -27,7 +27,7 @@ import {
   reportStatusTones,
   reportTypeLabel,
 } from '../../features/reports/reportOptions';
-import { exportReports } from '../../services/reportService';
+import { exportReports, exportReportsDocument } from '../../services/reportService';
 import type { InformationReport, ReportCategory, ReportEntityType, ReportQuery, ReportStatusFilter } from '../../types/reports';
 import { formatDateTime } from '../../utils/format';
 
@@ -161,7 +161,13 @@ export function Reports() {
         eyebrow={t('nav.admin')}
         title={t('reports.title', 'Information reports')}
         description={t('reports.subtitle', 'Visitor reports about incorrect or outdated information. Reports are private and never change public pages automatically.')}
-        actions={<ExportButton label={t('export.csv', 'Export CSV')} disabled={invalidRange} run={(delimiter) => exportReports(query, delimiter)} />}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <ExportButton label={t('export.csv', 'Export CSV')} disabled={invalidRange} run={(delimiter) => exportReports(query, delimiter)} />
+            <ExportButton label={t('export.xlsx', 'Export Excel')} disabled={invalidRange} run={() => exportReportsDocument(query, 'XLSX', locale)} />
+            <ExportButton label={t('export.pdf', 'Export PDF')} disabled={invalidRange} run={() => exportReportsDocument(query, 'PDF', locale)} />
+          </div>
+        }
       />
       <Card>
         <div className="grid gap-3 border-b border-line px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">

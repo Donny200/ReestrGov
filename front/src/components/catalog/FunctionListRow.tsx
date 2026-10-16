@@ -5,7 +5,6 @@ import { truncate } from '../../utils/format';
 import { useI18n } from '../../contexts/i18n';
 import { localizedText } from '../../utils/translations';
 import { SaveServiceButton } from '../../features/saved/SaveServiceButton';
-import { CompareButton } from '../../features/compare/CompareButton';
 import { formatDate } from '../../utils/format';
 
 interface FunctionListRowProps {
@@ -36,10 +35,7 @@ export function FunctionListRow({ item, index, organizationName }: FunctionListR
         </>
       }
       action={
-        <span className="flex flex-col gap-1 sm:flex-row sm:gap-2">
-          <SaveServiceButton compact service={{ id: item.id, name }} />
-          <CompareButton compact service={{ id: item.id, name }} />
-        </span>
+        <SaveServiceButton compact service={{ id: item.id, name }} />
       }
     />
   );

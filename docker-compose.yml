@@ -93,6 +93,14 @@ services:
       AZURE_TRANSLATOR_KEY: "${AZURE_TRANSLATOR_KEY:-}"
       AZURE_TRANSLATOR_REGION: "${AZURE_TRANSLATOR_REGION:-}"
       CATALOG_TRANSLATION_ENABLED: "${CATALOG_TRANSLATION_ENABLED:-true}"
+      # Optional e-mail notifications for visitor questions (off unless HELP_MAIL_ENABLED=true and SMTP is set).
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
+      HELP_MAIL_ENABLED: "${HELP_MAIL_ENABLED:-false}"
+      HELP_MAIL_FROM: "${HELP_MAIL_FROM:-}"
+      SPRING_MAIL_HOST: "${SPRING_MAIL_HOST:-}"
+      SPRING_MAIL_PORT: "${SPRING_MAIL_PORT:-587}"
+      SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:-}"
+      SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:-}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     depends_on:
       postgres:

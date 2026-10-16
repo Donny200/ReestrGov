@@ -49,6 +49,7 @@ class ReportAndVerificationEndpointSecurityTest {
     @MockitoBean ReportReviewService reviews;
     @MockitoBean FunctionVerificationService verification;
     @MockitoBean AnalyticsExportService exports;
+    @MockitoBean adliya.uz.functioncatalogservice.service.OrganizationReportService reportExports;
     @MockitoBean SimpleJwtService jwt;
     @MockitoBean adliya.uz.functioncatalogservice.security.CatalogAccess access;
 

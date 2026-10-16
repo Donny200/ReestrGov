@@ -11,6 +11,7 @@ import adliya.uz.functioncatalogservice.entity.ReportEntityType;
 import adliya.uz.functioncatalogservice.service.AnalyticsExportService;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.CsvExport;
+import adliya.uz.functioncatalogservice.service.OrganizationReportService;
 import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
@@ -40,6 +41,9 @@ public class InformationReportController {
     private final ClientAddressResolver clientAddresses;
     private final AnalyticsExportService exports;
     private final CatalogAccess access;
+    private final OrganizationReportService reportExports;
+
+    public enum ExportFormat { CSV, XLSX, PDF }
 
     @PostMapping
     public ResponseEntity<Map<String, Boolean>> submit(@Valid @RequestBody SubmitReportRequest request, HttpServletRequest http) {
@@ -74,10 +78,16 @@ public class InformationReportController {
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                          @RequestParam(required = false) Long organizationId,
-                                         @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter) {
+                                         @RequestParam(defaultValue = "COMMA") CsvExport.Delimiter delimiter,
+                                         @RequestParam(defaultValue = "CSV") ExportFormat format,
+                                         @RequestParam(required = false) String lang) {
         ReportQuery query = new ReportQuery(ReportQuery.statuses(status), category, entityType, entityId, serviceCategoryId,
                 from, to, organizationId);
-        return CsvExport.attachment(exports.reports(query, delimiter));
+        return switch (format) {
+            case CSV -> CsvExport.attachment(exports.reports(query, delimiter));
+            case XLSX -> reportExports.visitorReports(query, lang, OrganizationReportService.Format.XLSX).attachment();
+            case PDF -> reportExports.visitorReports(query, lang, OrganizationReportService.Format.PDF).attachment();
+        };
     }
 
     /** Only "me" is accepted: follow-up is routed to the caller's own responsibilities, never looked up for other users. */

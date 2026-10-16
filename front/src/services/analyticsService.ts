@@ -35,5 +35,9 @@ export const acknowledgeReminder = (id: number) =>
 export const exportEngagement = (filters: AnalyticsFilters, breakdown: 'SERVICES' | 'DAILY', delimiter: CsvDelimiter) =>
   apiDownload('/api/analytics/engagement/export', { ...filters, breakdown, delimiter });
 
+/** Organization report with the dashboard filters: Excel workbook (several sheets) or printable PDF. */
+export const exportOrganizationReport = (filters: AnalyticsFilters, format: 'XLSX' | 'PDF', lang: string) =>
+  apiDownload('/api/analytics/report/export', { ...filters, format, lang });
+
 export const exportQualityQueue = (filters: QualityQueueFilters, delimiter: CsvDelimiter) =>
   apiDownload('/api/analytics/quality-queue/export', { ...filters, delimiter });

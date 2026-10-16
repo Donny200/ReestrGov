@@ -3,6 +3,7 @@ import { LanguagesIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
 import { OrganizationContactDetails } from '../components/catalog/OrganizationContactDetails';
+import { GuideDownloadLink } from '../components/catalog/GuideDownloadLink';
 import { PrintButton } from '../components/catalog/PrintButton';
 import { ServiceInstructionsView } from '../components/catalog/ServiceInstructionsView';
 import { ShareButton } from '../components/catalog/ShareButton';
@@ -19,8 +20,8 @@ import { usePublicOrganizations } from '../features/organizations/queries';
 import { useEngagementTracker, usePageView, usePrintTracking } from '../features/engagement/tracking';
 import { ReportProblemButton } from '../features/reports/ReportProblemButton';
 import { SaveServiceButton } from '../features/saved/SaveServiceButton';
-import { CompareButton } from '../features/compare/CompareButton';
 import { FeedbackPrompt } from '../features/feedback/FeedbackPrompt';
+import { AskQuestionLink } from '../features/help/AskQuestionLink';
 import { ServiceHistory } from '../features/history/ServiceHistory';
 import type { CatalogFunction } from '../types/api';
 import { hasContactDetails } from '../utils/contact';
@@ -82,9 +83,10 @@ export function FunctionDetail() {
 
             <div className="mt-6 flex flex-wrap items-center gap-2 print:hidden">
               <SaveServiceButton service={{ id: item.data.id, name: functionName }} />
-              <CompareButton service={{ id: item.data.id, name: functionName }} />
               <ShareButton title={functionName} path={`/functions/${item.data.id}`} />
               <PrintButton label={t('print.checklist', 'Print checklist')} />
+              <GuideDownloadLink serviceId={item.data.id} />
+              <AskQuestionLink serviceId={item.data.id} />
               <div ref={reportButtonRef} className="contents">
                 <ReportProblemButton entityType="FUNCTION" entityId={item.data.id} entityName={functionName} />
               </div>

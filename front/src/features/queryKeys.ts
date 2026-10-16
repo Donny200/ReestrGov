@@ -1,5 +1,6 @@
 import type { AnalyticsFilters, QualityQueueFilters } from '../types/analytics';
 import type { FunctionQuery } from '../types/api';
+import type { HelpInboxQuery } from '../types/help';
 import type { ReportQuery } from '../types/reports';
 
 export const organizationKeys = {
@@ -57,6 +58,15 @@ export const reportKeys = {
   list: (query: ReportQuery) => [...reportKeys.all, 'list', query] as const,
   detail: (id: number) => [...reportKeys.all, 'detail', id] as const,
   history: (id: number) => [...reportKeys.all, 'history', id] as const,
+};
+
+export const helpKeys = {
+  all: ['help'] as const,
+  options: () => [...helpKeys.all, 'options'] as const,
+  conversation: (token: string) => [...helpKeys.all, 'conversation', token] as const,
+  inbox: (query: HelpInboxQuery) => [...helpKeys.all, 'inbox', query] as const,
+  detail: (id: number) => [...helpKeys.all, 'detail', id] as const,
+  candidates: (id: number) => [...helpKeys.all, 'candidates', id] as const,
 };
 
 export const analyticsKeys = {

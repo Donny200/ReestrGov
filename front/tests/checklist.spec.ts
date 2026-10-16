@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { card, organization, setup } from './fixtures';
+import { card, setup } from './fixtures';
 import type { AdminFunction } from '../src/types/adminFunctions';
 
 function structured(id: number, overrides: Partial<AdminFunction> = {}): AdminFunction {
@@ -15,50 +15,31 @@ function writes(requests: { method: string; path: string }[]) {
   return requests.filter(request => request.method !== 'GET' && !request.path.startsWith('/api/auth/') && request.path !== '/api/analytics/events');
 }
 
-test('visitors compare up to three published services side by side, with missing values marked, and can share or clear', async ({ page }) => {
-  const fixture = await setup(page, {
-    anonymous: true,
-    records: [structured(1), structured(2, { instructions: null, requirements: '', lastUpdatedAt: null }), structured(3), structured(4), card(5, 'DRAFT')],
-    organizations: [{ ...organization, description: null, contact: { address: 'Tashkent, Sayilgoh 5', phone: '+998 71 200-00-00', workingHours: null, latitude: null, longitude: null, mapUrl: null, regionCode: null } }],
-  });
+test('the removed service comparison leaves no controls, links or route behind', async ({ page }) => {
+  const fixture = await setup(page, { anonymous: true, records: [structured(1), structured(2)] });
+  await page.addInitScript(() => window.localStorage.setItem('reestr-compare-services', '[1,2]'));
   await page.goto('/');
-  const nav = page.getByRole('navigation', { name: 'Catalogue' });
-  await page.getByRole('button', { name: 'Compare: Service 1' }).click();
-  await page.getByRole('button', { name: 'Compare: Service 2' }).click();
-  await page.getByRole('button', { name: 'Compare: Service 3' }).click();
-  await page.getByRole('button', { name: 'Compare: Service 4' }).click();
-  await expect(page.getByText('You can compare up to 3 services', { exact: false })).toBeVisible();
-  await expect(nav.getByRole('link', { name: 'Compare (3)' })).toBeVisible();
-  expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('reestr-compare-services') ?? '[]'))).toEqual([1, 2, 3]);
+  const nav = page.getByRole('banner').getByRole('navigation', { name: 'Catalogue' });
+  await expect(page.getByRole('button', { name: 'Save: Service 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Compare/ })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: /Compare/ })).toHaveCount(0);
+  await expect(page.getByRole('contentinfo').getByRole('link', { name: /Compare/ })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Ask a question' })).toBeVisible();
 
-  await nav.getByRole('link', { name: 'Compare (3)' }).click();
-  await expect(page).toHaveURL(/\/compare$/);
-  const table = page.getByRole('table', { name: 'Compare services' });
-  await expect(table.getByRole('columnheader')).toHaveCount(4);
-  const fee = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Official fee' }) });
-  await expect(fee.getByRole('cell').nth(0)).toHaveText('0.5 BHM');
-  await expect(fee.getByRole('cell').nth(1)).toHaveText('Not specified');
-  const documents = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Required documents' }) });
-  await expect(documents.getByRole('cell').nth(0)).toContainText('Photo 3x4');
-  await expect(documents.getByRole('cell').nth(1)).toHaveText('Not specified');
-  await expect(table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Organization contacts' }) }).getByText('Tashkent, Sayilgoh 5')).toHaveCount(3);
-  const updated = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Last updated' }) });
-  await expect(updated.getByRole('cell').nth(1)).toHaveText('Not specified');
-  await expect(page.getByText('“Not specified” means the organization has not published that detail yet', { exact: false })).toBeVisible();
+  await page.goto('/functions/1');
+  await expect(page.getByRole('heading', { level: 1, name: 'Service 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Compare|In comparison/ })).toHaveCount(0);
+  // Saving, the checklist and printing stay.
+  await expect(page.getByRole('main').getByRole('button', { name: /Save/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Print checklist' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Remove from comparison: Service 2' }).click();
-  await expect(table.getByRole('columnheader')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Print comparison' })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear selection' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Clear selection' }).click();
-  await expect(page.getByText('No services selected yet')).toBeVisible();
+  for (const path of ['/compare', '/compare?ids=1,2']) {
+    await page.goto(path);
+    await expect(page.getByText('404')).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(0);
+  }
+  // The selection the old feature kept in this browser is forgotten.
   expect(await page.evaluate(() => window.localStorage.getItem('reestr-compare-services'))).toBeNull();
-
-  // A shared link selects published services only; the draft and the unknown id are ignored.
-  await page.goto('/compare?ids=3,5,999,1');
-  await expect(page).toHaveURL(/\/compare$/);
-  await expect(page.getByRole('table', { name: 'Compare services' }).getByRole('columnheader')).toHaveCount(3);
-  await expect(page.getByText('no longer published', { exact: false })).toBeVisible();
   expect(writes(fixture.requests)).toEqual([]);
 });
 

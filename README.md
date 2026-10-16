@@ -30,12 +30,13 @@
 10. [Стандарты чистого кода и участия в разработке](#10-стандарты-чистого-кода-и-участия-в-разработке)
 11. [Структура репозитория](#11-структура-репозитория)
 12. [Изменения от 15.10.2026: автоперевод, MFA, очистка](#12-изменения-от-15102026-автоперевод-mfa-очистка)
+13. [Изменения от 16.10.2026: отчёты Excel/PDF, вопросы посетителей, памятка, удаление сравнения](#13-изменения-от-16102026-отчёты-excelpdf-вопросы-посетителей-памятка-удаление-сравнения)
 
 ---
 
 ## 1. Краткий обзор
 
-ReestrGov — это реестр государственных услуг («функций»), предоставляемых государственными организациями. Граждане просматривают публичный многоязычный каталог организаций и услуг без входа в систему: структурированные инструкции, контакты организаций, пошаговый подбор услуги, сохранение услуг в браузере, печать, отправка ссылки и анонимные сообщения о неверной информации. Сотрудники входят в административную консоль для управления организациями, учётными записями сотрудников, ролями и правами, языками интерфейса и переводами, а также для ведения редакционного процесса карточек услуг (черновик, проверка, публикация, деактивация, повторная активация) с возможностью машинного перевода через Azure Translator.
+ReestrGov — это реестр государственных услуг («функций»), предоставляемых государственными организациями. Граждане просматривают публичный многоязычный каталог организаций и услуг без входа в систему: структурированные инструкции, контакты организаций, пошаговый подбор услуги, сохранение услуг в браузере, печать и PDF-памятка по услуге, отправка ссылки, анонимные вопросы организации (с ответом по личной ссылке) и анонимные сообщения о неверной информации. Сотрудники входят в административную консоль для управления организациями, учётными записями сотрудников, ролями и правами, языками интерфейса и переводами, а также для ведения редакционного процесса карточек услуг (черновик, проверка, публикация, деактивация, повторная активация) с возможностью машинного перевода через Azure Translator.
 
 Платформа представляет собой набор микросервисов Spring Boot за Spring Cloud Gateway, зарегистрированных в реестре сервисов Netflix Eureka, каждый из которых владеет собственной базой данных PostgreSQL и собственной историей миграций Flyway. Одностраничное приложение на React, собранное с помощью Vite и обслуживаемое Nginx, обращается к шлюзу через same-origin прокси `/api/`, благодаря чему HttpOnly-cookie аутентификации работают без какой-либо настройки CORS в браузере.
 
@@ -108,7 +109,7 @@ ReestrGov — это реестр государственных услуг («�
 | Порядок | ID маршрута | Предикаты пути | Цель |
 | --- | --- | --- | --- |
 | 1 | `reference-service` | `/api/regions/**`, `/api/interface-translations/**`, `/api/translation-keys/**` | `lb://reference-service` |
-| 2 | `function-catalog-service` | `/api/functions/**`, `/api/reports/**`, `/api/analytics/**` | `lb://function-catalog-service` |
+| 2 | `function-catalog-service` | `/api/functions/**`, `/api/reports/**`, `/api/analytics/**`, `/api/feedback/**`, `/api/help/**` | `lb://function-catalog-service` |
 | 3 | `identity-service` | `/api/**` | `lb://identity-service` |
 
 Шлюз намеренно сделан тонким. Проверка JWT и авторизация выполняются внутри каждого нижестоящего сервиса, а не на шлюзе, и ограничение частоты запросов не настроено. Если для развёртывания требуется проверка токена на уровне шлюза или ограничитель частоты запросов, добавьте `GlobalFilter` или фильтр `RequestRateLimiter` в модуль шлюза и задокументируйте изменение здесь.
@@ -119,7 +120,7 @@ ReestrGov — это реестр государственных услуг («�
 | --- | --- |
 | identity-service | `/api/auth` (login, refresh, logout, me, change-password, `password-reset/options`, `password-reset/request`, `password-reset/complete`), `/api/user` (вкл. `POST /{id}/password-reset` только для SUPER_ADMIN), `/api/admin/moderators`, `/api/admin/org-admins`, `/api/organizations` (вкл. `/{id}/verify`), `/api/public/organizations`, `/api/roles` (вкл. `/assign`, `/{id}/permissions`), `/api/permissions`, `/api/languages` (вкл. `/catalog`) |
 | reference-service | `/api/regions`, `/api/interface-translations/{languageCode}` (а также `/exact`, `/missing`, `/coverage`), `/api/translation-keys` |
-| function-catalog-service | `/api/functions` (публичный список и детали, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/withdraw`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `POST /{id}/revisions`, `DELETE /{id}/revision`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/verify`, `/{id}/audit`, `/import`, `/translation-capabilities`), `/api/functions/categories`, `/api/reports` (анонимный `POST`, `GET`, `GET /{id}`, `GET /{id}/history`, `PUT /{id}/status`, `GET /export`), `/api/analytics` (анонимный `POST /events`, `GET /summary`, `/engagement`, `/engagement/export`, `/quality-queue`, `/quality-queue/export`, `/reminders`, `POST /reminders/{id}/acknowledge`) |
+| function-catalog-service | `/api/functions` (публичный список и детали, `/admin`, `/{id}/admin`, `/pending-review`, `/{id}/submit-for-review`, `/{id}/withdraw`, `/{id}/publish`, `/{id}/reject`, `/{id}/reactivate`, `POST /{id}/revisions`, `DELETE /{id}/revision`, `/{id}/requirements`, `/{id}/translations`, `/{id}/translate`, `/{id}/verify`, `/{id}/audit`, `/import`, `/translation-capabilities`, публичный `GET /{id}/guide.pdf`), `/api/functions/categories`, `/api/reports` (анонимный `POST`, `GET`, `GET /{id}`, `GET /{id}/history`, `PUT /{id}/status`, `GET /export?format=CSV\|XLSX\|PDF`), `/api/analytics` (анонимный `POST /events`, `GET /summary`, `/engagement`, `/engagement/export`, `/report/export?format=XLSX\|PDF`, `/quality-queue`, `/quality-queue/export`, `/reminders`, `POST /reminders/{id}/acknowledge`), `/api/help` (анонимные `GET /options`, `POST /conversations`, `GET /conversation` и `POST /conversation/messages` с заголовком `X-Conversation-Token`; для сотрудников `GET /inbox`, `GET /inbox/{id}`, `POST /inbox/{id}/replies`, `PUT /inbox/{id}/status`, `GET /inbox/{id}/candidates`, `PUT /inbox/{id}/assignee`) |
 
 Каждый сервис предоставляет Swagger UI по адресу `http://localhost:<port>/swagger` и документ OpenAPI по адресу `/v3/api-docs`.
 
@@ -129,7 +130,7 @@ SPA находится в `front/` и организовано по функци
 
 - `src/components/ui` — дизайн-система (Button, Card, DataTable, Field, Input, Select, Modal, DropdownMenu, Tooltip, Badge, Skeleton, Toolbar, ThemeToggle), построенная на токенах Tailwind, примитивах Radix и class-variance-authority.
 - `src/features/*` содержит хуки TanStack Query, схемы zod и диалоги для каждого домена (functions, organizations, staff, roles, legacy users, languages, reference).
-- `src/pages` содержит публичные страницы (`/`, `/organizations/:id`, `/functions/:id`, `/finder`, `/saved`), `/login` и административную консоль (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/reports`, `/admin/organization-dashboard`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
+- `src/pages` содержит публичные страницы (`/`, `/organizations/:id`, `/functions/:id`, `/finder`, `/saved`, `/help`, `/help/conversation`), `/login` и административную консоль (`/admin`, `/admin/functions`, `/admin/functions/new`, `/admin/functions/:id`, `/admin/reports`, `/admin/questions`, `/admin/organization-dashboard`, `/admin/organizations`, `/admin/moderators`, `/admin/org-admins`, `/admin/roles`, `/admin/languages`, `/admin/users`, `/settings/security`).
 - `src/contexts` предоставляет аутентификацию, тему (светлая, тёмная, системная) и i18n. Словарь UI загружается из reference-service для каждой локали, и каждая подпись разрешается через `t('key', 'fallback')`.
 - `src/services/http.ts` — единственный HTTP-клиент. Он всегда отправляет `credentials: 'include'`, никогда не хранит токены, сопоставляет `fieldErrors` бэкенда с ошибками формы и выполняет единственное одновременное обновление токена при `401`.
 
@@ -175,10 +176,12 @@ Docker Compose читает корневой `.env` автоматически. 
 | `APP_COOKIE_SAME_SITE` | **да** | identity-service | `Lax` для same-origin конфигураций, `None` (вместе с `APP_COOKIE_SECURE=true`), когда SPA обслуживается с другого источника |
 | `BOOTSTRAP_SUPER_ADMIN_EMAIL` | только при первом запуске | identity-service | E-mail начального `SUPER_ADMIN`. Обязателен, пока в базе identity нет пользователя с `ROLE_SUPER_ADMIN` |
 | `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | только при первом запуске | identity-service | Начальный пароль, сразу хэшируется BCrypt и помечается `mustChangePassword`. Удалите после первого входа |
-| `PUBLIC_BASE_URL` | нет | identity-service | Публичный адрес SPA (например `https://reestr.example`); используется только для ссылок сброса пароля в письмах |
+| `PUBLIC_BASE_URL` | нет | identity-service, function-catalog-service | Публичный адрес SPA (например `https://reestr.example`); используется для ссылок в письмах (сброс пароля, вопросы посетителей) и в колонтитуле PDF-памятки |
 | `PASSWORD_RESET_MAIL_ENABLED` | нет | identity-service | `true` включает самостоятельный сброс пароля («Забыли пароль?»). Требует `SPRING_MAIL_HOST`, `PASSWORD_RESET_MAIL_FROM` и `PUBLIC_BASE_URL`; без них ссылка не показывается, а `POST /api/auth/password-reset/request` отвечает 503 |
 | `PASSWORD_RESET_MAIL_FROM` | нет | identity-service | Адрес отправителя писем со ссылкой сброса |
-| `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | нет | identity-service | SMTP-сервер для писем сброса пароля (стандартные свойства Spring `spring.mail.*`) |
+| `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | нет | identity-service, function-catalog-service | SMTP-сервер для писем сброса пароля и уведомлений о вопросах посетителей (стандартные свойства Spring `spring.mail.*`) |
+| `HELP_MAIL_ENABLED` | нет (по умолчанию `false`) | function-catalog-service | `true` разрешает необязательные e-mail-уведомления о вопросах посетителей. Действует только вместе с `HELP_MAIL_FROM`, `PUBLIC_BASE_URL` и `SPRING_MAIL_HOST`; иначе поле e-mail не показывается, а переписка работает только по личной ссылке |
+| `HELP_MAIL_FROM` | нет | function-catalog-service | Адрес отправителя уведомлений о вопросах посетителей |
 | `PASSWORD_RESET_TOKEN_TTL` | нет | identity-service | Срок действия одноразовой ссылки сброса, ISO-8601 (по умолчанию `PT60M`) |
 | `AZURE_TRANSLATOR_ENDPOINT` | нет | function-catalog-service | Endpoint Azure Translator (например `https://api.cognitive.microsofttranslator.com`). Пока любое из трёх значений пусто, автоматический перевод не выполняется: содержимое сохраняется и ждёт в очереди, редактор видит «Автоматический перевод недоступен» |
 | `AZURE_TRANSLATOR_KEY` | нет | function-catalog-service | Ключ ресурса Azure Translator. Читается только из окружения/`.env`, никогда не логируется и не попадает в ответы API |
@@ -362,8 +365,8 @@ npm run preview      # serve dist/ locally
 - **Адрес клиента нельзя подменить.** Шлюз (`ClientAddressFilter`) оставляет `X-Real-IP`/`X-Forwarded-For` только от доверенных прокси (`GATEWAY_TRUSTED_PROXIES`, в Compose — статический адрес nginx) и для всех остальных подставляет реальный адрес соединения; сервисы и Eureka не публикуются на хосте, поэтому лимиты на клиента (вход, сброс пароля, MFA, сообщения, отзывы) нельзя обойти прямым обращением.
 - **Второй фактор и сессии.** Второй фактор отключён конфигурацией (`MFA_ENABLED=false` по умолчанию в `application.yaml`, `docker-compose.yml` и `.env.example`); код, миграция `V5` и таблицы сохранены, включение описано в разделе 12. При `MFA_ENABLED=true` `SUPER_ADMIN` и `ORG_ADMIN` после пароля подтверждают вход TOTP-кодом (или кодом восстановления); до этого браузер держит только одноразовый challenge-cookie с путём `/api/auth/mfa`, а access/refresh не выдаются. Секреты шифруются `MFA_ENCRYPTION_KEY`, коды восстановления хранятся как хэши. Пользователь видит и завершает свои сессии (`/api/auth/sessions`), `SUPER_ADMIN` — сессии любого пользователя с аудитом; access-токен несёт `sid` и отклоняется identity-service сразу после отзыва (см. [docs/mfa-sessions-and-assignments.md](docs/mfa-sessions-and-assignments.md)).
 - **Сброс пароля без раскрытия паролей.** Пароли хранятся только как BCrypt-хэши; ни один endpoint не показывает, не генерирует и не логирует пароль. `SUPER_ADMIN` вызывает `POST /api/user/{id}/password-reset` и получает одноразовую ссылку ровно один раз (в базе остаётся только SHA-256 хэш токена, инициатор, цель и время); пользователь задаёт новый пароль через `/reset-password?token=…`. Токен случайный (256 бит), одноразовый, живёт `PASSWORD_RESET_TOKEN_TTL`, новый сброс аннулирует предыдущие. Успешный сброс (и обычная смена пароля) записывает `credentials_updated_at`: refresh-токены отзываются, а access-токены, выпущенные раньше, отклоняются. «Забыли пароль?» появляется только при настроенной SMTP-доставке (`PASSWORD_RESET_MAIL_ENABLED`), ответ не раскрывает существование учётной записи; запросы и попытки ввода токена ограничены по частоте (на клиента по `X-Real-IP` и глобально).
-- **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW` или `ORG_REPORTS_MANAGE`, а их статус меняется с `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`. Панель организации, очередь качества, напоминания и выгрузки требуют `ORG_ANALYTICS_VIEW`. Все проверки и ограничение по организации выполняются на бэкенде (см. [docs/organization-analytics.md](docs/organization-analytics.md)). Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации; отметка означает внутреннюю проверку организацией (с указанием сотрудника и даты), а не официальное подтверждение, и не требует внешней ссылки. Опубликованная карточка редактируется только через черновую редакцию (`POST /api/functions/{id}/revisions`, `FUNCTIONS_EDIT` в пределах своей организации; `SUPER_ADMIN` и `FUNCTIONS_MANAGE_ANY_ORGANIZATION` — для любой), публичная версия меняется только при публикации редакции рецензентом (см. [docs/function-editorial-workflow.md](docs/function-editorial-workflow.md)).
-- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports` и `POST /api/analytics/events`, точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза публикуется только на `127.0.0.1`, и даже прямой вызов не может подменить `X-Real-IP`: шлюз перезаписывает его для всех, кроме доверенных прокси.
+- **RBAC.** Роли владеют правами; редакционные endpoints используют `@PreAuthorize("hasAuthority(...)")`, например `FUNCTIONS_REVIEW`, `FUNCTIONS_PUBLISH`, `FUNCTIONS_REACTIVATE`, `FUNCTION_CATEGORIES_MANAGE` и `AUDIT_VIEW`. Администраторы организаций ограничены своими организациями. Сообщения посетителей читаются с `REPORTS_VIEW` или `ORG_REPORTS_MANAGE`, а их статус меняется с `ORG_REPORTS_MANAGE` или `REPORTS_VIEW` + `REPORTS_MANAGE`. Панель организации, очередь качества, напоминания и выгрузки (CSV, Excel, PDF) требуют `ORG_ANALYTICS_VIEW`; выгрузки повторяют фильтры и ограничение по организации экрана и не содержат контактов посетителей, текстов сообщений и данных сотрудников. Вопросы посетителей читаются с `VISITOR_QUESTIONS_VIEW` (только своих организаций; общие вопросы — только глобальные сотрудники), ответ, назначение и закрытие требуют ещё `VISITOR_QUESTIONS_REPLY`. Все проверки и ограничение по организации выполняются на бэкенде (см. [docs/organization-analytics.md](docs/organization-analytics.md)). Проверку карточки услуги отмечает `FUNCTIONS_REVIEW`, проверку организации — `ORGANIZATIONS_EDIT` или `ORGANIZATIONS_EDIT_OWN` для своей организации; отметка означает внутреннюю проверку организацией (с указанием сотрудника и даты), а не официальное подтверждение, и не требует внешней ссылки. Опубликованная карточка редактируется только через черновую редакцию (`POST /api/functions/{id}/revisions`, `FUNCTIONS_EDIT` в пределах своей организации; `SUPER_ADMIN` и `FUNCTIONS_MANAGE_ANY_ORGANIZATION` — для любой), публичная версия меняется только при публикации редакции рецензентом (см. [docs/function-editorial-workflow.md](docs/function-editorial-workflow.md)).
+- **Публичные endpoints.** Анонимный доступ ограничен `GET /api/public/**`, `GET /api/languages`, `GET /api/languages/catalog`, `GET /api/regions/**`, `GET /api/interface-translations/{language}`, публичными чтениями `GET /api/functions/**` (варианты admin, pending-review и audit исключены), анонимной отправкой `POST /api/reports`, `POST /api/analytics/events` и `POST /api/feedback`, PDF-памяткой `GET /api/functions/{id}/guide.pdf`, анонимными вопросами (`GET /api/help/options`, `POST /api/help/conversations`, `GET /api/help/conversation`, `POST /api/help/conversation/messages` — переписка открывается только по случайному токену в заголовке `X-Conversation-Token`, в базе хранится его SHA-256), точками входа аутентификации и Swagger. Всё остальное требует аутентификации. Отправка сообщений ограничена по частоте в function-catalog-service (на клиента по заголовку `X-Real-IP`, глобально и на один объект в сутки) и защищена скрытым полем-ловушкой; события активности ограничены на клиента и глобально и хранятся только как дневные счётчики; IP-адреса не сохраняются. Порт шлюза публикуется только на `127.0.0.1`, и даже прямой вызов не может подменить `X-Real-IP`: шлюз перезаписывает его для всех, кроме доверенных прокси.
 - **Никаких встроенных учётных данных.** Первый администратор берётся из `BOOTSTRAP_SUPER_ADMIN_EMAIL` и `BOOTSTRAP_SUPER_ADMIN_PASSWORD`; identity-service отказывается запускаться без них, пока не существует ни одного `SUPER_ADMIN`. Демо-аккаунты существуют только при `APP_DEMO_USERS_ENABLED=true` в непродакшен-профиле.
 - **Ротация секретов.** При изменении `JWT_SECRET` или пароля базы данных переразверните все три сервиса с данными вместе и отзовите действующие refresh-сессии (`UPDATE refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;` в базе identity), чтобы старый refresh-токен не мог выпустить заново подписанный access-токен.
 
@@ -383,7 +386,7 @@ git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx|jks)$'
 | --- | --- | --- |
 | identity-service | Модульные и `@SpringBootTest` наборы с профилем `test` (`application-test.yaml`): H2 в памяти в режиме PostgreSQL, Flyway отключён, Eureka отключена; `LoginProtectionTest`/`LoginAttemptGuardTest` проверяют защиту входа | нет |
 | reference-service | Модульные тесты и тесты веб-слоя | нет |
-| function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest`, `FunctionRevisionPostgresTest`, `PublicHistoryAssignmentFeedbackPostgresTest`, `MachineTranslationPostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
+| function-catalog-service | Модульные тесты, `CatalogPostgresTest`, `CatalogEnhancementsPostgresTest`, `ReportWorkflowPostgresTest`, `OrganizationInsightsPostgresTest`, `OrganizationDashboardPostgresTest`, `FunctionRevisionPostgresTest`, `PublicHistoryAssignmentFeedbackPostgresTest`, `MachineTranslationPostgresTest`, `OrganizationReportExportPostgresTest`, `HelpConversationPostgresTest`, `ServiceGuidePostgresTest` (Testcontainers PostgreSQL 16) и `AdminFunctionsBrowserIT` (браузерный сценарий Playwright против реального Spring-контекста) | Docker daemon |
 | api-gateway | `ClientAddressFilterTest` (доверенные прокси, перезапись `X-Real-IP`, разбор CIDR) | нет |
 | eureka-server | Тестов нет; `mvn test` только компилирует модуль | нет |
 
@@ -402,7 +405,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 ```shell
 cd front
 npx playwright install chromium   # once
-npm run test                      # UI suite: admin-functions, primitives, public-catalog, admin-enhancements, engagement-tracking and organization-dashboard specs against route mocks
+npm run test                      # UI suite against route mocks (all specs listed in playwright.config.ts, incl. checklist, visitor-help and exports)
 npm run test:backend              # real-backend suite, driven by AdminFunctionsBrowserIT
 ```
 
@@ -523,7 +526,7 @@ ReestrGov/
 - `docs/admin-functions-ui.md` описывает административные экраны карточек услуг.
 - `docs/function-editorial-workflow.md` описывает редакционный конечный автомат и его права.
 - `docs/public-catalog-enhancements.md` описывает структурированные инструкции, контакты организаций, подбор услуг, сообщения об ошибках, проверку по официальному источнику, сохранение, печать и отправку ссылок.
-- `docs/public-search-and-visitor-tools.md` описывает многоязычный поиск (правила нормализации и транслитерации), сравнение услуг, чек-лист подготовки, публичную историю изменений и отзывы «Была ли информация полезной?».
+- `docs/public-search-and-visitor-tools.md` описывает многоязычный поиск (правила нормализации и транслитерации), чек-лист подготовки (сравнение услуг удалено 16.10.2026), публичную историю изменений и отзывы «Была ли информация полезной?».
 - `docs/mfa-sessions-and-assignments.md` описывает второй фактор, управление сессиями, ответственных сотрудников карточек и право `FUNCTIONS_ASSIGN`.
 - `docs/machine-translation.md` описывает фоновую очередь автоматического перевода (Azure Translator), правила замены переводов, повторы и backfill.
 - `front/README.md` содержит заметки по развёртыванию, специфичные для фронтенда.
@@ -689,3 +692,55 @@ PostgreSQL не мог выполнить скрипт (`bad interpreter: Permis
 машине не было) и сохранён; контейнеры остановлены `docker compose down` без `-v`. Учётные данные Azure Translator в
 окружении по-прежнему отсутствуют: живой вызов Azure не выполнялся, очередь ждёт `AZURE_TRANSLATOR_ENDPOINT`,
 `AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION`.
+
+---
+
+## 13. Изменения от 16.10.2026: отчёты Excel/PDF, вопросы посетителей, памятка, удаление сравнения
+
+Подробности, права, конфигурация и сценарий ручной проверки: [docs/visitor-questions-guides-exports.md](docs/visitor-questions-guides-exports.md).
+
+**Что добавлено.**
+
+- **Отчёты в Excel и PDF.** Панель организации выгружает книгу `.xlsx` (листы «Сводка», «Активность по услугам»,
+  «Активность по времени», «Проблемы качества», «Сообщения посетителей») и печатный PDF с теми же фильтрами (период,
+  организация, категория); экран сообщений посетителей — Excel/PDF рядом с прежним CSV. Только реально собираемые
+  данные; права и ограничение по организации проверяются на бэкенде; контакты посетителей, тексты сообщений и данные
+  сотрудников не выгружаются. Новые зависимости function-catalog-service: Apache POI 5.4.1, OpenPDF 2.0.5
+  (+ `openpdf-fonts-extra` для кириллицы), `spring-boot-starter-mail`.
+- **Вопросы посетителей без учётной записи.** `/help` и кнопка «Задать вопрос» на странице услуги; вопрос об услуге
+  попадает в очередь её организации, общий — к `SUPER_ADMIN`. Посетитель читает ответ по личной ссылке
+  `/help/conversation#<токен>` (256 бит, в базе только хэш, не по id). Входящие для сотрудников — `/admin/questions`
+  со статусами «Новый», «В работе», «Отвечен», «Закрыт» и назначением ответственного. Это не онлайн-чат; срок ответа не
+  обещается. E-mail необязателен и используется, только если настроена доставка.
+- **PDF-памятка по услуге** на языке интерфейса (`GET /api/functions/{id}/guide.pdf?lang=…`, без входа) с чек-листом
+  подготовки; пустые разделы опускаются, внешняя ссылка не требуется. Печать страницы сохранена.
+- **Сравнение услуг удалено**: кнопки, страница и маршрут `/compare`, хранилище, ссылки, подписи и тесты. Сохранённые
+  услуги, чек-лист, печать, публичный каталог и аналитика не затронуты.
+
+**Миграции (аддитивные).** function-catalog `V11` (таблицы `help_conversations`, `help_messages`), identity `V7`
+(права `VISITOR_QUESTIONS_VIEW`/`VISITOR_QUESTIONS_REPLY` для существующих ролей), reference `V10` (подписи en/ru/uz/fr и
+удаление строк `compare.*`/`nav.compare`). Таблицы и тома не удаляются.
+
+**Новая конфигурация (необязательная).** `HELP_MAIL_ENABLED`, `HELP_MAIL_FROM` плюс уже существующие `PUBLIC_BASE_URL`
+и `SPRING_MAIL_*` (теперь передаются и в function-catalog-service, см. `docker-compose.yml` и `.env.example`).
+Маршрут шлюза `function-catalog-service` дополнен `/api/help/**`.
+
+**Как запустить и проверить.** Как обычно (раздел 5): `docker compose up --build -d`; миграции применяются при старте.
+Тесты: `(cd function-catalog-service && mvn test)` (нужен Docker), `(cd identity-service && mvn test)`,
+`(cd reference-service && mvn test)`, `(cd api-gateway && mvn test)`, `cd front && npm run typecheck && npm run lint &&
+npm run build && npm run test`.
+
+**Проверки, выполненные 16.10.2026.**
+
+| Проверка | Результат |
+| --- | --- |
+| `function-catalog-service` `mvn test` (Testcontainers PostgreSQL 16) | 237 тестов, 0 ошибок (новые: `OrganizationReportExportPostgresTest` ×7, `HelpConversationPostgresTest` ×7, `ServiceGuidePostgresTest` ×5, `HelpAccessTokensTest` ×3) |
+| `identity-service` `mvn test` | 161, 0 ошибок (`DataInitializerTest` обновлён под новые права) |
+| `reference-service` / `api-gateway` `mvn test` | 24 / 3, 0 ошибок |
+| `front`: typecheck, lint, build, Playwright UI | без ошибок, 66 сценариев (новые `checklist.spec.ts` с проверкой удаления сравнения, `visitor-help.spec.ts`, `exports.spec.ts`) |
+| Миграции на одноразовой PostgreSQL 16 | reference `V1`–`V10` применены, строк `compare.*` не осталось; identity `V7` идемпотентна и выдаёт права существующим ролям |
+| Стек `docker compose` (отдельный проект `reestrgov-verify`, одноразовые секреты в окружении, порт PostgreSQL переопределён файлом вне репозитория из-за занятого `127.0.0.1:5433`) | миграции каталога `V11`, identity `V7`, reference `V10` применены; через nginx: публичная карточка и PDF-памятка на русском без входа, вопрос посетителя → ответ `SUPER_ADMIN` виден по токену, сотрудник другой организации получает `403`, Excel (русские листы) и PDF выгружаются, чужая организация → `403`, аноним → `403`, `/compare` → 404. Остановлен `docker compose down` без `-v` |
+
+Ограничения: e-mail-уведомления проверены только тестами с подменой отправителя — реальный SMTP в окружении не
+настроен; SMS-канала в проекте нет. Срок ответа на вопросы не настраивается и посетителям не обещается.
+

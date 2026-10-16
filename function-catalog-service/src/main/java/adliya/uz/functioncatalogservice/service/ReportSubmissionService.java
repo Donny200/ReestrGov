@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.NoSuchElementException;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -28,13 +27,6 @@ public class ReportSubmissionService {
     private static final int MIN_DESCRIPTION_LENGTH = 10;
     private static final int MAX_LINKS = 3;
     private static final int LABEL_MAX_LENGTH = 150;
-    private static final Pattern LINE_BREAKS = Pattern.compile("\\r\\n?");
-    private static final Pattern CONTROL_CHARACTERS = Pattern.compile("[\\p{Cntrl}&&[^\\n]]");
-    private static final Pattern HORIZONTAL_SPACE = Pattern.compile("[\\h\\x0B\\f]+");
-    private static final Pattern SPACE_AROUND_BREAKS = Pattern.compile(" ?\\n ?");
-    private static final Pattern EXCESS_BLANK_LINES = Pattern.compile("\\n{3,}");
-    private static final Pattern LETTER_OR_DIGIT = Pattern.compile("[\\p{L}\\p{N}]");
-    private static final Pattern LINK = Pattern.compile("(?i)(https?://|www\\.)");
 
     private final ReportRateLimiter rateLimiter;
     private final ReportProperties properties;
@@ -95,13 +87,11 @@ public class ReportSubmissionService {
     }
 
     private static String normalizedDescription(String raw) {
-        String value = LINE_BREAKS.matcher(raw).replaceAll("\n");
-        value = HORIZONTAL_SPACE.matcher(CONTROL_CHARACTERS.matcher(value).replaceAll(" ")).replaceAll(" ");
-        value = EXCESS_BLANK_LINES.matcher(SPACE_AROUND_BREAKS.matcher(value).replaceAll("\n")).replaceAll("\n\n").strip();
-        if (value.length() < MIN_DESCRIPTION_LENGTH || !LETTER_OR_DIGIT.matcher(value).find()) {
+        String value = VisitorText.normalize(raw);
+        if (!VisitorText.meaningful(value, MIN_DESCRIPTION_LENGTH)) {
             throw new IllegalArgumentException("Describe the problem in at least " + MIN_DESCRIPTION_LENGTH + " characters");
         }
-        if (LINK.matcher(value).results().count() > MAX_LINKS) {
+        if (VisitorText.links(value) > MAX_LINKS) {
             throw new IllegalArgumentException("A report may contain at most " + MAX_LINKS + " links");
         }
         return value;

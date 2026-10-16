@@ -20,6 +20,9 @@
         <java.version>17</java.version>
         <testcontainers.version>1.21.3</testcontainers.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
+        <poi.version>5.4.1</poi.version>
+        <!-- 2.0.x is the last OpenPDF line built for Java 17. -->
+        <openpdf.version>2.0.5</openpdf.version>
     </properties>
 
     <dependencies>
@@ -99,6 +102,28 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-csv</artifactId>
             <version>1.14.1</version>
+        </dependency>
+        <!-- Excel (.xlsx) and PDF exports of organization reports and public service guides. -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+        <!-- Liberation Sans (Latin, Cyrillic) embedded into generated PDFs so every interface language renders. -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf-fonts-extra</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+        <!-- Optional e-mail notifications for visitor questions; active only when SMTP is configured. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>

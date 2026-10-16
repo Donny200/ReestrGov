@@ -2,9 +2,6 @@ package adliya.uz.functioncatalogservice.service;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.springframework.http.CacheControl;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
@@ -71,12 +68,6 @@ public final class CsvExport {
     }
 
     public static ResponseEntity<byte[]> attachment(File file) {
-        return ResponseEntity.ok()
-                .contentType(TEXT_CSV)
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename(file.filename(), StandardCharsets.UTF_8).build().toString())
-                .header(TRUNCATED_HEADER, String.valueOf(file.truncated()))
-                .cacheControl(CacheControl.noStore())
-                .body(file.content());
+        return new FileDownload(file.filename(), TEXT_CSV, file.content(), file.truncated()).attachment();
     }
 }

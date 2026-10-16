@@ -79,6 +79,44 @@ public class IdentityOrganizationClient {
                     "Could not load organization staff from identity-service; retry with a current session");
         }
     }
+    /** Public profile of one organization, or empty when it is unknown or identity-service cannot be reached. */
+    public java.util.Optional<PublicOrganization> findPublic(Long id) {
+        if (id == null) {
+            return java.util.Optional.empty();
+        }
+        try {
+            PublicOrganization organization = client.get().uri("/api/public/organizations/{id}", id)
+                    .retrieve().body(PublicOrganization.class);
+            return organization != null && id.equals(organization.id()) ? java.util.Optional.of(organization) : java.util.Optional.empty();
+        } catch (RestClientException | IllegalStateException exception) {
+            return java.util.Optional.empty();
+        }
+    }
+    /**
+     * Public organization directory keyed by id (names, translations and contact details only). Returns an empty map
+     * when identity-service is unreachable so that exports and guides fall back to "#id" instead of failing.
+     */
+    public java.util.Map<Long, PublicOrganization> publicDirectory() {
+        try {
+            PublicOrganization[] found = client.get().uri("/api/public/organizations").retrieve().body(PublicOrganization[].class);
+            java.util.Map<Long, PublicOrganization> directory = new java.util.LinkedHashMap<>();
+            if (found != null) {
+                Arrays.stream(found).filter(organization -> organization.id() != null)
+                        .forEach(organization -> directory.put(organization.id(), organization));
+            }
+            return directory;
+        } catch (RestClientException | IllegalStateException exception) {
+            return java.util.Map.of();
+        }
+    }
     public record Organization(Long id, String name, Boolean enabled) {}
-    public record PublicOrganization(Long id, String name) {}
+    public record PublicOrganization(Long id, String name,
+                                     java.util.Map<String, adliya.uz.functioncatalogservice.entity.TranslatedText> nameTranslations,
+                                     Contact contact) {
+        public PublicOrganization(Long id, String name) {
+            this(id, name, null, null);
+        }
+    }
+    /** Public contact details of an organization as published by identity-service. */
+    public record Contact(String address, String phone, String workingHours, String mapUrl) {}
 }

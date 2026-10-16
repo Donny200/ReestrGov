@@ -27,7 +27,7 @@ export function PublicFooter() {
             <li><Link to="/#functions" className={linkClass}>{t('nav.functions')}</Link></li>
             <li><Link to="/finder" className={linkClass}>{t('nav.finder', 'Service finder')}</Link></li>
             <li><Link to="/saved" className={linkClass}>{t('nav.saved', 'Saved')}</Link></li>
-            <li><Link to="/compare" className={linkClass}>{t('nav.compare', 'Compare')}</Link></li>
+            <li><Link to="/help" className={linkClass}>{t('nav.help', 'Ask a question')}</Link></li>
           </ul>
         </nav>
 
