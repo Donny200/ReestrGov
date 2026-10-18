@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { ClipboardCheckIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/Button';
@@ -16,9 +16,11 @@ interface PreparationChecklistProps {
   section: ChecklistSection;
   label: string;
   numbered?: boolean;
+  /** Extra information under an item (structured document details). */
+  renderDetail?: (item: ChecklistItem) => ReactNode;
 }
 
-export function ChecklistItems({ record, section, label, numbered = false }: PreparationChecklistProps) {
+export function ChecklistItems({ record, section, label, numbered = false, renderDetail }: PreparationChecklistProps) {
   const { t, locale } = useI18n();
   const prefix = useId();
   const { items, isDone, toggle } = useChecklist(record, locale);
@@ -42,6 +44,7 @@ export function ChecklistItems({ record, section, label, numbered = false }: Pre
               <span className={cn('min-w-0 wrap-anywhere', done && 'text-secondary line-through decoration-line')}>{item.text}</span>
               {done && <span className="sr-only"> ({t('checklist.done', 'done')})</span>}
             </label>
+            {renderDetail && <div className="ps-10 pb-1">{renderDetail(item)}</div>}
           </li>
         );
       })}

@@ -5,7 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -53,6 +55,9 @@ public class OrgFunction {
     private String fee;
     @Column(length = 500)
     private String officialSourceUrl;
+    /** Structured details per line of {@link #requiredDocuments}; null or empty for cards that have none. */
+    @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
+    private List<DocumentDetail> documentDetails;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     @Builder.Default
     private Map<String, Map<String, TranslatedText>> instructionTranslations = new LinkedHashMap<>();
@@ -90,6 +95,7 @@ public class OrgFunction {
             field.set(this, field.get(source));
         }
         officialSourceUrl = source.officialSourceUrl;
+        documentDetails = source.documentDetails == null || source.documentDetails.isEmpty() ? null : new ArrayList<>(source.documentDetails);
         Map<String, Map<String, TranslatedText>> instructions = new LinkedHashMap<>();
         if (source.instructionTranslations != null) {
             source.instructionTranslations.forEach((key, values) -> instructions.put(key, copyTranslations(values)));
@@ -103,6 +109,11 @@ public class OrgFunction {
     private static Map<String, TranslatedText> copyTranslations(Map<String, TranslatedText> values) {
         return values == null ? new LinkedHashMap<>() : new LinkedHashMap<>(values);
     }
+    /** Never null: cards without structured details return an empty list. */
+    public List<DocumentDetail> documentDetailsOrEmpty() {
+        return documentDetails == null ? List.of() : documentDetails;
+    }
+
     public String getCategory() { return functionCategory == null ? null : functionCategory.getName(); }
 
     public Map<String, TranslatedText> instructionTranslationsOf(InstructionField field) {

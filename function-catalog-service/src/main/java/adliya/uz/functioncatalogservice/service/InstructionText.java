@@ -29,6 +29,14 @@ public final class InstructionText {
         return value;
     }
 
+    /** Items of a normalized list field (one per line); empty for null. */
+    public static List<String> lines(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(value.split("\n")).map(String::strip).filter(line -> !line.isEmpty()).toList();
+    }
+
     private static String normalizeList(InstructionField field, String value) {
         List<String> items = Arrays.stream(value.split("\n")).map(String::strip).filter(line -> !line.isEmpty()).toList();
         if (items.size() > InstructionField.MAX_LIST_ITEMS) {

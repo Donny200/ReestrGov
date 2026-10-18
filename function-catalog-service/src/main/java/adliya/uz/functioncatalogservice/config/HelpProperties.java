@@ -39,6 +39,25 @@ public class HelpProperties {
             "http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://127.0.0.1:5183"));
     private Session session = new Session();
     private Mail mail = new Mail();
+    private Stream stream = new Stream();
+
+    /**
+     * Server-sent events that tell open support pages and staff inboxes that something changed. Events carry only
+     * ids, never message text; clients then reload from the REST API, which stays the source of truth.
+     */
+    @Getter
+    @Setter
+    public static class Stream {
+        private boolean enabled = true;
+        /** A comment line is sent this often so proxies keep the connection open (nginx reads time out after 60 s). */
+        private Duration heartbeat = Duration.ofSeconds(20);
+        /** Connections end after this long; the browser reconnects and is authorized again. */
+        private Duration timeout = Duration.ofMinutes(10);
+        /** Open streams per support identity (tabs and devices) and in total on one service instance. */
+        private int maxPerGuest = 5;
+        private int maxPerUser = 5;
+        private int maxTotal = 2_000;
+    }
 
     /** Anonymous guest session cookie (HttpOnly, SameSite=Strict, path /api/help). */
     @Getter

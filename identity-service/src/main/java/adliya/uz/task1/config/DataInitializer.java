@@ -27,8 +27,10 @@ public class DataInitializer implements CommandLineRunner {
     private static final List<String> ORG_ADMIN_PERMISSIONS = List.of(
             "ORGANIZATIONS_VIEW", "MODERATORS_VIEW", "MODERATORS_CREATE",
             "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE",
-            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY");
-    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW");
+            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY",
+            "APPOINTMENTS_VIEW", "APPOINTMENTS_MANAGE");
+    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW",
+            "APPOINTMENTS_VIEW");
     private static final List<PermissionSeed> PERMISSION_SEEDS = List.of(
             new PermissionSeed("ORGANIZATIONS_VIEW", "View organizations", "Organization Management"),
             new PermissionSeed("ORGANIZATIONS_CREATE", "Create organizations", "Organization Management"),
@@ -92,7 +94,10 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("ORG_ANALYTICS_VIEW", "View organization dashboard, catalog engagement and quality queue", "Analytics"),
 
             new PermissionSeed("VISITOR_QUESTIONS_VIEW", "View visitor questions for own organizations", "Visitor questions"),
-            new PermissionSeed("VISITOR_QUESTIONS_REPLY", "Reply to, assign and close visitor questions", "Visitor questions")
+            new PermissionSeed("VISITOR_QUESTIONS_REPLY", "Reply to, assign and close visitor questions", "Visitor questions"),
+
+            new PermissionSeed("APPOINTMENTS_VIEW", "View appointment bookings of own organizations", "Appointments"),
+            new PermissionSeed("APPOINTMENTS_MANAGE", "Manage appointment availability and bookings of own organizations", "Appointments")
     );
 
     private final RoleRepository roleRepository;

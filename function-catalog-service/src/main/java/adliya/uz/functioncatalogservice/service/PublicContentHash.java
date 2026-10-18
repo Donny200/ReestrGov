@@ -1,5 +1,6 @@
 package adliya.uz.functioncatalogservice.service;
 
+import adliya.uz.functioncatalogservice.entity.DocumentDetail;
 import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
@@ -43,7 +44,7 @@ public final class PublicContentHash {
         Map<String, String> hashes = new LinkedHashMap<>();
         hashes.put(NAME, hash(function.getName()));
         hashes.put(DESCRIPTION, hash(function.getDescription()));
-        hashes.put(DOCUMENTS, hash(join(function.getRequiredDocuments(), function.getRequirements())));
+        hashes.put(DOCUMENTS, hash(join(function.getRequiredDocuments(), function.getRequirements()) + details(function)));
         hashes.put(STEPS, hash(function.getSteps()));
         hashes.put(WHO_CAN_USE, hash(function.getWhoCanUse()));
         hashes.put(WHERE_HOW_TO_APPLY, hash(function.getWhereHowToApply()));
@@ -86,6 +87,17 @@ public final class PublicContentHash {
                 text.append(field).append('[').append(language).append("]=").append(value.text().strip()).append('\n');
             }
         });
+    }
+
+    /** Structured document details; empty for cards without any, so their fingerprint is unchanged. */
+    private static String details(OrgFunction function) {
+        StringBuilder text = new StringBuilder();
+        for (DocumentDetail detail : function.documentDetailsOrEmpty()) {
+            text.append("\n#").append(normalize(detail.document())).append('|').append(detail.form()).append('|').append(detail.copies())
+                    .append('|').append(normalize(detail.validity())).append('|').append(normalize(detail.notes()))
+                    .append('|').append(normalize(detail.formUrl()));
+        }
+        return text.toString();
     }
 
     private static String join(String first, String second) {

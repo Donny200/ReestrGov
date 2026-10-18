@@ -1,5 +1,6 @@
 import type { AnalyticsFilters, QualityQueueFilters } from '../types/analytics';
 import type { FunctionQuery } from '../types/api';
+import type { StaffAppointmentQuery } from '../types/appointments';
 import type { HelpInboxQuery } from '../types/help';
 import type { ReportQuery } from '../types/reports';
 
@@ -68,6 +69,19 @@ export const helpKeys = {
   inboxUnread: () => [...helpKeys.all, 'inbox-unread'] as const,
   detail: (id: number) => [...helpKeys.all, 'detail', id] as const,
   candidates: (id: number) => [...helpKeys.all, 'candidates', id] as const,
+};
+
+export const appointmentKeys = {
+  all: ['appointments'] as const,
+  availability: (serviceId: number, from: string | undefined) => [...appointmentKeys.all, 'availability', serviceId, from ?? ''] as const,
+  visitor: (reference: string) => [...appointmentKeys.all, 'visitor', reference] as const,
+  reschedule: (reference: string, from: string | undefined) => [...appointmentKeys.all, 'reschedule', reference, from ?? ''] as const,
+  staff: (query: StaffAppointmentQuery) => [...appointmentKeys.all, 'staff', query] as const,
+  schedule: (organizationId: number) => [...appointmentKeys.all, 'schedule', organizationId] as const,
+};
+
+export const siteKeys = {
+  publicSite: () => ['site', 'public'] as const,
 };
 
 export const analyticsKeys = {

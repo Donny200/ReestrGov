@@ -10,6 +10,7 @@ import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.UpdateRequirementsRequest;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.service.OrgFunctionService;
+import adliya.uz.functioncatalogservice.service.PublicSiteUrl;
 import adliya.uz.functioncatalogservice.service.ServiceGuideService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,9 @@ public class OrgFunctionController {
     private final MachineTranslationQueue translations;
     private final ServiceGuideService guides;
 
+    @org.springframework.beans.factory.annotation.Value("${catalog.public-base-url:}")
+    private String publicBaseUrl;
+
     @GetMapping
     public ResponseEntity<List<OrgFunctionResponse>> getAll(
             @RequestParam(required = false) Long organizationId,
@@ -44,6 +48,17 @@ public class OrgFunctionController {
         }
         Map<Long, java.time.Instant> updated = publicChanges.lastUpdatedAt(functions.stream().map(OrgFunction::getId).toList());
         return ResponseEntity.ok(functions.stream().map(function -> OrgFunctionResponse.publicFrom(function, updated.get(function.getId()))).toList());
+    }
+
+    /**
+     * Public facts about the site for printed material: the canonical public address (catalog.public-base-url) or
+     * null when none is configured or it is a development address (localhost, private networks).
+     */
+    @GetMapping("/public-site")
+    public Map<String, String> publicSite() {
+        Map<String, String> result = new java.util.HashMap<>();
+        result.put("publicBaseUrl", PublicSiteUrl.canonical(publicBaseUrl));
+        return result;
     }
 
     /**

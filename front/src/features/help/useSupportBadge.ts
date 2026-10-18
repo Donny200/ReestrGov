@@ -1,9 +1,10 @@
 import { useAuth } from '../../contexts/auth';
 import { useSupportUnread } from './queries';
-import { supportActive } from './supportActivity';
+import { useSupportActive } from './supportActivity';
 
-/** Unread staff replies for the public navigation; polls only where a support thread can exist. */
+/** Unread staff replies for the public navigation; loads only where a support thread can exist. */
 export function useSupportBadge() {
   const { user } = useAuth();
-  return useSupportUnread(Boolean(user) || supportActive()).data;
+  const active = useSupportActive();
+  return useSupportUnread(Boolean(user) || active).data;
 }

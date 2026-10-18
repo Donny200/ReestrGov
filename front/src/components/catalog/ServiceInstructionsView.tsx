@@ -6,6 +6,8 @@ import type { CatalogFunction, InstructionField } from '../../types/api';
 import { localizedInstruction, type LocalizedInstruction } from '../../utils/instructions';
 import { requirementLines } from '../../utils/format';
 import { ChecklistItems, ChecklistSummary } from '../../features/checklist/PreparationChecklist';
+import { detailFor, hasAnyDetail } from '../../utils/documentDetails';
+import { DocumentDetailNote } from './DocumentDetailNote';
 
 type Translate = (key: string, fallback?: string) => string;
 
@@ -53,6 +55,7 @@ export function ServiceInstructionsView({ record }: ServiceInstructionsViewProps
   const requirements = requirementLines(record.requirements);
   const documentsLabel = t('instructions.requiredDocuments', 'Required documents');
   const requirementsLabel = t('field.requirements', 'Requirements');
+  const anyDetails = hasAnyDetail(record.documentDetails);
 
   return (
     <>
@@ -73,7 +76,14 @@ export function ServiceInstructionsView({ record }: ServiceInstructionsViewProps
 
       {documents ? (
         <Section id={`${baseId}-documents`} title={documentsLabel} language={locale}>
-          <ChecklistItems record={record} section="documents" label={documentsLabel} />
+          <ChecklistItems record={record} section="documents" label={documentsLabel}
+            renderDetail={anyDetails ? (item) => <DocumentDetailNote detail={detailFor(record.documentDetails, item.source)} language={record.sourceLanguage} /> : undefined} />
+          {!anyDetails && (
+            <p className="mt-3 flex items-start gap-2.5 text-sm leading-6 text-secondary">
+              <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 print:hidden" aria-hidden="true" />
+              {t('documents.noDetails', 'The organization has not said whether to bring originals or copies, or how many copies. Check with the organization before your visit.')}
+            </p>
+          )}
         </Section>
       ) : requirements.length > 0 ? (
         <Section id={`${baseId}-documents`} title={requirementsLabel}>

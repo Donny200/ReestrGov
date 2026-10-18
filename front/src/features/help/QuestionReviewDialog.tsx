@@ -58,10 +58,15 @@ export function QuestionReviewDialog({ conversation, organizationName, onClose }
     [detail.data],
   );
   useEffect(() => {
-    if (id && latestUnread > lastMarked.current && document.visibilityState === 'visible') {
-      lastMarked.current = latestUnread;
-      markRead({ id, upTo: latestUnread });
-    }
+    const mark = () => {
+      if (id && latestUnread > lastMarked.current && document.visibilityState === 'visible') {
+        lastMarked.current = latestUnread;
+        markRead({ id, upTo: latestUnread });
+      }
+    };
+    mark();
+    document.addEventListener('visibilitychange', mark);
+    return () => document.removeEventListener('visibilitychange', mark);
   }, [id, latestUnread, markRead]);
 
   const current = detail.data?.conversation ?? conversation;

@@ -19,18 +19,20 @@ import {
 } from '../../services/helpService';
 import type { HelpConversationDetail, HelpConversationStatus, HelpInboxQuery, SendSupportMessage, SupportContact, SupportThread } from '../../types/help';
 import { helpKeys } from '../queryKeys';
+import { BADGE_POLL_MS, INBOX_POLL_MS, THREAD_POLL_MS, useLiveInterval } from './liveSupport';
 import { markSupportActive } from './supportActivity';
 
-/** Polling intervals: the project has no push channel, so clients ask; hidden tabs do not poll at all. */
-export const THREAD_POLL_MS = 10_000;
-export const BADGE_POLL_MS = 45_000;
-export const INBOX_POLL_MS = 20_000;
-
+/**
+ * Server-sent events (liveSupport.ts) trigger reloads as soon as something changes; polling is the fallback, at the
+ * normal pace while no stream is connected and every minute as a safety net while one is. Hidden tabs never poll.
+ */
 export const useSupportThread = () =>
-  useQuery({ queryKey: helpKeys.thread(), queryFn: getSupportThread, refetchInterval: THREAD_POLL_MS, refetchIntervalInBackground: false });
+  useQuery({ queryKey: helpKeys.thread(), queryFn: getSupportThread, refetchInterval: useLiveInterval('visitor', THREAD_POLL_MS),
+    refetchIntervalInBackground: false });
 
 export const useSupportUnread = (enabled: boolean) =>
-  useQuery({ queryKey: helpKeys.unread(), queryFn: getSupportUnread, enabled, refetchInterval: BADGE_POLL_MS, refetchIntervalInBackground: false });
+  useQuery({ queryKey: helpKeys.unread(), queryFn: getSupportUnread, enabled, refetchInterval: useLiveInterval('visitor', BADGE_POLL_MS),
+    refetchIntervalInBackground: false });
 
 export function useSendSupportMessage() {
   const client = useQueryClient();
@@ -77,14 +79,16 @@ export function useSupportSettings() {
 }
 
 export const useHelpInbox = (query: HelpInboxQuery, enabled = true) =>
-  useQuery({ queryKey: helpKeys.inbox(query), queryFn: () => getHelpInbox(query), enabled, refetchInterval: INBOX_POLL_MS, refetchIntervalInBackground: false });
+  useQuery({ queryKey: helpKeys.inbox(query), queryFn: () => getHelpInbox(query), enabled,
+    refetchInterval: useLiveInterval('staff', INBOX_POLL_MS), refetchIntervalInBackground: false });
 
 export const useHelpInboxUnread = (enabled: boolean) =>
-  useQuery({ queryKey: helpKeys.inboxUnread(), queryFn: getHelpInboxUnread, enabled, refetchInterval: BADGE_POLL_MS, refetchIntervalInBackground: false });
+  useQuery({ queryKey: helpKeys.inboxUnread(), queryFn: getHelpInboxUnread, enabled,
+    refetchInterval: useLiveInterval('staff', BADGE_POLL_MS), refetchIntervalInBackground: false });
 
 export const useHelpInboxDetail = (id: number | null) =>
   useQuery({ queryKey: helpKeys.detail(id ?? 0), queryFn: () => getHelpInboxDetail(id ?? 0), enabled: id !== null,
-    refetchInterval: THREAD_POLL_MS, refetchIntervalInBackground: false });
+    refetchInterval: useLiveInterval('staff', THREAD_POLL_MS), refetchIntervalInBackground: false });
 
 export const useHelpCandidates = (id: number | null, enabled: boolean) =>
   useQuery({ queryKey: helpKeys.candidates(id ?? 0), queryFn: () => getHelpAssigneeCandidates(id ?? 0), enabled: enabled && id !== null });

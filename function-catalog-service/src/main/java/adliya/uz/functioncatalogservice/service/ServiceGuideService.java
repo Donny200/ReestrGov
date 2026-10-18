@@ -1,6 +1,7 @@
 package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.config.AnalyticsProperties;
+import adliya.uz.functioncatalogservice.entity.DocumentDetail;
 import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.service.InterfaceLabels.Labels;
@@ -78,7 +79,8 @@ public class ServiceGuideService {
                 instruction(function, InstructionField.PROCESSING_TIME, code),
                 instruction(function, InstructionField.FEE, code),
                 organization.map(IdentityOrganizationClient.PublicOrganization::contact).orElse(null),
-                lastUpdated, function.getLastVerifiedAt(), function.getId());
+                lastUpdated, function.getLastVerifiedAt(), function.getId(), function.getRequiredDocuments(),
+                function.documentDetailsOrEmpty());
         String filename = "service-guide-" + function.getId() + "-" + code + ".pdf";
         return new FileDownload(filename, FileDownload.PDF, render(guide, labels), false);
     }
@@ -95,8 +97,7 @@ public class ServiceGuideService {
         try {
             PdfWriter writer = PdfWriter.getInstance(pdf, out);
             String generated = labels.get("guide.generatedOn", "Downloaded on") + " " + format(dates, Instant.now());
-            String site = publicBaseUrl == null || publicBaseUrl.isBlank() ? null
-                    : publicBaseUrl.replaceAll("/+$", "") + "/functions/" + guide.functionId();
+            String site = PublicSiteUrl.page(publicBaseUrl, "/functions/" + guide.functionId());
             writer.setPageEvent(new Footer(site == null ? generated : generated + " · " + site, labels.get("export.page", "Page")));
             writer.getExtraCatalog().put(PdfName.LANG, new PdfString(locale.toLanguageTag()));
             pdf.addTitle(guide.name());
@@ -152,7 +153,8 @@ public class ServiceGuideService {
             List<String> documents = guide.documents() == null ? List.of() : LocalizedContent.lines(guide.documents().text());
             if (!documents.isEmpty()) {
                 heading(pdf, writer, labels.get("instructions.requiredDocuments", "Required documents"));
-                pdf.add(list(documents, false));
+                pdf.add(list(DocumentDetails.describeAll(documents, LocalizedContent.lines(guide.sourceDocuments()),
+                        guide.documentDetails(), labels), false));
             }
             if (!guide.requirements().isEmpty()) {
                 heading(pdf, writer, documents.isEmpty() ? labels.get("field.requirements", "Requirements")
@@ -308,7 +310,8 @@ public class ServiceGuideService {
     private record Guide(String name, String organization, String category, String description, Instruction whoCanUse,
                          Instruction steps, Instruction documents, List<String> requirements, Instruction whereHow,
                          Instruction time, Instruction fee, IdentityOrganizationClient.Contact contact,
-                         Instant lastUpdated, Instant lastVerified, Long functionId) {}
+                         Instant lastUpdated, Instant lastVerified, Long functionId, String sourceDocuments,
+                         List<DocumentDetail> documentDetails) {}
 
     private static final class Footer extends PdfPageEventHelper {
         private final String text;

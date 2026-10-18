@@ -6,9 +6,13 @@ import adliya.uz.functioncatalogservice.dto.HelpMessageRequest;
 import adliya.uz.functioncatalogservice.dto.HelpStatusRequest;
 import adliya.uz.functioncatalogservice.dto.StaffMember;
 import adliya.uz.functioncatalogservice.dto.SupportDtos;
+import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
+import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import adliya.uz.functioncatalogservice.security.ChatOriginGuard;
+import adliya.uz.functioncatalogservice.security.OrganizationScope;
 import adliya.uz.functioncatalogservice.service.ClientAddressResolver;
 import adliya.uz.functioncatalogservice.service.HelpConversationService;
+import adliya.uz.functioncatalogservice.service.SupportEventBroker;
 import adliya.uz.functioncatalogservice.service.SupportIdentityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,10 +21,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -30,8 +37,9 @@ import java.util.NoSuchElementException;
 @RequestMapping("/api/help")
 @RequiredArgsConstructor
 @Tag(name = "Support chat", description = "One private support thread per visitor (anonymous browser or signed-in account), "
-        + "routed per responsible organization, and the staff inbox that answers it. Not a live chat: clients poll for "
-        + "new messages. Visitor endpoints are identified by an HttpOnly guest cookie or the account; never by a conversation id.")
+        + "routed per responsible organization, and the staff inbox that answers it. Open pages are told about changes "
+        + "through server-sent events (ids only) and reload through the REST endpoints; polling remains the fallback. "
+        + "Visitor endpoints are identified by an HttpOnly guest cookie or the account; never by a conversation id.")
 public class HelpConversationController {
 
     static final String VIEW = "hasAuthority('VISITOR_QUESTIONS_VIEW')";
@@ -41,6 +49,8 @@ public class HelpConversationController {
     private final SupportIdentityService identities;
     private final ClientAddressResolver clientAddresses;
     private final ChatOriginGuard origins;
+    private final SupportEventBroker events;
+    private final CatalogAccess access;
 
     @GetMapping("/options")
     @Operation(summary = "What the support page can offer", description = "Whether e-mail reply notices are configured, and length limits.")
@@ -60,6 +70,20 @@ public class HelpConversationController {
     @Operation(summary = "Poll for new messages", description = "Messages after the given id (plus the last minute) and the unread count.")
     public ResponseEntity<SupportDtos.Updates> updates(@RequestParam(required = false) Long after, HttpServletRequest request) {
         return noStore(help.updates(identities.current(request), after));
+    }
+
+    @GetMapping(value = "/support/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Live notices for my support thread (server-sent events)", description = "Events \"support\" with "
+            + "{type: MESSAGE|READ, messageId}; no message text. Reload the thread after each event and after reconnecting. "
+            + "204 without a support identity or when streams are disabled; 429 when too many streams are open.")
+    public ResponseEntity<SseEmitter> stream(HttpServletRequest request) {
+        origins.check(request);
+        if (!events.enabled()) {
+            return ResponseEntity.noContent().build();
+        }
+        return identities.current(request)
+                .map(identity -> streaming(() -> events.visitor(identity.guest().getId(), identity.sessionId())))
+                .orElseGet(() -> ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build());
     }
 
     @GetMapping("/support/unread")
@@ -145,6 +169,30 @@ public class HelpConversationController {
         }
         return help.inbox(new HelpConversationService.InboxQuery(HelpConversationService.statuses(status), organizationId, serviceId,
                 general, assignee != null && !assignee.isBlank(), unread, sort));
+    }
+
+    @GetMapping(value = "/inbox/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize(VIEW)
+    @Operation(summary = "Live notices for the support inbox (server-sent events)", description = "Events \"inbox\" with "
+            + "{type: MESSAGE|READ|STATUS, conversationId} for conversations in the caller's organizations (central ones: "
+            + "global staff only); no message text or contact details. The stream ends after a few minutes and is "
+            + "authorized again on reconnect.")
+    public ResponseEntity<SseEmitter> inboxStream() {
+        OrganizationScope scope = access.scope(null);
+        if (!events.enabled() || scope.empty()) {
+            return ResponseEntity.noContent().build();
+        }
+        Long userId = access.principal().userId();
+        return streaming(() -> events.staff(userId, scope));
+    }
+
+    private static ResponseEntity<SseEmitter> streaming(java.util.function.Supplier<SseEmitter> open) {
+        try {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header("X-Accel-Buffering", "no").body(open.get());
+        } catch (RateLimitExceededException exception) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.retryAfter().toSeconds())).build();
+        }
     }
 
     @GetMapping("/inbox/unread")

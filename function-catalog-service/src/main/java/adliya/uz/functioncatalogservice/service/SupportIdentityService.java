@@ -50,6 +50,7 @@ public class SupportIdentityService {
     private final CatalogAccess access;
     private final HelpRateLimiter rateLimiter;
     private final SupportRateLimiters limits;
+    private final SupportEventBroker events;
 
     /** The caller's support identity, if any. Nothing is created and no cookie is set. */
     public record Identity(HelpGuest guest, Long sessionId) {
@@ -88,6 +89,7 @@ public class SupportIdentityService {
                 claimed.setRecoveryCodeHash(null);
                 claimed.setLastSeenAt(now);
                 sessions.deleteAllOfGuest(claimed.getId());
+                events.closeBrowsers(claimed.getId());
                 clearCookie(response);
                 return new Identity(guests.saveAndFlush(claimed), null);
             }
@@ -141,7 +143,10 @@ public class SupportIdentityService {
     /** Removes this browser's access ("forget this browser"); the thread itself stays for staff and other browsers. */
     @Transactional
     public void forgetBrowser(HttpServletRequest request, HttpServletResponse response) {
-        secret(request).flatMap(secret -> sessions.findBySecretHash(HelpAccessTokens.hash(secret))).ifPresent(sessions::delete);
+        secret(request).flatMap(secret -> sessions.findBySecretHash(HelpAccessTokens.hash(secret))).ifPresent(session -> {
+            sessions.delete(session);
+            events.closeSession(session.getId());
+        });
         clearCookie(response);
     }
 

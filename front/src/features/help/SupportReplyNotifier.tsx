@@ -1,15 +1,23 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
-import { lastNotifiedReply, rememberNotifiedReply } from './supportActivity';
+import { useLiveSupport } from './liveSupport';
+import { lastNotifiedReply, rememberNotifiedReply, useSupportActive } from './supportActivity';
 import { useSupportBadge } from './useSupportBadge';
 
-/** In-app notice: announces each new support reply once while the visitor browses the public site. */
+/**
+ * Keeps the visitor's live support stream open while they browse the public site (only where a thread can exist)
+ * and announces each new support reply once.
+ */
 export function SupportReplyNotifier() {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const active = useSupportActive();
   const navigate = useNavigate();
   const location = useLocation();
+  useLiveSupport('visitor', Boolean(user) || active, `${user?.id ?? 'guest'}-${active}`);
   const unread = useSupportBadge();
 
   useEffect(() => {

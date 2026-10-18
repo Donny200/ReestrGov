@@ -13,6 +13,8 @@ import { useI18n } from '../../contexts/i18n';
 import { parseId, useScopeOptions } from '../../features/analytics/scope';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { HELP_STATUS_FILTERS, helpStatusFilterLabel, helpStatusLabel, helpStatusTones } from '../../features/help/helpOptions';
+import { LiveStatus } from '../../features/help/LiveStatus';
+import { INBOX_POLL_MS } from '../../features/help/liveSupport';
 import { useHelpInbox } from '../../features/help/queries';
 import { QuestionReviewDialog } from '../../features/help/QuestionReviewDialog';
 import type { HelpConversationSummary, HelpInboxQuery, HelpStatusFilter } from '../../types/help';
@@ -109,7 +111,7 @@ export function VisitorQuestions() {
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('support.inboxTitle', 'Support inbox')}
-        description={t('support.inboxSubtitle', 'Visitors’ support conversations about your organization’s services. Reply in the same thread; visitors see the reply on their Support page. The list refreshes every 20 seconds.')}
+        description={t('support.inboxSubtitleLive', 'Visitors’ support conversations about your organization’s services. Reply in the same thread; visitors see the reply on their Support page. New messages appear automatically.')}
       />
       <Card>
         <div className="grid gap-3 border-b border-line px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -135,6 +137,7 @@ export function VisitorQuestions() {
             options={[{ value: 'LAST_MESSAGE', label: t('support.sortLast', 'Newest message first') }, { value: 'UNREAD_FIRST', label: t('support.sortUnread', 'Unread first') }]} />
         </div>
         <Toolbar summary={`${rows.length} ${t('home.resultsCount')}`}>
+          <LiveStatus channel="staff" pollSeconds={INBOX_POLL_MS / 1000} />
           {filtered && <Link to="/admin/questions" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>{t('action.reset', 'Reset')}</Link>}
           {scope.global && <Badge size="sm">{t('support.globalScope', 'You see every organization and central support')}</Badge>}
         </Toolbar>

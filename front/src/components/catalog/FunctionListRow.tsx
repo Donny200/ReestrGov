@@ -11,9 +11,11 @@ interface FunctionListRowProps {
   item: CatalogFunction;
   index: number;
   organizationName: string | undefined;
+  /** Short explanation of why the service is listed (search results). */
+  reason?: string;
 }
 
-export function FunctionListRow({ item, index, organizationName }: FunctionListRowProps) {
+export function FunctionListRow({ item, index, organizationName, reason }: FunctionListRowProps) {
   const { t, locale } = useI18n();
   const name = localizedText(item.name, item.nameTranslations, locale) ?? item.name;
   const description = localizedText(item.description, item.descriptionTranslations, locale);
@@ -29,6 +31,7 @@ export function FunctionListRow({ item, index, organizationName }: FunctionListR
         <>
           <Badge size="sm">{organizationName ?? t('fn.organizationUnknown', 'Organization unknown')}</Badge>
           {item.category && <Badge size="sm" tone="accent">{item.category}</Badge>}
+          {reason && <span className="text-xs text-secondary">{reason}</span>}
           {item.lastUpdatedAt && (
             <span className="text-xs tabular-nums text-secondary">{t('history.updatedOn', 'Updated')} {formatDate(item.lastUpdatedAt, locale)}</span>
           )}

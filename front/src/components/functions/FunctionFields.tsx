@@ -1,4 +1,6 @@
+import { Fragment } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import { DocumentDetailsEditor } from './DocumentDetailsEditor';
 import { Field } from '../ui/Field';
 import { Input, Textarea } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -88,8 +90,8 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
           {t('instructions.editorHint', 'Fill in only what the official source confirms. Leave a field empty if it is unknown; visitors will see that it is not provided yet.')}
         </p>
         {INSTRUCTION_FIELDS.map((field) => (
+          <Fragment key={field.key}>
           <Field
-            key={field.key}
             label={t(field.labelKey, field.label)}
             hint={field.list ? t('instructions.oneItemPerLine', 'One item per line.') : undefined}
             error={errors[field.key]?.message}
@@ -102,6 +104,8 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
               )
             }
           </Field>
+          {field.key === 'requiredDocuments' && <DocumentDetailsEditor form={form} disabled={disabled} />}
+          </Fragment>
         ))}
         <Field
           label={t('verification.officialSourceUrl', 'External source link (optional)')}

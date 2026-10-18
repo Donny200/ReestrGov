@@ -60,8 +60,10 @@ class DataInitializerTest {
 
         new DataInitializer(roleRepository, permissionRepository).run();
 
-        assertThat(catalogue).hasSize(53);
+        assertThat(catalogue).hasSize(55);
         assertThat(catalogue.get("VISITOR_QUESTIONS_VIEW").getCategory()).isEqualTo("Visitor questions");
+        assertThat(catalogue.get("APPOINTMENTS_VIEW").getCategory()).isEqualTo("Appointments");
+        assertThat(catalogue.get("APPOINTMENTS_MANAGE").getCategory()).isEqualTo("Appointments");
         assertThat(catalogue.get("VISITOR_QUESTIONS_REPLY").getCategory()).isEqualTo("Visitor questions");
         assertThat(catalogue.get("REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
         assertThat(catalogue.get("ORG_REPORTS_MANAGE").getCategory()).isEqualTo("Reports");
@@ -109,9 +111,10 @@ class DataInitializerTest {
         new DataInitializer(roleRepository, permissionRepository).run();
 
         assertThat(orgAdmin.getPermissions()).extracting(Permission::getCode)
-                .contains("ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY");
+                .contains("ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY",
+                        "APPOINTMENTS_VIEW", "APPOINTMENTS_MANAGE");
         assertThat(moderator.getPermissions()).extracting(Permission::getCode)
-                .containsExactlyInAnyOrder("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW");
+                .containsExactlyInAnyOrder("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW", "APPOINTMENTS_VIEW");
         assertThat(superAdmin.getPermissions()).extracting(Permission::getCode)
                 .contains("ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE");
     }

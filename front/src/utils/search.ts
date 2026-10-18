@@ -24,15 +24,17 @@ const CYRILLIC_TO_LATIN: Record<string, string> = {
 export const SEARCH_SYNONYMS: readonly (readonly string[])[] = [
   ['passport', 'pasport'],
   ['id card', 'id karta', 'shaxsiy guvohnoma', 'udostoverenie lichnosti'],
-  ['marriage', 'nikoh', 'brak', 'zags', 'fhdyo'],
+  ['marriage', 'nikoh', 'brak', 'zags', 'fhdyo', 'mariage'],
   ['birth', 'tugilganlik', 'rojdenie', 'rojdeniya'],
-  ['certificate', 'guvohnoma', 'spravka', 'malumotnoma', 'svidetelstvo'],
+  ['certificate', 'guvohnoma', 'spravka', 'malumotnoma', 'svidetelstvo', 'certificat', 'attestation'],
+  ['extract', 'vypiska', 'kochirma', 'extrait'],
   ['business', 'biznes', 'tadbirkorlik', 'predprinimatelstvo'],
   ['license', 'licence', 'litsenziya', 'ruxsatnoma', 'razreshenie'],
   ['tax', 'soliq', 'nalog', 'nalogovaya'],
-  ['registration', 'royxat', 'royxatga olish', 'registratsiya', 'registraciya'],
+  ['registration', 'register', 'royxat', 'royxatga olish', 'qayd etish', 'registratsiya', 'registraciya', 'zaregistrirovat', 'enregistrement', 'enregistrer', 'inscription'],
   ['duplicate', 'dublikat', 'nusxa'],
-  ['renewal', 'yangilash', 'uzaytirish', 'prodlenie', 'obmen'],
+  ['renewal', 'renew', 'yangilash', 'uzaytirish', 'prodlenie', 'renouvellement'],
+  ['replace', 'replacement', 'almashtirish', 'zamena', 'zamenit', 'obmen', 'remplacement', 'remplacer'],
   ['apostille', 'apostil'],
   ['notary', 'notarius', 'notarial', 'notarialnoe'],
   ['real estate', 'kochmas mulk', 'nedvijimost', 'uy joy'],
@@ -42,6 +44,19 @@ export const SEARCH_SYNONYMS: readonly (readonly string[])[] = [
   ['pension', 'pensiya', 'nafaqa'],
   ['court', 'sud'],
 ];
+
+/**
+ * Filler words of plain-language questions ("how do I get a certificate", "как получить справку"). They are optional:
+ * a stop word that matches nothing does not exclude a service, one that matches still counts.
+ */
+export const STOP_WORDS: ReadonlySet<string> = new Set([
+  'a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'my', 'me', 'i', 'how', 'do', 'can', 'get', 'want', 'need', 'please', 'about', 'and', 'or',
+  'kak', 'mne', 'nujno', 'hochu', 'dlya', 'poluchit', 'gde', 'i', 'na', 'po',
+  'qanday', 'kerak', 'uchun', 'menga', 'olish', 'qayerda', 'va',
+  'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'pour', 'comment', 'obtenir', 'mon', 'ma', 'et',
+  // Generic nouns: "replace a document" is about replacing, whatever the document is called on the card.
+  'document', 'documents', 'hujjat', 'hujjatni', 'hujjatlar', 'dokument', 'dokumenta', 'dokumenty',
+].map((word) => word.replace(/'/g, '')));
 
 const MIN_TERM_LENGTH = 2;
 const FUZZY_MIN_LENGTH = 5;
@@ -92,8 +107,25 @@ for (const group of SEARCH_SYNONYMS) {
   for (const member of group) synonymIndex.set(matchForm(member), group.map(matchForm));
 }
 
+/**
+ * Synonym group of a query word: exact member, a member the word starts with (inflected forms), or, for longer words,
+ * a member within one edit, so "nikohni", "royxatga" or "spravku" still reach their groups.
+ */
 export function synonymsOf(term: string): readonly string[] {
-  return synonymIndex.get(term) ?? [];
+  const exact = synonymIndex.get(term);
+  if (exact) return exact;
+  // Suffixes of Uzbek and Russian ("nikohni", "royxatga", "pasportni") keep the stem: a word that starts with a
+  // single-word member of at least four letters belongs to its group (the longest such member wins).
+  let stem: string | undefined;
+  for (const member of synonymIndex.keys()) {
+    if (!member.includes(' ') && member.length >= 4 && term.startsWith(member) && (!stem || member.length > stem.length)) stem = member;
+  }
+  if (stem) return synonymIndex.get(stem) ?? [];
+  if (term.length < FUZZY_MIN_LENGTH) return [];
+  for (const [member, group] of synonymIndex) {
+    if (!member.includes(' ') && member.length >= FUZZY_MIN_LENGTH && editDistance(member, term) <= 1) return group;
+  }
+  return [];
 }
 
 /** Optimal string alignment distance capped at 2, enough to decide whether two words are within one edit. */
@@ -117,16 +149,27 @@ export function editDistance(a: string, b: string): number {
   return Math.min(previous[b.length], 2);
 }
 
-function termMatches(index: SearchIndex, term: string): boolean {
-  if (index.text.includes(term)) return true;
-  if (synonymsOf(term).some((alternative) => alternative !== term && index.text.includes(alternative))) return true;
-  if (term.length >= FUZZY_MIN_LENGTH) {
-    return index.tokens.some((token) => token.length >= FUZZY_MIN_LENGTH && editDistance(token, term) <= 1);
+/** How a query word matched a text: literally, through a synonym group, or within one typo. */
+export type TermMatch = 'direct' | 'synonym' | 'typo';
+
+export function termMatch(index: SearchIndex, term: string): TermMatch | null {
+  if (index.text.includes(term)) return 'direct';
+  if (synonymsOf(term).some((alternative) => alternative !== term && index.text.includes(alternative))) return 'synonym';
+  if (term.length >= FUZZY_MIN_LENGTH && index.tokens.some((token) => token.length >= FUZZY_MIN_LENGTH && editDistance(token, term) <= 1)) {
+    return 'typo';
   }
-  return false;
+  return null;
 }
 
-/** Every query term must match (as substring, synonym or, for longer words, within one typo). */
+export function isStopWord(term: string): boolean {
+  return STOP_WORDS.has(term);
+}
+
+/**
+ * Every query term must match (as substring, synonym or, for longer words, within one typo). Stop words are optional,
+ * but a query made only of stop words still has to match.
+ */
 export function matchesSearch(index: SearchIndex, terms: string[]): boolean {
-  return terms.every((term) => termMatches(index, term));
+  const required = terms.filter((term) => !isStopWord(term));
+  return (required.length > 0 ? required : terms).every((term) => termMatch(index, term) !== null);
 }

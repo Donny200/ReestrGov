@@ -1,103 +1,71 @@
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeftIcon, ArrowRightIcon, CompassIcon, RotateCcwIcon } from 'lucide-react';
+import { useDeferredValue, useId, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CompassIcon, LifeBuoyIcon, ListIcon, RotateCcwIcon, SearchIcon, XIcon } from 'lucide-react';
 import { FunctionListRow } from '../components/catalog/FunctionListRow';
 import { SectionHeading } from '../components/home/SectionHeading';
 import { Button } from '../components/ui/Button';
 import { buttonVariants } from '../components/ui/buttonVariants';
 import { Card, CardBody } from '../components/ui/Card';
-import { Field } from '../components/ui/Field';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { SkeletonList } from '../components/ui/Skeleton';
 import { EmptyState, ErrorState, NoResultsState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { useFunctionCategories, usePublicFunctions } from '../features/functions/queries';
 import { usePublicOrganizations } from '../features/organizations/queries';
 import { cn } from '../lib/cn';
-import { matchesTerms, searchTerms, serviceHaystack } from '../utils/finder';
+import { FINDER_INTENTS, matchesIntent, rankServices, type MatchField, type RankingContext } from '../utils/finderRanking';
+import { searchTerms } from '../utils/search';
 import { localizedText } from '../utils/translations';
 
-type Step = 'situation' | 'goal' | 'organization' | 'results';
+const RESULT_LIMIT = 50;
 
-const STEPS: Step[] = ['situation', 'goal', 'organization', 'results'];
-const GOAL_EXAMPLES = 5;
+/** Plain-language examples under the search field; each is a real query of the same search. */
+const EXAMPLES = [
+  { key: 'finder.example.certificate', fallback: 'get a certificate' },
+  { key: 'finder.example.replace', fallback: 'replace a document' },
+  { key: 'finder.example.marriage', fallback: 'register a marriage' },
+];
 
-interface Choice {
-  value: string;
-  label: string;
-  count: number;
-}
+const REASON_LABELS: Record<MatchField, [string, string]> = {
+  exactName: ['finder.reason.exactName', 'service name'],
+  name: ['finder.reason.name', 'service name'],
+  translatedName: ['finder.reason.translatedName', 'name in another language'],
+  synonym: ['finder.reason.synonym', 'similar word in the name'],
+  description: ['finder.reason.description', 'description'],
+  organization: ['finder.reason.organization', 'organization'],
+  instructions: ['finder.reason.instructions', 'instructions and documents'],
+};
 
-function ChoiceList({ name, legend, hint, choices, value, onChange }: {
-  name: string;
-  legend: string;
-  hint?: string;
-  choices: Choice[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useI18n();
-  const hintId = useId();
-  return (
-    <fieldset aria-describedby={hint ? hintId : undefined}>
-      <legend className="sr-only">{legend}</legend>
-      {hint && <p id={hintId} className="mb-4 text-sm leading-6 text-secondary">{hint}</p>}
-      <div className="grid gap-2 sm:grid-cols-2">
-        {choices.map((choice) => {
-          const id = `${name}-${choice.value || 'any'}`;
-          const checked = value === choice.value;
-          return (
-            <label
-              key={choice.value || 'any'}
-              htmlFor={id}
-              className={cn(
-                'flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-card-sm border px-4 py-3 transition-colors duration-snap ease-snap has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
-                checked ? 'border-ink bg-ink text-ink-fg' : 'border-line bg-background text-foreground fine:hover:bg-surface',
-              )}
-            >
-              <span className="flex min-w-0 items-center gap-3">
-                <input
-                  id={id}
-                  type="radio"
-                  name={name}
-                  value={choice.value}
-                  checked={checked}
-                  onChange={() => onChange(choice.value)}
-                  className="h-4 w-4 shrink-0 accent-current"
-                />
-                <span className="min-w-0 font-medium wrap-anywhere">{choice.label}</span>
-              </span>
-              <span className={cn('shrink-0 text-xs tabular-nums', checked ? 'text-ink-secondary' : 'text-secondary')}>
-                {choice.count} {t('finder.servicesShort', 'services')}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
+/**
+ * Public service finder: a plain-language search first, with results while the visitor types, optional filters and a
+ * simple guided path by everyday intent. Only published services (GET /api/functions) are ever listed; nothing typed
+ * here is sent or stored.
+ */
 export function ServiceFinder() {
   const { t, locale } = useI18n();
   const functions = usePublicFunctions();
   const categories = useFunctionCategories();
   const organizations = usePublicOrganizations();
-  const [step, setStep] = useState<Step>('situation');
-  const [categoryId, setCategoryId] = useState('');
-  const [goal, setGoal] = useState('');
-  const [organizationId, setOrganizationId] = useState('');
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const firstRender = useRef(true);
-  const goalHintId = useId();
+  const [params, setParams] = useSearchParams();
+  const searchId = useId();
+  const resultsId = useId();
 
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    headingRef.current?.focus();
-  }, [step]);
+  const query = params.get('q') ?? '';
+  const deferredQuery = useDeferredValue(query);
+  const intentKey = params.get('intent') ?? '';
+  const intent = FINDER_INTENTS.find((item) => item.key === intentKey);
+  const organizationId = params.get('organization') ?? '';
+  const categoryId = params.get('category') ?? '';
+  const showAll = params.get('all') === '1';
+
+  const update = (changes: Record<string, string>) => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      Object.entries(changes).forEach(([name, value]) => (value ? next.set(name, value) : next.delete(name)));
+      return next;
+    }, { replace: true });
+  };
 
   const published = useMemo(() => functions.data ?? [], [functions.data]);
   const organizationName = useMemo(() => {
@@ -105,119 +73,78 @@ export function ServiceFinder() {
     (organizations.data ?? []).forEach((item) => names.set(item.id, localizedText(item.name, item.nameTranslations, locale) ?? item.name));
     return names;
   }, [organizations.data, locale]);
-  const categoryName = useMemo(() => {
-    const names = new Map<number, string>();
-    (categories.data ?? []).forEach((item) => names.set(item.id, localizedText(item.name, item.nameTranslations, locale) ?? item.name));
-    return names;
-  }, [categories.data, locale]);
+  const context = useMemo<RankingContext>(() => ({
+    locale,
+    organizationNames: (id) => {
+      const found = organizations.data?.find((item) => item.id === id);
+      return found ? [found.name, ...Object.values(found.nameTranslations ?? {}).map((value) => value?.text)] : [];
+    },
+    categoryNames: (id) => {
+      const found = categories.data?.find((item) => item.id === id);
+      return found ? [found.name, ...Object.values(found.nameTranslations ?? {}).map((value) => value?.text)] : [];
+    },
+  }), [locale, organizations.data, categories.data]);
 
-  const inCategory = useMemo(
-    () => published.filter((item) => !categoryId || item.categoryId === Number(categoryId)),
-    [published, categoryId],
+  const filtered = useMemo(
+    () => published.filter((item) => (!organizationId || item.organizationId === Number(organizationId))
+      && (!categoryId || item.categoryId === Number(categoryId))),
+    [published, organizationId, categoryId],
   );
-  const matchingGoal = useMemo(() => {
-    const terms = searchTerms(goal, locale);
-    if (terms.length === 0) return inCategory;
-    return inCategory.filter((item) =>
-      matchesTerms(
-        serviceHaystack(item, locale, [
-          item.categoryId != null ? categoryName.get(item.categoryId) : null,
-          organizationName.get(item.organizationId),
-        ]),
-        terms,
-      ),
-    );
-  }, [inCategory, goal, locale, categoryName, organizationName]);
-  const results = useMemo(
-    () => matchingGoal.filter((item) => !organizationId || item.organizationId === Number(organizationId)),
-    [matchingGoal, organizationId],
+  const intentCounts = useMemo(
+    () => new Map(FINDER_INTENTS.map((item) => [item.key, published.filter((service) => matchesIntent(service, item, context)).length])),
+    [published, context],
   );
+  const hasQuery = searchTerms(deferredQuery).length > 0;
+  const active = hasQuery || Boolean(intent) || showAll || Boolean(organizationId) || Boolean(categoryId);
+  const results = useMemo(() => {
+    if (!active) return [];
+    const pool = intent ? filtered.filter((item) => matchesIntent(item, intent, context)) : filtered;
+    return rankServices(pool, deferredQuery, context);
+  }, [active, filtered, intent, deferredQuery, context]);
 
-  const situationChoices = useMemo<Choice[]>(() => {
+  const organizationOptions = useMemo(() => {
     const counts = new Map<number, number>();
-    published.forEach((item) => {
-      if (item.categoryId != null) counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
-    });
-    const known = [...counts.entries()]
-      .map(([id, count]) => ({ value: String(id), label: categoryName.get(id) ?? published.find((item) => item.categoryId === id)?.category ?? `#${id}`, count }))
+    published.forEach((item) => counts.set(item.organizationId, (counts.get(item.organizationId) ?? 0) + 1));
+    return [...counts.keys()]
+      .map((id) => ({ value: String(id), label: organizationName.get(id) ?? `#${id}` }))
       .sort((a, b) => a.label.localeCompare(b.label, locale));
-    return [{ value: '', label: t('finder.anySituation', 'I am not sure / show all areas'), count: published.length }, ...known];
-  }, [published, categoryName, locale, t]);
-
-  const organizationChoices = useMemo<Choice[]>(() => {
-    const counts = new Map<number, number>();
-    matchingGoal.forEach((item) => counts.set(item.organizationId, (counts.get(item.organizationId) ?? 0) + 1));
-    const known = [...counts.entries()]
-      .map(([id, count]) => ({ value: String(id), label: organizationName.get(id) ?? `#${id}`, count }))
+  }, [published, organizationName, locale]);
+  const categoryOptions = useMemo(() => {
+    const ids = new Set(published.map((item) => item.categoryId).filter((id): id is number => id != null));
+    return [...ids]
+      .map((id) => {
+        const found = categories.data?.find((item) => item.id === id);
+        return { value: String(id), label: found ? localizedText(found.name, found.nameTranslations, locale) ?? found.name : `#${id}` };
+      })
       .sort((a, b) => a.label.localeCompare(b.label, locale));
-    return [{ value: '', label: t('finder.anyOrganization', 'Any organization'), count: matchingGoal.length }, ...known];
-  }, [matchingGoal, organizationName, locale, t]);
+  }, [published, categories.data, locale]);
 
-  useEffect(() => {
-    if (organizationId && !organizationChoices.some((choice) => choice.value === organizationId)) setOrganizationId('');
-  }, [organizationChoices, organizationId]);
-
-  const examples = useMemo(
-    () => inCategory.slice(0, GOAL_EXAMPLES).map((item) => localizedText(item.name, item.nameTranslations, locale) ?? item.name),
-    [inCategory, locale],
-  );
-
-  const index = STEPS.indexOf(step);
-  const go = (next: Step) => setStep(next);
-  const next = () => go(STEPS[Math.min(index + 1, STEPS.length - 1)]);
-  const back = () => go(STEPS[Math.max(index - 1, 0)]);
-  const restart = () => {
-    setCategoryId('');
-    setGoal('');
-    setOrganizationId('');
-    go('situation');
-  };
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    next();
+  const reasonText = (reasons: MatchField[]) => {
+    const labels = [...new Set(reasons.map((reason) => t(...REASON_LABELS[reason])))];
+    return labels.length ? `${t('finder.matchedBy', 'Matches')}: ${labels.join(', ')}` : undefined;
   };
 
-  const stepTitles: Record<Step, string> = {
-    situation: t('finder.situationQuestion', 'What is your situation?'),
-    goal: t('finder.goalQuestion', 'What do you want to do?'),
-    organization: t('finder.organizationQuestion', 'Do you already know the organization?'),
-    results: t('finder.resultsTitle', 'Services that match your answers'),
-  };
-  const stepLabels: Record<Step, string> = {
-    situation: t('finder.stepSituation', 'Situation'),
-    goal: t('finder.stepGoal', 'Goal'),
-    organization: t('finder.stepOrganization', 'Organization'),
-    results: t('finder.stepResults', 'Results'),
-  };
+  const filtersSet = Boolean(organizationId || categoryId);
+  const clearFilters = () => update({ organization: '', category: '' });
+  const startOver = () => setParams(new URLSearchParams(), { replace: true });
+
   const loading = functions.isPending || categories.isPending || organizations.isPending;
   const loadError = functions.error ?? categories.error ?? organizations.error;
-  const matchCounts: Record<Step, number> = {
-    situation: inCategory.length,
-    goal: matchingGoal.length,
-    organization: results.length,
-    results: results.length,
-  };
+  const availableIntents = FINDER_INTENTS.filter((item) => (intentCounts.get(item.key) ?? 0) > 0);
 
   return (
     <div className="shell py-10 sm:py-14 lg:py-16">
       <SectionHeading
         eyebrow={t('finder.eyebrow', 'Service finder')}
-        title={t('finder.title', 'Find the right service step by step')}
-        description={t('finder.subtitle', 'Answer up to three short questions. Nothing you enter is sent or stored, and you do not need an account.')}
+        title={t('finder.searchTitle', 'Find the service you need')}
+        description={t('finder.searchSubtitle', 'Describe what you want to do in your own words, or choose what you need below. Nothing you type is sent or stored, and you do not need an account.')}
       />
 
       <Card className="mt-8">
         {loading ? (
           <CardBody><SkeletonList count={3} /></CardBody>
         ) : loadError ? (
-          <ErrorState
-            error={loadError}
-            onRetry={() => {
-              void functions.refetch();
-              void categories.refetch();
-              void organizations.refetch();
-            }}
-          />
+          <ErrorState error={loadError} onRetry={() => { void functions.refetch(); void categories.refetch(); void organizations.refetch(); }} />
         ) : published.length === 0 ? (
           <EmptyState
             icon={<CompassIcon className="h-6 w-6" aria-hidden="true" />}
@@ -227,112 +154,154 @@ export function ServiceFinder() {
           />
         ) : (
           <CardBody className="space-y-6 sm:p-8">
-            <ol aria-label={t('finder.progress', 'Progress')} className="flex flex-wrap gap-2">
-              {STEPS.map((item, position) => (
-                <li
-                  key={item}
-                  aria-current={item === step ? 'step' : undefined}
-                  className={cn(
-                    'inline-flex min-h-9 items-center gap-2 rounded-pill px-3.5 text-sm font-medium',
-                    item === step ? 'bg-ink text-ink-fg' : position < index ? 'bg-surface text-foreground' : 'bg-surface text-secondary',
-                  )}
-                >
-                  <span className="tabular-nums" aria-hidden="true">{position + 1}</span>
-                  {stepLabels[item]}
-                </li>
-              ))}
-            </ol>
+            <form role="search" onSubmit={(event) => event.preventDefault()} className="space-y-3">
+              <label htmlFor={searchId} className="block text-lg font-semibold text-foreground">
+                {t('finder.searchLabel', 'What do you want to do?')}
+              </label>
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-secondary" aria-hidden="true" />
+                <Input
+                  id={searchId}
+                  type="search"
+                  value={query}
+                  autoComplete="off"
+                  maxLength={120}
+                  aria-controls={resultsId}
+                  placeholder={t('finder.searchPlaceholder', 'For example: get a certificate')}
+                  onChange={(event) => update({ q: event.target.value, all: '' })}
+                  className="min-h-14 ps-12 pe-12 text-base [&::-webkit-search-cancel-button]:hidden"
+                />
+                {query && (
+                  <button type="button" onClick={() => update({ q: '' })} aria-label={t('finder.clearSearch', 'Clear search')}
+                    className="absolute end-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-pill text-secondary fine:hover:bg-surface-2 fine:hover:text-foreground">
+                    <XIcon className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-secondary">
+                <span>{t('finder.examplesLabel', 'Try')}:</span>
+                {EXAMPLES.map((example) => (
+                  <Button key={example.key} variant="light" size="sm" onClick={() => update({ q: t(example.key, example.fallback), intent: '', all: '' })}>
+                    {t(example.key, example.fallback)}
+                  </Button>
+                ))}
+              </div>
+            </form>
 
-            <div>
-              <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold text-foreground focus:outline-none sm:text-3xl">
-                {stepTitles[step]}
-              </h2>
-              <p className="mt-2 text-sm tabular-nums text-secondary" aria-live="polite">
-                {matchCounts[step]} {t('finder.matching', 'services match your answers so far')}
-              </p>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+              <Select
+                size="sm"
+                value={organizationId}
+                aria-label={t('finder.organizationFilter', 'Organization (optional)')}
+                onValueChange={(value) => update({ organization: value })}
+                options={[{ value: '', label: t('finder.anyOrganization', 'Any organization') }, ...organizationOptions]}
+              />
+              <Select
+                size="sm"
+                value={categoryId}
+                aria-label={t('finder.categoryFilter', 'Area (optional)')}
+                onValueChange={(value) => update({ category: value })}
+                options={[{ value: '', label: t('finder.anyArea', 'Any area') }, ...categoryOptions]}
+              />
+              {filtersSet ? (
+                <Button variant="ghost" size="sm" icon={<RotateCcwIcon />} onClick={clearFilters}>{t('finder.clearFilters', 'Clear filters')}</Button>
+              ) : <span aria-hidden="true" />}
             </div>
 
-            {step === 'results' ? (
-              results.length === 0 ? (
-                <div className="space-y-4">
-                  <NoResultsState
-                    title={t('finder.noResultsTitle', 'No published services match these answers')}
-                    description={t('finder.noResultsText', 'Try fewer keywords, another situation or any organization.')}
-                  />
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {goal && <Button variant="outline" size="sm" onClick={() => setGoal('')}>{t('finder.clearGoal', 'Clear keywords')}</Button>}
-                    {organizationId && <Button variant="outline" size="sm" onClick={() => setOrganizationId('')}>{t('finder.anyOrganization', 'Any organization')}</Button>}
-                    {categoryId && <Button variant="outline" size="sm" onClick={() => go('situation')}>{t('finder.otherSituation', 'Choose another situation')}</Button>}
-                    <Link to="/#functions" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>{t('finder.browseAll', 'Browse the full catalogue')}</Link>
-                  </div>
-                </div>
-              ) : (
-                <ol className="border-b border-line">
-                  {results.map((item, position) => (
-                    <FunctionListRow key={item.id} item={item} index={position + 1} organizationName={organizationName.get(item.organizationId)} />
-                  ))}
-                </ol>
-              )
-            ) : (
-              <form onSubmit={onSubmit} className="space-y-6" noValidate>
-                {step === 'situation' && (
-                  <ChoiceList
-                    name="finder-situation"
-                    legend={stepTitles.situation}
-                    hint={t('finder.situationHint', 'Choose the area of life your question belongs to.')}
-                    choices={situationChoices}
-                    value={categoryId}
-                    onChange={setCategoryId}
-                  />
-                )}
-                {step === 'goal' && (
-                  <div className="space-y-4">
-                    <Field
-                      label={t('finder.goalLabel', 'Describe your goal in a few words (optional)')}
-                      hint={t('finder.goalHint', 'For example: certificate, registration, duplicate. Leave it empty to see every service in this area.')}
+            {intent && (
+              <p className="flex flex-wrap items-center gap-2 rounded-control bg-surface px-4 py-3 text-sm text-foreground">
+                <span>{t('finder.yourAnswer', 'Your answer')}: <span className="font-semibold">{t(intent.labelKey, intent.label)}</span></span>
+                <Button variant="outline" size="sm" onClick={() => update({ intent: '' })}>{t('finder.changeAnswer', 'Change answer')}</Button>
+              </p>
+            )}
+
+            {!active ? (
+              <fieldset className="space-y-4 border-t border-line pt-6">
+                <legend className="text-lg font-semibold text-foreground">{t('finder.notSure', 'Not sure what to search for? Choose what you need')}</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {availableIntents.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => update({ intent: item.key, all: '' })}
+                      className="flex min-h-14 items-center justify-between gap-3 rounded-card-sm border border-line bg-background px-4 py-3 text-start text-foreground transition-colors duration-snap fine:hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                     >
-                      {(control) => (
-                        <Input {...control} type="search" value={goal} autoComplete="off" maxLength={120} onChange={(event) => setGoal(event.target.value)} />
-                      )}
-                    </Field>
-                    {examples.length > 0 && (
-                      <div>
-                        <p id={goalHintId} className="micro mb-2 text-secondary">{t('finder.examples', 'Services in this area')}</p>
-                        <ul className="flex flex-wrap gap-2" aria-labelledby={goalHintId}>
-                          {examples.map((example) => (
-                            <li key={example}>
-                              <Button variant="light" size="sm" onClick={() => setGoal(example)}>{example}</Button>
+                      <span className="min-w-0 font-medium wrap-anywhere">{t(item.labelKey, item.label)}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-secondary">{intentCounts.get(item.key)} {t('finder.servicesShort', 'services')}</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => update({ all: '1' })}
+                    className="flex min-h-14 items-center justify-between gap-3 rounded-card-sm border border-dashed border-line bg-background px-4 py-3 text-start text-foreground transition-colors duration-snap fine:hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <span className="flex items-center gap-2 font-medium"><ListIcon className="h-4 w-4" aria-hidden="true" />{t('finder.showAll', 'Show all services')}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-secondary">{published.length} {t('finder.servicesShort', 'services')}</span>
+                  </button>
+                </div>
+              </fieldset>
+            ) : (
+              <section id={resultsId} aria-labelledby={`${resultsId}-title`} className="space-y-4 border-t border-line pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 id={`${resultsId}-title`} className="text-lg font-semibold text-foreground">{t('finder.resultsHeading', 'Matching services')}</h2>
+                  <p className="text-sm tabular-nums text-secondary" aria-live="polite">
+                    {results.length} {t('finder.resultsFound', 'services found')}
+                  </p>
+                </div>
+                {results.length === 0 ? (
+                  <div className="space-y-4">
+                    <NoResultsState
+                      title={t('finder.noResultsTitle2', 'No published service matches this')}
+                      description={t('finder.noResultsHelp', 'Try fewer or more general words, check the spelling, or describe the result you need (for example “certificate” instead of the document number).')}
+                    />
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {query && <Button variant="outline" size="sm" onClick={() => update({ q: '' })}>{t('finder.clearSearch', 'Clear search')}</Button>}
+                      {filtersSet && <Button variant="outline" size="sm" onClick={clearFilters}>{t('finder.clearFilters', 'Clear filters')}</Button>}
+                      {intent && <Button variant="outline" size="sm" onClick={() => update({ intent: '' })}>{t('finder.changeAnswer', 'Change answer')}</Button>}
+                      <Button variant="outline" size="sm" icon={<ListIcon />} onClick={() => setParams(new URLSearchParams({ all: '1' }), { replace: true })}>
+                        {t('finder.showAll', 'Show all services')}
+                      </Button>
+                      <Link to="/support" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                        <LifeBuoyIcon className="h-4 w-4" aria-hidden="true" />{t('finder.askSupport', 'Ask support for help')}
+                      </Link>
+                    </div>
+                    {availableIntents.length > 0 && (
+                      <div className="text-center text-sm text-secondary">
+                        <p className="mb-2">{t('finder.orChoose', 'Or choose what you need:')}</p>
+                        <ul className="flex flex-wrap justify-center gap-2">
+                          {availableIntents.map((item) => (
+                            <li key={item.key}>
+                              <Button variant="light" size="sm" onClick={() => setParams(new URLSearchParams({ intent: item.key }), { replace: true })}>
+                                {t(item.labelKey, item.label)}
+                              </Button>
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
                   </div>
+                ) : (
+                  <>
+                    <ol className={cn('border-b border-line')}>
+                      {results.slice(0, RESULT_LIMIT).map((ranked, position) => (
+                        <FunctionListRow
+                          key={ranked.item.id}
+                          item={ranked.item}
+                          index={position + 1}
+                          organizationName={organizationName.get(ranked.item.organizationId)}
+                          reason={reasonText(ranked.reasons)}
+                        />
+                      ))}
+                    </ol>
+                    {results.length > RESULT_LIMIT && (
+                      <p className="text-sm text-secondary">{t('finder.moreResults', 'More services match. Add a word or a filter to narrow the list.')}</p>
+                    )}
+                  </>
                 )}
-                {step === 'organization' && (
-                  <ChoiceList
-                    name="finder-organization"
-                    legend={stepTitles.organization}
-                    hint={t('finder.organizationHint', 'Only organizations with matching services are listed.')}
-                    choices={organizationChoices}
-                    value={organizationId}
-                    onChange={setOrganizationId}
-                  />
-                )}
-                <div className="flex flex-col-reverse gap-2 border-t border-line pt-5 sm:flex-row sm:justify-between">
-                  {index > 0 ? <Button variant="ghost" icon={<ArrowLeftIcon />} onClick={back}>{t('action.back', 'Back')}</Button> : <span aria-hidden="true" />}
-                  <Button type="submit" variant="dark" icon={<ArrowRightIcon />}>
-                    {step === 'organization' ? t('finder.showResults', 'Show services') : t('finder.next', 'Next')}
-                  </Button>
+                <div className="flex flex-wrap gap-2 border-t border-line pt-5">
+                  <Button variant="outline" icon={<RotateCcwIcon />} onClick={startOver}>{t('finder.restart', 'Start over')}</Button>
                 </div>
-              </form>
-            )}
-
-            {step === 'results' && (
-              <div className="flex flex-wrap gap-2 border-t border-line pt-5">
-                <Button variant="ghost" icon={<ArrowLeftIcon />} onClick={back}>{t('action.back', 'Back')}</Button>
-                <Button variant="outline" icon={<RotateCcwIcon />} onClick={restart}>{t('finder.restart', 'Start over')}</Button>
-              </div>
+              </section>
             )}
           </CardBody>
         )}

@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ArrowLeftIcon,
   BarChart3Icon,
   BuildingIcon,
+  CalendarDaysIcon,
   DatabaseIcon,
   FileTextIcon,
   FlagIcon,
@@ -30,6 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { HELP_VIEW_PERMISSION } from '../../features/help/helpOptions';
+import { useLiveSupport } from '../../features/help/liveSupport';
 import { useHelpInboxUnread } from '../../features/help/queries';
 import { fullName, roleLabel } from '../../utils/format';
 
@@ -48,6 +51,7 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
   reports: FlagIcon,
   analytics: BarChart3Icon,
   questions: MessagesSquareIcon,
+  calendar: CalendarDaysIcon,
 };
 
 const TOP_BAR_HEIGHT = '4.5rem';
@@ -114,8 +118,26 @@ export function AdminLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerTitleId = useId();
   const items = navForRole(user?.role, user?.permissions);
-  const supportUnread = useHelpInboxUnread(user?.permissions.includes(HELP_VIEW_PERMISSION) ?? false).data?.conversations ?? 0;
+  const navigate = useNavigate();
+  const canViewSupport = user?.permissions.includes(HELP_VIEW_PERMISSION) ?? false;
+  useLiveSupport('staff', canViewSupport, user?.id ?? null);
+  const supportUnreadData = useHelpInboxUnread(canViewSupport).data;
+  const supportUnread = supportUnreadData?.conversations ?? 0;
   const badges = { '/admin/questions': supportUnread };
+
+  // A new unread visitor message is announced once (not on the inbox itself, where the list already shows it).
+  const knownUnreadMessages = useRef<number | null>(null);
+  useEffect(() => {
+    const messages = supportUnreadData?.messages;
+    if (messages === undefined) return;
+    const previous = knownUnreadMessages.current;
+    knownUnreadMessages.current = messages;
+    if (previous !== null && messages > previous && location.pathname !== '/admin/questions') {
+      toast.info(t('support.newVisitorMessage', 'New message in the support inbox'), {
+        action: { label: t('support.openInbox', 'Open inbox'), onClick: () => navigate('/admin/questions') },
+      });
+    }
+  }, [supportUnreadData?.messages, location.pathname, navigate, t]);
 
   useEffect(() => setDrawerOpen(false), [location.pathname]);
   useBodyScrollLock(drawerOpen);

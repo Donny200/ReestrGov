@@ -13,6 +13,7 @@ import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { Toaster } from './components/ui/Toaster';
 import { useI18n } from './contexts/i18n';
+import { APPOINTMENT_VIEW_PERMISSIONS } from './features/appointments/access';
 import { HELP_VIEW_PERMISSION } from './features/help/helpOptions';
 import { REPORT_VIEW_PERMISSIONS } from './features/reports/reportOptions';
 import { FUNCTION_PERMISSIONS } from './utils/functionPermissions';
@@ -22,6 +23,9 @@ const OrganizationDetail = lazy(() => import('./pages/OrganizationDetail').then(
 const FunctionDetail = lazy(() => import('./pages/FunctionDetail').then((module) => ({ default: module.FunctionDetail })));
 const ServiceFinder = lazy(() => import('./pages/ServiceFinder').then((module) => ({ default: module.ServiceFinder })));
 const SavedServices = lazy(() => import('./pages/SavedServices').then((module) => ({ default: module.SavedServices })));
+const BookAppointment = lazy(() => import('./pages/BookAppointment').then((module) => ({ default: module.BookAppointment })));
+const AppointmentManage = lazy(() => import('./pages/AppointmentManage').then((module) => ({ default: module.AppointmentManage })));
+const Appointments = lazy(() => import('./pages/admin/Appointments').then((module) => ({ default: module.Appointments })));
 const Support = lazy(() => import('./pages/Support').then((module) => ({ default: module.Support })));
 const VisitorQuestions = lazy(() => import('./pages/admin/VisitorQuestions').then((module) => ({ default: module.VisitorQuestions })));
 const MfaChallenge = lazy(() => import('./pages/MfaChallenge').then((module) => ({ default: module.MfaChallenge })));
@@ -84,6 +88,8 @@ export function App() {
                       <Route path="/" element={<PageBoundary><Home /></PageBoundary>} />
                       <Route path="/organizations/:id" element={<PageBoundary><OrganizationDetail /></PageBoundary>} />
                       <Route path="/functions/:id" element={<PageBoundary><FunctionDetail /></PageBoundary>} />
+                      <Route path="/functions/:id/book" element={<PageBoundary><BookAppointment /></PageBoundary>} />
+                      <Route path="/appointments/:reference" element={<PageBoundary><AppointmentManage /></PageBoundary>} />
                       <Route path="/finder" element={<PageBoundary><ServiceFinder /></PageBoundary>} />
                       <Route path="/saved" element={<PageBoundary><SavedServices /></PageBoundary>} />
                       <Route path="/support" element={<PageBoundary><Support /></PageBoundary>} />
@@ -114,6 +120,9 @@ export function App() {
                         </Route>
                         <Route element={<RequireAuth anyPermissions={[HELP_VIEW_PERMISSION]} />}>
                           <Route path="/admin/questions" element={<PageBoundary><VisitorQuestions /></PageBoundary>} />
+                        </Route>
+                        <Route element={<RequireAuth anyPermissions={APPOINTMENT_VIEW_PERMISSIONS} />}>
+                          <Route path="/admin/appointments" element={<PageBoundary><Appointments /></PageBoundary>} />
                         </Route>
                         <Route element={<RequireAuth anyPermissions={['ORG_ANALYTICS_VIEW']} />}>
                           <Route path="/admin/organization-dashboard" element={<PageBoundary><OrganizationDashboard /></PageBoundary>} />

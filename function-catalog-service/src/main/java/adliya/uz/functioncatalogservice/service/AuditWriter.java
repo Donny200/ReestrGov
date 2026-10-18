@@ -15,6 +15,8 @@ import java.util.*;
 public class AuditWriter {
     public static final String REPORT_ENTITY = "INFORMATION_REPORT";
     public static final String HELP_ENTITY = "HELP_CONVERSATION";
+    public static final String APPOINTMENT_ENTITY = "APPOINTMENT";
+    public static final String SCHEDULE_ENTITY = "APPOINTMENT_SCHEDULE";
     private final AuditLogRepository repository;
     private final CatalogAccess access;
 
@@ -104,6 +106,18 @@ public class AuditWriter {
     @Transactional(propagation = Propagation.MANDATORY)
     public void helpConversation(HelpConversation conversation, AuditAction action, String details) {
         write(HELP_ENTITY, conversation.getId(), action, details, actor(), Set.of());
+    }
+
+    /** Staff change of an organization's appointment calendar; never contains visitor details. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void schedule(Long organizationId, AuditAction action, String details) {
+        write(SCHEDULE_ENTITY, organizationId, action, details, actor(), Set.of());
+    }
+
+    /** Status change of an appointment by staff, or a visitor's own cancellation/reschedule; no visitor details. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appointment(Long appointmentId, AuditAction action, String details, boolean byVisitor) {
+        write(APPOINTMENT_ENTITY, appointmentId, action, details, byVisitor ? new Actor(null, "public:visitor") : actor(), Set.of());
     }
 
     private static Set<Long> relatedFunctions(InformationReport report) {

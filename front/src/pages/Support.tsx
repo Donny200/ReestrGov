@@ -13,6 +13,8 @@ import { useI18n } from '../contexts/i18n';
 import { parseId } from '../features/analytics/scope';
 import { usePublicFunctions } from '../features/functions/queries';
 import { LONG_NUMBER_PATTERN, REPORT_MESSAGE_MIN, SUPPORT_MESSAGE_MAX } from '../features/help/helpOptions';
+import { LiveStatus } from '../features/help/LiveStatus';
+import { THREAD_POLL_MS } from '../features/help/liveSupport';
 import { useMarkSupportRead, useSendSupportMessage, useSupportThread } from '../features/help/queries';
 import { SensitiveDataNotice } from '../features/help/SensitiveDataNotice';
 import { ServiceAnswerPreview } from '../features/help/ServiceAnswerPreview';
@@ -38,8 +40,8 @@ function failureText(error: unknown, t: Translate): string {
 
 /**
  * The visitor's private support thread: one conversation over time, with or without an account. Messages about a
- * service reach that service's organization; general messages reach central support. Not a live chat: the page
- * checks for replies every few seconds while it is open.
+ * service reach that service's organization; general messages reach central support. Replies arrive through the live
+ * support stream (liveSupport.ts); without it the page checks every few seconds while it is open.
  */
 export function Support() {
   const { t, locale } = useI18n();
@@ -203,12 +205,16 @@ export function Support() {
                   </p>
                   <ul className="list-disc space-y-1 ps-5">
                     <li>{t('support.how1', 'Messages about a service go to the organization responsible for it; other messages go to the central support team.')}</li>
-                    <li>{t('support.how2', 'Staff see your message in their support inbox the next time they check it. This is not a live chat, and no response time is promised.')}</li>
+                    <li>{t('support.how2Live', 'Your message reaches the support inbox at once, and replies appear here as soon as staff send them. No response time is promised.')}</li>
                     <li>{t('support.how3', 'Replies appear here. While you browse this site, the Support link in the menu shows when a reply is waiting.')}</li>
                     <li>{t('support.how4', 'Use “Ask about this service” or “Report a problem” on a service page to attach that service to your message.')}</li>
                   </ul>
                 </div>
               ) : (
+                <>
+                <div className="flex justify-end border-b border-line px-4 py-2 sm:px-6">
+                  <LiveStatus channel="visitor" pollSeconds={THREAD_POLL_MS / 1000} />
+                </div>
                 <SupportThreadView
                   messages={data?.messages ?? []}
                   pending={pending}
@@ -218,6 +224,7 @@ export function Support() {
                     if (item) void deliver(item.request);
                   }}
                 />
+                </>
               )}
 
               <form onSubmit={submit} noValidate className="relative space-y-3 border-t border-line bg-background px-4 py-4 sm:px-6">

@@ -4,6 +4,7 @@ import adliya.uz.functioncatalogservice.entity.*;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public record OrgFunctionResponse(
@@ -12,6 +13,8 @@ public record OrgFunctionResponse(
         Map<String, TranslatedText> nameTranslations, Map<String, TranslatedText> descriptionTranslations,
         FunctionStatus status, Long categoryId, String sourceLanguage,
         ServiceInstructions instructions, Map<String, Map<String, TranslatedText>> instructionTranslations,
+        /** Structured details of required documents; empty when the organization provided none. */
+        List<DocumentDetail> documentDetails,
         String officialSourceUrl, Instant lastVerifiedAt, VerificationStatus verificationStatus,
         @JsonInclude(JsonInclude.Include.NON_NULL) Long verifiedByUserId,
         @JsonInclude(JsonInclude.Include.NON_NULL) Long revisionOfId,
@@ -24,7 +27,7 @@ public record OrgFunctionResponse(
     public OrgFunctionResponse withMachineTranslation(MachineTranslationSummary summary) {
         return new OrgFunctionResponse(id, name, description, organizationId, requirements, category, active,
                 nameTranslations, descriptionTranslations, status, categoryId, sourceLanguage, instructions,
-                instructionTranslations, officialSourceUrl, lastVerifiedAt, verificationStatus, verifiedByUserId,
+                instructionTranslations, documentDetails, officialSourceUrl, lastVerifiedAt, verificationStatus, verifiedByUserId,
                 revisionOfId, revision, lastUpdatedAt, assignee, summary);
     }
 
@@ -61,7 +64,7 @@ public record OrgFunctionResponse(
                 function.getFunctionCategory() == null ? null : function.getFunctionCategory().getId(), function.getSourceLanguage(),
                 ServiceInstructions.of(function),
                 function.getInstructionTranslations() == null ? Map.of() : function.getInstructionTranslations(),
-                function.getOfficialSourceUrl(), function.getLastVerifiedAt(),
+                function.documentDetailsOrEmpty(), function.getOfficialSourceUrl(), function.getLastVerifiedAt(),
                 function.verificationStatus(Instant.now()), verifiedByUserId, revisionOfId, revision, lastUpdatedAt, assignee, null);
     }
 }

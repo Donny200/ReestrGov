@@ -12,6 +12,8 @@ export interface ChecklistItem {
   key: string;
   section: ChecklistSection;
   text: string;
+  /** The item in the card's source language (structured document details are attached to it). */
+  source: string;
 }
 
 export interface StoredChecklistItem {
@@ -49,7 +51,7 @@ export function itemKey(section: ChecklistSection, originalText: string): string
 export function checklistItems(record: CatalogFunction, locale: string): ChecklistItem[] {
   const items: ChecklistItem[] = [];
   const add = (section: ChecklistSection, original: string[], shown: string[]) => {
-    original.forEach((text, index) => items.push({ key: itemKey(section, text), section, text: shown[index] ?? text }));
+    original.forEach((text, index) => items.push({ key: itemKey(section, text), section, text: shown[index] ?? text, source: text }));
   };
   const documents = instructionItems(record.instructions?.requiredDocuments);
   const documentsShown = localizedInstruction(record, 'requiredDocuments', locale);

@@ -59,8 +59,9 @@ import java.util.stream.Collectors;
  * visitor as one timeline, while organization staff only ever see their own organization's conversation. Access is
  * always derived from the caller's support identity or staff scope on the server, never from a conversation id.</p>
  *
- * <p>Clients learn about new messages by light polling ({@code updates}, {@code unread}); the project has no
- * real-time push channel.</p>
+ * <p>Open support pages and staff inboxes are told about changes through {@link SupportEventBroker} (server-sent
+ * events carrying ids only) and then reload through these methods; light polling ({@code updates}, {@code unread})
+ * remains the fallback when a stream is unavailable.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -86,6 +87,7 @@ public class HelpConversationService {
     private final CatalogAccess access;
     private final AuditWriter audit;
     private final TransactionTemplate transaction;
+    private final SupportEventBroker events;
 
     public boolean notificationsAvailable() {
         return mailer.available();
@@ -167,14 +169,23 @@ public class HelpConversationService {
             }
             saved = transaction.execute(status -> store(guest, request, route, body, clientAddress));
         }
-        return visitorMessage(saved);
+        HelpConversation conversation = conversations.findById(saved.getConversationId()).orElseThrow();
+        events.visitorEvent(guest.getId(), SupportEventBroker.Type.MESSAGE, saved.getId());
+        events.staffEvent(conversation.getOrganizationId(), conversation.getId(), SupportEventBroker.Type.MESSAGE);
+        return SupportDtos.Message.of(saved, conversation.getOrganizationId());
     }
 
     /** The visitor viewed the thread: staff replies up to {@code upTo} are read (persisted, so the badge survives reloads). */
     public SupportDtos.Unread markRead(Identity identity, Long upTo) {
-        Set<Long> owned = owned(identity.guest().getId()).keySet();
+        Map<Long, HelpConversation> ownedConversations = owned(identity.guest().getId());
+        Set<Long> owned = ownedConversations.keySet();
         if (!owned.isEmpty() && upTo != null) {
-            transaction.executeWithoutResult(status -> messages.markRead(owned, HelpMessage.Author.STAFF, upTo, Instant.now()));
+            Integer changed = transaction.execute(status -> messages.markRead(owned, HelpMessage.Author.STAFF, upTo, Instant.now()));
+            if (changed != null && changed > 0) {
+                events.visitorEvent(identity.guest().getId(), SupportEventBroker.Type.READ, upTo);
+                ownedConversations.values().forEach(conversation ->
+                        events.staffEvent(conversation.getOrganizationId(), conversation.getId(), SupportEventBroker.Type.READ));
+            }
         }
         return new SupportDtos.Unread(unread(owned), latestReply(owned));
     }
@@ -350,9 +361,13 @@ public class HelpConversationService {
 
     /** Staff viewed the conversation: visitor messages up to {@code upTo} are read for the whole team. */
     public HelpConversationSummary.Detail markReadByStaff(Long id, Long upTo) {
-        visibleToStaff(id);
+        HelpConversation conversation = visibleToStaff(id);
         if (upTo != null) {
-            transaction.executeWithoutResult(status -> messages.markRead(List.of(id), HelpMessage.Author.VISITOR, upTo, Instant.now()));
+            Integer changed = transaction.execute(status -> messages.markRead(List.of(id), HelpMessage.Author.VISITOR, upTo, Instant.now()));
+            if (changed != null && changed > 0) {
+                events.visitorEvent(conversation.getGuestId(), SupportEventBroker.Type.READ, upTo);
+                events.staffEvent(conversation.getOrganizationId(), id, SupportEventBroker.Type.READ);
+            }
         }
         return detail(id);
     }
@@ -374,7 +389,7 @@ public class HelpConversationService {
             }
             AuditWriter.Actor actor = audit.actor();
             Instant now = Instant.now();
-            messages.save(HelpMessage.builder().conversationId(id).author(HelpMessage.Author.STAFF).staffUserId(actor.id())
+            HelpMessage saved = messages.save(HelpMessage.builder().conversationId(id).author(HelpMessage.Author.STAFF).staffUserId(actor.id())
                     .staffLabel(actor.email()).body(body).createdAt(now).clientMessageId(clientMessageId).build());
             // Answering means the staff member has seen what the visitor wrote so far.
             messages.markRead(List.of(id), HelpMessage.Author.VISITOR, Long.MAX_VALUE, now);
@@ -391,6 +406,9 @@ public class HelpConversationService {
             audit.helpConversation(conversation, AuditAction.HELP_REPLY,
                     "Conversation #" + id + ": reply sent; " + previous + " -> " + HelpConversationStatus.ANSWERED);
             notify[0] = conversation.getGuestId() == null ? null : guests.findById(conversation.getGuestId()).orElse(null);
+            messages.flush();
+            events.visitorEvent(conversation.getGuestId(), SupportEventBroker.Type.MESSAGE, saved.getId());
+            events.staffEvent(conversation.getOrganizationId(), id, SupportEventBroker.Type.MESSAGE);
         });
         HelpGuest guest = notify[0];
         if (guest != null && guest.isNotifyByEmail() && guest.getContactEmail() != null) {
@@ -413,6 +431,7 @@ public class HelpConversationService {
             conversation.setClosedAt(target == HelpConversationStatus.CLOSED ? now : null);
             conversations.saveAndFlush(conversation);
             audit.helpConversation(conversation, AuditAction.HELP_STATUS_CHANGE, "Conversation #" + id + ": " + previous + " -> " + target);
+            events.staffEvent(conversation.getOrganizationId(), id, SupportEventBroker.Type.STATUS);
         });
         return detail(id);
     }
@@ -441,6 +460,7 @@ public class HelpConversationService {
             conversations.saveAndFlush(conversation);
             audit.helpConversation(conversation, AuditAction.HELP_ASSIGNEE_CHANGE, "Conversation #" + id + ": assignee "
                     + (previous == null ? "nobody" : "#" + previous) + " -> " + (member == null ? "nobody" : "#" + member.id()));
+            events.staffEvent(conversation.getOrganizationId(), id, SupportEventBroker.Type.STATUS);
         });
         return detail(id);
     }

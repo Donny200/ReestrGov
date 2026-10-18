@@ -8,12 +8,14 @@ import adliya.uz.functioncatalogservice.dto.OfficialSourceUrl;
 import adliya.uz.functioncatalogservice.dto.ServiceInstructions;
 import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
+import adliya.uz.functioncatalogservice.entity.DocumentDetail;
 import adliya.uz.functioncatalogservice.entity.FunctionCategory;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.entity.TranslationTarget;
+import adliya.uz.functioncatalogservice.exception.InvalidFieldException;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
 import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
@@ -51,7 +53,8 @@ public class OrgFunctionService {
     private static final int LANGUAGE_CODE_MAX_LENGTH = 35;
     private static final int REJECTION_REASON_MAX_LENGTH = 2000;
     private static final Pattern LANGUAGE_CODE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]{2,8})*");
-    private static final Set<String> VERIFIED_FIELDS = Set.of("name", "description", "organizationId", "requirements", "officialSourceUrl");
+    private static final Set<String> VERIFIED_FIELDS = Set.of("name", "description", "organizationId", "requirements", "officialSourceUrl",
+            "documentDetails");
 
     private final OrgFunctionRepository orgFunctionRepository;
     private final OrgFunctionTranslationService translationService;
@@ -154,6 +157,7 @@ public class OrgFunctionService {
                 .status(DRAFT)
                 .build();
         applyInstructions(function, request.instructions());
+        applyDocumentDetails(function, request.documentDetails());
         return function;
     }
 
@@ -230,6 +234,9 @@ public class OrgFunctionService {
         }
         Set<InstructionField> instructionsChanged = applyInstructions(function, request.instructions());
         instructionsChanged.forEach(field -> changed.add(field.key()));
+        if (applyDocumentDetails(function, request.documentDetails())) {
+            changed.add("documentDetails");
+        }
         if (request.officialSourceUrl() != null) {
             String officialSourceUrl = OfficialSourceUrl.normalize(request.officialSourceUrl());
             if (!Objects.equals(officialSourceUrl, function.getOfficialSourceUrl())) {
@@ -473,6 +480,51 @@ public class OrgFunctionService {
             }
         }
         return changed;
+    }
+
+    /**
+     * Replaces the structured document details ({@code requested} not null) or, when only the document list changed,
+     * drops details whose line no longer exists. Each detail must name a current line of "Required documents"; empty
+     * details are not stored, so nothing is shown that the organization did not provide.
+     *
+     * @return whether the stored details changed
+     */
+    private boolean applyDocumentDetails(OrgFunction function, List<DocumentDetail> requested) {
+        List<String> lines = InstructionText.lines(function.getRequiredDocuments());
+        List<DocumentDetail> next = new ArrayList<>();
+        if (requested == null) {
+            function.documentDetailsOrEmpty().stream().filter(detail -> lines.contains(detail.document())).forEach(next::add);
+        } else {
+            Set<String> seen = new java.util.HashSet<>();
+            for (DocumentDetail raw : requested) {
+                if (raw == null) {
+                    continue;
+                }
+                DocumentDetail detail = DocumentDetails.normalize(raw);
+                if (!lines.contains(detail.document())) {
+                    throw new InvalidFieldException("documentDetails",
+                            "Each document detail must belong to a line of Required documents: " + abbreviate(detail.document()));
+                }
+                if (!seen.add(detail.document())) {
+                    throw new InvalidFieldException("documentDetails", "A document has more than one set of details: " + abbreviate(detail.document()));
+                }
+                if (!detail.empty()) {
+                    next.add(detail);
+                }
+            }
+            // Keep the order of the document list.
+            next.sort(java.util.Comparator.comparingInt(detail -> lines.indexOf(detail.document())));
+        }
+        List<DocumentDetail> stored = next.isEmpty() ? null : next;
+        if (Objects.equals(stored, function.getDocumentDetails() == null || function.getDocumentDetails().isEmpty() ? null : function.getDocumentDetails())) {
+            return false;
+        }
+        function.setDocumentDetails(stored);
+        return true;
+    }
+
+    private static String abbreviate(String value) {
+        return value.length() <= 80 ? value : value.substring(0, 80) + "…";
     }
 
     private void recordChange(OrgFunction function, List<String> changed) {

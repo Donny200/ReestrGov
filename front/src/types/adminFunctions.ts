@@ -1,4 +1,4 @@
-import type { AssigneeSummary, CatalogFunction, ServiceInstructions, TranslatedText } from './api';
+import type { AssigneeSummary, CatalogFunction, DocumentDetail, DocumentForm, ServiceInstructions, TranslatedText } from './api';
 
 export type FunctionStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'DEACTIVATED';
 
@@ -72,6 +72,17 @@ export interface FunctionFormValues {
   processingTime: string;
   fee: string;
   officialSourceUrl: string;
+  documentDetails: DocumentDetailValues[];
+}
+
+/** Editor values of one document detail (strings, as typed). */
+export interface DocumentDetailValues {
+  document: string;
+  form: DocumentForm | '';
+  copies: string;
+  validity: string;
+  notes: string;
+  formUrl: string;
 }
 
 export interface CreateFunctionRequest {
@@ -83,6 +94,7 @@ export interface CreateFunctionRequest {
   sourceLanguage: string;
   instructions: ServiceInstructions;
   officialSourceUrl: string;
+  documentDetails: DocumentDetail[];
 }
 
 export interface UpdateFunctionRequest extends CreateFunctionRequest {

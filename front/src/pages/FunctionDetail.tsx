@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { LanguagesIcon } from 'lucide-react';
+import { CalendarPlusIcon, LanguagesIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { BackLink } from '../components/catalog/BackLink';
 import { OrganizationContactDetails } from '../components/catalog/OrganizationContactDetails';
@@ -8,6 +8,9 @@ import { PrintButton } from '../components/catalog/PrintButton';
 import { ServiceInstructionsView } from '../components/catalog/ServiceInstructionsView';
 import { ShareButton } from '../components/catalog/ShareButton';
 import { VerificationNotice } from '../components/catalog/VerificationNotice';
+import { VisitSheet } from '../components/catalog/VisitSheet';
+import { buttonVariants } from '../components/ui/buttonVariants';
+import { useAvailability, usePublicSite } from '../features/appointments/queries';
 import { Badge } from '../components/ui/Badge';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Eyebrow } from '../components/ui/Eyebrow';
@@ -58,9 +61,12 @@ export function FunctionDetail() {
   const organizationName = localizedText(organization?.name, organization?.nameTranslations, locale);
   const state = item.data ? translationState(item.data, locale) : { machine: false, fallback: false };
   const reportButtonRef = useRef<HTMLDivElement>(null);
+  const publicSite = usePublicSite();
+  const availability = useAvailability(functionId, undefined, Boolean(item.data));
 
   return (
     <div className="shell py-8 sm:py-12 lg:py-16 print:py-0">
+      {item.data && <VisitSheet record={item.data} organization={organization} publicBaseUrl={publicSite.data?.publicBaseUrl} />}
       <div className="print:hidden">
         <BackLink to="/#functions" label={t('nav.functions')} />
       </div>
@@ -70,13 +76,8 @@ export function FunctionDetail() {
       ) : item.error ? (
         <Card size="lg" className="mt-6"><ErrorState error={item.error} onRetry={() => void item.refetch()} /></Card>
       ) : item.data ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start print:mt-0 print:block">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.85fr)] lg:items-start print:hidden">
           <Reveal as="article" className="min-w-0">
-            <div className="mb-6 hidden border-b border-line pb-4 text-sm leading-6 print:block">
-              <p className="font-semibold">{t('app.name')}</p>
-              <p>{t('print.printedOn', 'Printed on')} {formatDate(new Date().toISOString(), locale)}</p>
-              <p className="break-all">{new URL(`/functions/${item.data.id}`, window.location.origin).toString()}</p>
-            </div>
             <Eyebrow className="print:hidden">{t('nav.functions')}</Eyebrow>
             <h1 lang={locale} className="mt-4 text-4xl font-semibold text-foreground wrap-anywhere sm:text-5xl print:mt-0 print:text-3xl">{functionName}</h1>
             {organizationName && <p lang={locale} className="mt-3 hidden text-base print:block">{organizationName}</p>}
@@ -84,7 +85,12 @@ export function FunctionDetail() {
             <div className="mt-6 flex flex-wrap items-center gap-2 print:hidden">
               <SaveServiceButton service={{ id: item.data.id, name: functionName }} />
               <ShareButton title={functionName} path={`/functions/${item.data.id}`} />
-              <PrintButton label={t('print.checklist', 'Print checklist')} />
+              {availability.data?.bookable && (
+                <Link to={`/functions/${item.data.id}/book`} className={buttonVariants({ variant: 'dark', size: 'sm' })}>
+                  <CalendarPlusIcon className="h-4 w-4" aria-hidden="true" />{t('appointments.book', 'Book an appointment')}
+                </Link>
+              )}
+              <PrintButton label={t('visitSheet.print', 'Print visit sheet')} />
               <GuideDownloadLink serviceId={item.data.id} />
               <AskAboutServiceLink serviceId={item.data.id} />
               <div ref={reportButtonRef} className="contents">

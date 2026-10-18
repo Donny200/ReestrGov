@@ -314,6 +314,22 @@ export interface CatalogFunction extends VerificationInfo {
   instructionTranslations?: InstructionTranslations;
   /** Latest approved publication, when the card has a public change history. */
   lastUpdatedAt?: string | null;
+  /** Structured details of lines of instructions.requiredDocuments; empty or absent when none were provided. */
+  documentDetails?: DocumentDetail[];
+}
+
+export type DocumentForm = 'ORIGINAL' | 'COPY' | 'ORIGINAL_AND_COPY' | 'FILLED_FORM' | 'OTHER';
+
+/** What the organization says about one required document; every part except the document line is optional. */
+export interface DocumentDetail {
+  /** The line of requiredDocuments (source language) this detail belongs to. */
+  document: string;
+  form?: DocumentForm | null;
+  copies?: number | null;
+  validity?: string | null;
+  notes?: string | null;
+  /** Link to the organization's approved blank form. */
+  formUrl?: string | null;
 }
 
 export interface UpdateFunctionRequirementsRequest {
