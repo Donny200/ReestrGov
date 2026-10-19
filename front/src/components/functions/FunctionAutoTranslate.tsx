@@ -6,7 +6,7 @@ import { useAutoTranslateFunction, useRequeueTranslation, useTranslationCapabili
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { hasFunctionTranslation } from '../../utils/functionLocalization';
-import { errorMessage } from '../../utils/errors';
+import { errorMessage, type Translate } from '../../utils/errors';
 import { formatDateTime } from '../../utils/format';
 import { Button } from '../ui/Button';
 import { SkeletonText } from '../ui/Skeleton';
@@ -145,7 +145,7 @@ export function FunctionAutoTranslate({ record, language, blocked, busy }: Props
   );
 }
 
-function JobStatus({ job, locale, t }: { job: MachineTranslationSummary; locale: string; t: (key: string, fallback?: string) => string }) {
+function JobStatus({ job, locale, t }: { job: MachineTranslationSummary; locale: string; t: Translate }) {
   const status = job.status ?? 'PENDING';
   const [key, fallback] = STATUS_LABELS[status];
   const tone = status === 'FAILED' ? 'danger' : status === 'DONE' ? 'success' : status === 'SKIPPED' ? 'warning' : 'info';

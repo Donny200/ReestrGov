@@ -12,6 +12,3 @@ export const emailField = (t: Translate) =>
   z.string().trim().regex(emailPattern, t('validation.email')).max(120);
 
 export const passwordField = (t: Translate) => z.string().min(8, t('validation.minPassword')).max(100);
-
-export const idField = (t: Translate) =>
-  z.string().min(1, t('validation.required')).transform((value) => Number(value));

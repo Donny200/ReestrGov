@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization, StaffUser } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
-import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
+import { matchesStatus, statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 import { useOrganizations } from '../organizations/queries';
 import { PasswordResetDialog } from '../passwordReset/PasswordResetDialog';
@@ -37,8 +37,7 @@ function useAssignableOrganizations(all: Organization[] | undefined): Organizati
 }
 
 function matchesFilters(item: StaffUser, term: string, status: StatusFilter, organizationId: string): boolean {
-  if (status === 'active' && !item.enabled) return false;
-  if (status === 'inactive' && item.enabled) return false;
+  if (!matchesStatus(item.enabled, status)) return false;
   if (organizationId && !item.organizationIds.includes(Number(organizationId))) return false;
   return !term || fullName(item).toLowerCase().includes(term) || item.email.toLowerCase().includes(term) || (item.phone ?? '').includes(term);
 }

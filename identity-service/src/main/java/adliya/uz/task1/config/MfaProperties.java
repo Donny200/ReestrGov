@@ -13,7 +13,7 @@ import java.util.List;
 @Setter
 @Component
 @ConfigurationProperties(prefix = "app.mfa")
-public class MfaProperties {
+public class MfaProperties implements ClientRateLimitProperties {
     /**
      * Master switch (MFA_ENABLED). Off by default: no second factor is required or offered and no encryption key is
      * needed. Switch it on for production and supply the same MFA_ENCRYPTION_KEY that encrypted existing enrollments.

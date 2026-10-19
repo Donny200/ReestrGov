@@ -9,20 +9,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProperties jwtProperties;
@@ -43,11 +35,11 @@ public class RefreshTokenService {
             throw new InvalidRefreshTokenException("Password change is required before issuing a refresh token");
         }
 
-        String rawToken = generateRawToken();
+        String rawToken = SecureTokens.randomUrlToken(64);
         Instant now = Instant.now();
 
         RefreshToken entity = RefreshToken.builder()
-                .tokenHash(hash(rawToken))
+                .tokenHash(SecureTokens.sha256Hex(rawToken))
                 .user(user)
                 .sessionId(sessionId)
                 .userAgent(userAgent)
@@ -61,7 +53,7 @@ public class RefreshTokenService {
 
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RotationResult rotate(String rawToken) {
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash(rawToken))
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(SecureTokens.sha256Hex(rawToken))
                 .orElseThrow(() -> new InvalidRefreshTokenException("Unknown refresh token"));
 
         if (Boolean.TRUE.equals(stored.getUser().getMustChangePassword())) {
@@ -92,7 +84,7 @@ public class RefreshTokenService {
 
     @Transactional
     public void revoke(String rawToken) {
-        refreshTokenRepository.findByTokenHash(hash(rawToken))
+        refreshTokenRepository.findByTokenHash(SecureTokens.sha256Hex(rawToken))
                 .ifPresent(token -> {
                     token.setRevoked(true);
                     token.setRevokedAt(Instant.now());
@@ -101,26 +93,7 @@ public class RefreshTokenService {
                 });
     }
 
-    private String generateRawToken() {
-        byte[] bytes = new byte[64];
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    private String hash(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    public record RotationResult(User user, String rawToken, String sessionId) {
-        public RotationResult(User user, String rawToken) {
-            this(user, rawToken, null);
-        }
-    }
+    public record RotationResult(User user, String rawToken, String sessionId) {}
 
     public record IssuedSession(String rawToken, String sessionId) {}
 }

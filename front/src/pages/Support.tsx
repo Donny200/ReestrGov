@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { LifeBuoyIcon, SendIcon, XIcon } from 'lucide-react';
 import { SectionHeading } from '../components/home/SectionHeading';
 import { Button } from '../components/ui/Button';
@@ -22,11 +21,12 @@ import { SupportSettings } from '../features/help/SupportSettings';
 import { SupportThreadView, type PendingMessage } from '../features/help/SupportThreadView';
 import { newClientMessageId } from '../features/help/supportActivity';
 import { usePublicOrganizations } from '../features/organizations/queries';
-import { REPORT_CATEGORIES, reportCategoryLabels } from '../features/reports/reportOptions';
+import { REPORT_CATEGORIES, reportCategoryLabel } from '../features/reports/reportOptions';
 import type { SendSupportMessage } from '../types/help';
 import type { ReportCategory } from '../types/reports';
 import { errorMessage, fieldErrorsOf, statusOf, type Translate } from '../utils/errors';
 import { localizedText } from '../utils/translations';
+import { usePatchSearchParams } from '../hooks/usePatchSearchParams';
 
 function failureText(error: unknown, t: Translate): string {
   const fields = fieldErrorsOf(error);
@@ -45,7 +45,7 @@ function failureText(error: unknown, t: Translate): string {
  */
 export function Support() {
   const { t, locale } = useI18n();
-  const [params, setParams] = useSearchParams();
+  const [params, patchParams] = usePatchSearchParams();
   const thread = useSupportThread();
   const send = useSendSupportMessage();
   const markRead = useMarkSupportRead();
@@ -64,7 +64,7 @@ export function Support() {
 
   const services = useMemo(
     () => (functions.data ?? [])
-      .map((item) => ({ item, name: localizedText(item.name, item.nameTranslations, locale) ?? item.name }))
+      .map((item) => ({ item, name: localizedText(item.name, item.nameTranslations, locale) }))
       .sort((a, b) => a.name.localeCompare(b.name, locale)),
     [functions.data, locale],
   );
@@ -73,28 +73,16 @@ export function Support() {
   const organizationLabel = (id: number | null) => {
     if (id === null) return t('support.centralTeam', 'Central support');
     const found = organizations.data?.find((item) => item.id === id);
-    return found ? localizedText(found.name, found.nameTranslations, locale) ?? found.name : t('support.organizationTeam', 'Organization support');
+    return found ? localizedText(found.name, found.nameTranslations, locale) : t('support.organizationTeam', 'Organization support');
   };
   const contextLabel = service?.name ?? (organizationId ? organizationLabel(organizationId) : null);
 
   const setContext = (value: string) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      next.delete('organization');
-      next.delete('report');
-      if (value) next.set('service', value);
-      else next.delete('service');
-      return next;
-    }, { replace: true });
+    patchParams({ organization: '', report: '', service: value });
     setCategory('');
   };
   const setReport = (on: boolean) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      if (on) next.set('report', '1');
-      else next.delete('report');
-      return next;
-    }, { replace: true });
+    patchParams({ report: on ? '1' : '' });
     setCategory('');
   };
 
@@ -263,7 +251,7 @@ export function Support() {
                         value={category}
                         placeholder={t('fnAdmin.choose', 'Choose')}
                         onValueChange={(value) => setCategory(value as ReportCategory)}
-                        options={REPORT_CATEGORIES[reportEntity].map((value) => ({ value, label: t(`report.category.${value}`, reportCategoryLabels[value]) }))}
+                        options={REPORT_CATEGORIES[reportEntity].map((value) => ({ value, label: reportCategoryLabel(value, t) }))}
                       />
                     )}
                   </Field>

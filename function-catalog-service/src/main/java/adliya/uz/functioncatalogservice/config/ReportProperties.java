@@ -11,7 +11,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "catalog.reports")
 @Getter
 @Setter
-public class ReportProperties {
+public class ReportProperties implements ClientLimitProperties {
     private String clientAddressHeader = "X-Real-IP";
     private int perClientLimit = 5;
     private Duration perClientWindow = Duration.ofMinutes(15);

@@ -73,15 +73,6 @@ public class InterfaceLabels {
             return value == null || value.isBlank() ? fallback : value;
         }
 
-        /** Label with {@code {name}} placeholders replaced, e.g. {@code format("export.rowLimit", "...", "count", 1000)}. */
-        public String format(String key, String fallback, Object... pairs) {
-            String text = get(key, fallback);
-            for (int index = 0; index + 1 < pairs.length; index += 2) {
-                text = text.replace("{" + pairs[index] + "}", String.valueOf(pairs[index + 1]));
-            }
-            return text;
-        }
-
         public Locale locale() {
             return Locale.forLanguageTag(language);
         }

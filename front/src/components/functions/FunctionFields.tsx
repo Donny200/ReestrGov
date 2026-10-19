@@ -75,7 +75,7 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
                     { value: '', label: t('fnAdmin.noCategory') },
                     ...categories.map((category) => ({
                       value: String(category.id),
-                      label: localizedText(category.name, category.nameTranslations, locale) ?? category.name,
+                      label: localizedText(category.name, category.nameTranslations, locale),
                     })),
                   ]}
                 />

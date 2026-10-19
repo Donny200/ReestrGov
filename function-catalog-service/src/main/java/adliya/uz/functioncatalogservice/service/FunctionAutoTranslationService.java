@@ -28,9 +28,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class FunctionAutoTranslationService {
 
-    private static final int NAME_MAX_LENGTH = 150;
-    private static final int DESCRIPTION_MAX_LENGTH = 500;
-
     private final OrgFunctionRepository functions;
     private final CatalogAccess access;
     private final TranslationClient translator;
@@ -45,10 +42,9 @@ public class FunctionAutoTranslationService {
     }
 
     public OrgFunction translate(Long id, AutoTranslateRequest request) {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
+        access.requireTranslationEditor();
 
-        Snapshot snapshot = Objects.requireNonNull(transaction.execute(status -> snapshotOf(scopedDraft(id))));
+        Snapshot snapshot = Objects.requireNonNull(transaction.execute(status -> snapshotOf(requireTranslatable(access, findFunction(id)))));
         if (!available()) {
             throw new TranslationUnavailableException(HttpStatus.SERVICE_UNAVAILABLE, "Automatic translation is not configured");
         }
@@ -59,9 +55,9 @@ public class FunctionAutoTranslationService {
                 .filter(code -> !code.equals(snapshot.language()))
                 .toList();
         Map<String, String> names = generate(snapshot.name(), snapshot.names(), targets,
-                snapshot.language(), request.overwriteMachine(), NAME_MAX_LENGTH);
+                snapshot.language(), request.overwriteMachine(), MachineTranslationWorker.NAME_MAX_LENGTH);
         Map<String, String> descriptions = generate(snapshot.description(), snapshot.descriptions(), targets,
-                snapshot.language(), request.overwriteMachine(), DESCRIPTION_MAX_LENGTH);
+                snapshot.language(), request.overwriteMachine(), MachineTranslationWorker.DESCRIPTION_MAX_LENGTH);
         Map<InstructionField, Map<String, String>> instructions = new EnumMap<>(InstructionField.class);
         for (InstructionField field : InstructionField.values()) {
             Map<String, String> generated = generate(snapshot.instructions().get(field),
@@ -103,8 +99,8 @@ public class FunctionAutoTranslationService {
         return function;
     }
 
-    private OrgFunction scopedDraft(Long id) {
-        OrgFunction function = findFunction(id);
+    /** Machine translation writes into the caller's organization's editable cards only, never into a published one. */
+    static OrgFunction requireTranslatable(CatalogAccess access, OrgFunction function) {
         access.requireOrganization(function.getOrganizationId());
         if (!function.isEditable()) {
             throw new WorkflowConflictException("Translation requires DRAFT or DEACTIVATED; published cards are translated through a draft revision");

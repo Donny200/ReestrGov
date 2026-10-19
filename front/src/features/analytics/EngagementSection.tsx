@@ -111,7 +111,7 @@ export function EngagementSection({ filters, report }: EngagementSectionProps) {
             ) : (
               <ol className="mt-4 space-y-3">
                 {top.map((item, index) => {
-                  const name = localizedText(item.name, item.nameTranslations ?? undefined, locale) ?? item.name ?? `#${item.functionId}`;
+                  const name = localizedText(item.name, item.nameTranslations, locale) ?? `#${item.functionId}`;
                   return (
                     <li key={item.functionId} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3">
                       <span className="text-sm font-semibold leading-6 tabular-nums text-secondary">{index + 1}</span>

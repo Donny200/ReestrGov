@@ -66,6 +66,22 @@ class JwtServiceTest {
         assertThat(service.isTokenValid(before, changedEarlier)).isTrue();
     }
 
+    @Test
+    void sessionIdAndValidityAreReadFromOneParsedToken() {
+        JwtService service = service();
+        User user = User.builder().id(7L).email("staff@example.com")
+                .role(Role.builder().name("ROLE_MODERATOR").permissions(Set.of()).build())
+                .organizations(Set.of()).build();
+        var claims = service.extractAllClaims(service.generateToken(user, "session-7"));
+
+        assertThat(JwtService.sessionId(claims)).isEqualTo("session-7");
+        assertThat(JwtService.sessionId(service.extractAllClaims(service.generateToken(user)))).isNull();
+        var principal = new CustomUserPrincipal("staff@example.com", "hash", java.util.List.of(), true, false, null);
+        assertThat(service.isTokenValid(claims, principal)).isTrue();
+        var someoneElse = new CustomUserPrincipal("other@example.com", "hash", java.util.List.of(), true, false, null);
+        assertThat(service.isTokenValid(claims, someoneElse)).isFalse();
+    }
+
     private static JwtService service() {
         JwtProperties properties = new JwtProperties();
         properties.setSecret(SECRET);

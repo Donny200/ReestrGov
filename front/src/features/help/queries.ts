@@ -100,7 +100,7 @@ function useInboxMutation<Input>(run: (input: Input) => Promise<HelpConversation
     onSuccess: (detail) => {
       client.setQueryData(helpKeys.detail(detail.conversation.id), detail);
       return Promise.all([
-        client.invalidateQueries({ queryKey: [...helpKeys.all, 'inbox'] }),
+        client.invalidateQueries({ queryKey: helpKeys.inboxes() }),
         client.invalidateQueries({ queryKey: helpKeys.inboxUnread() }),
       ]);
     },

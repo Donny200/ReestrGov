@@ -11,7 +11,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "catalog.feedback")
 @Getter
 @Setter
-public class FeedbackProperties {
+public class FeedbackProperties implements ClientLimitProperties {
     private int perClientLimit = 30;
     private Duration perClientWindow = Duration.ofMinutes(10);
     private int globalLimit = 5_000;

@@ -3,17 +3,13 @@ package adliya.uz.functioncatalogservice.service;
 import adliya.uz.functioncatalogservice.dto.OfficialSourceUrl;
 import adliya.uz.functioncatalogservice.dto.QualityIssue;
 import adliya.uz.functioncatalogservice.entity.FunctionStatus;
-import adliya.uz.functioncatalogservice.entity.InstructionField;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.QualityIssueType;
-import adliya.uz.functioncatalogservice.entity.TranslatedText;
 import adliya.uz.functioncatalogservice.entity.VerificationStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -60,10 +56,10 @@ public final class ServiceQualityRules {
 
     static Optional<QualityIssue> requiredFields(OrgFunction function) {
         List<String> missing = new ArrayList<>();
-        if (isBlank(function.getName())) {
+        if (MissingTranslations.isBlank(function.getName())) {
             missing.add("name");
         }
-        if (isBlank(function.getDescription())) {
+        if (MissingTranslations.isBlank(function.getDescription())) {
             missing.add("description");
         }
         if (function.getOrganizationId() == null) {
@@ -75,39 +71,9 @@ public final class ServiceQualityRules {
     }
 
     static Optional<QualityIssue> translations(OrgFunction function, Set<String> activeLanguages) {
-        String source = function.getSourceLanguage() == null ? "" : function.getSourceLanguage().toLowerCase(Locale.ROOT);
-        List<String> missing = activeLanguages.stream()
-                .map(code -> code.toLowerCase(Locale.ROOT))
-                .filter(code -> !code.equals(source))
-                .filter(code -> !translated(function, code))
-                .sorted()
-                .toList();
+        List<String> missing = MissingTranslations.of(function, activeLanguages);
         return missing.isEmpty()
                 ? Optional.empty()
                 : Optional.of(new QualityIssue(QualityIssueType.TRANSLATIONS_MISSING, QualityIssue.LANGUAGES, missing));
-    }
-
-    private static boolean translated(OrgFunction function, String code) {
-        if (!present(function.getNameTranslations(), code)) {
-            return false;
-        }
-        if (!isBlank(function.getDescription()) && !present(function.getDescriptionTranslations(), code)) {
-            return false;
-        }
-        for (InstructionField field : InstructionField.values()) {
-            if (!isBlank(field.get(function)) && !present(function.instructionTranslationsOf(field), code)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean present(Map<String, TranslatedText> translations, String code) {
-        TranslatedText value = translations == null ? null : translations.get(code);
-        return value != null && !isBlank(value.text());
-    }
-
-    private static boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 }

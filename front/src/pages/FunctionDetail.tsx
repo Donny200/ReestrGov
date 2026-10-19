@@ -56,7 +56,7 @@ export function FunctionDetail() {
   usePrintTracking(serviceId ?? null);
 
   const organization = (organizations.data ?? []).find((org) => org.id === item.data?.organizationId);
-  const functionName = localizedText(item.data?.name, item.data?.nameTranslations, locale) ?? item.data?.name ?? '';
+  const functionName = localizedText(item.data?.name, item.data?.nameTranslations, locale) ?? '';
   const functionDescription = localizedText(item.data?.description, item.data?.descriptionTranslations, locale);
   const organizationName = localizedText(organization?.name, organization?.nameTranslations, locale);
   const state = item.data ? translationState(item.data, locale) : { machine: false, fallback: false };

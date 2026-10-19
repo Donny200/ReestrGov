@@ -36,8 +36,6 @@ import { useLiveSupport } from '../../features/help/liveSupport';
 import { useHelpInboxUnread } from '../../features/help/queries';
 import { fullName, roleLabel } from '../../utils/format';
 
-export { PageHeader } from './PageHeader';
-
 const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>> = {
   functions: FileTextIcon,
   dashboard: LayoutDashboardIcon,

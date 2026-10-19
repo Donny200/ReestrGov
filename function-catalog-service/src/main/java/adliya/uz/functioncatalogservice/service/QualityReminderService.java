@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -96,13 +95,9 @@ public class QualityReminderService {
         if (scope.empty()) {
             return new QualityReminderResponse.Page(0, List.of());
         }
-        List<QualityReminder> found = scope.allOrganizations()
-                ? reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc()
-                : reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(
-                        scope.organizationIds());
+        List<QualityReminder> found = unacknowledged(scope);
         Set<Long> functionIds = found.stream().map(QualityReminder::getFunctionId).collect(Collectors.toSet());
-        Map<Long, OrgFunction> cards = functions.findAllById(functionIds).stream()
-                .collect(Collectors.toMap(OrgFunction::getId, Function.identity()));
+        Map<Long, OrgFunction> cards = functions.mapById(functionIds);
         List<QualityReminder> matching = found.stream()
                 .filter(reminder -> categoryId == null || inCategory(cards.get(reminder.getFunctionId()), categoryId))
                 .filter(reminder -> !mine || (me != null && me.equals(reminder.getAssignedUserId())))
@@ -122,10 +117,7 @@ public class QualityReminderService {
         if (scope.empty() || functionIds.isEmpty()) {
             return 0;
         }
-        List<QualityReminder> found = scope.allOrganizations()
-                ? reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc()
-                : reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(
-                        scope.organizationIds());
+        List<QualityReminder> found = unacknowledged(scope);
         return found.stream()
                 .filter(reminder -> functionIds.contains(reminder.getFunctionId()))
                 .filter(reminder -> assignedUserId == null || assignedUserId.equals(reminder.getAssignedUserId()))
@@ -142,6 +134,14 @@ public class QualityReminderService {
             reminder.setAcknowledgedByUserId(audit.actor().id());
         }
         return reminder;
+    }
+
+    /** Reminders neither resolved nor acknowledged, most recently notified first. */
+    private List<QualityReminder> unacknowledged(OrganizationScope scope) {
+        return scope.allOrganizations()
+                ? reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullOrderByNotifiedAtDescIdDesc()
+                : reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(
+                        scope.organizationIds());
     }
 
     private boolean snoozeExpired(QualityReminder reminder, Instant now) {

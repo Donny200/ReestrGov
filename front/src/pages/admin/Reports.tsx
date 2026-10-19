@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge, StatusPill } from '../../components/ui/Badge';
@@ -21,7 +21,7 @@ import { ReportReviewDialog } from '../../features/reports/ReportReviewDialog';
 import {
   ALL_REPORT_CATEGORIES,
   REPORT_STATUS_FILTERS,
-  reportCategoryLabels,
+  reportCategoryLabel,
   reportStatusFilterLabels,
   reportStatusLabel,
   reportStatusTones,
@@ -30,6 +30,7 @@ import {
 import { exportReports, exportReportsDocument } from '../../services/reportService';
 import type { InformationReport, ReportCategory, ReportEntityType, ReportQuery, ReportStatusFilter } from '../../types/reports';
 import { formatDateTime } from '../../utils/format';
+import { usePatchSearchParams } from '../../hooks/usePatchSearchParams';
 
 const LIST_LIMIT = 500;
 
@@ -48,7 +49,7 @@ function parseCategory(value: string | null): ReportCategory | undefined {
 export function Reports() {
   const { t, locale } = useI18n();
   const scope = useScopeOptions();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, patchParams] = usePatchSearchParams();
   const [selected, setSelected] = useState<InformationReport | null>(null);
 
   const query = useMemo<ReportQuery>(() => {
@@ -72,22 +73,12 @@ export function Reports() {
   const reports = useReports(query, !invalidRange);
   const services = useReports({ status: 'ALL', entityType: 'FUNCTION', organizationId: query.organizationId });
 
-  const setParam = useCallback(
-    (name: string, value: string) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          if (value) next.set(name, value);
-          else next.delete(name);
-          if (name === 'entityId') next.delete('entityType');
-          if (name === 'entityType' || name === 'organization') next.delete('entityId');
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
+  const setParam = (name: string, value: string) =>
+    patchParams({
+      [name]: value,
+      ...(name === 'entityId' && { entityType: '' }),
+      ...((name === 'entityType' || name === 'organization') && { entityId: '' }),
+    });
 
   const serviceOptions = useMemo(() => {
     const seen = new Map<number, string>();
@@ -129,7 +120,7 @@ export function Reports() {
         enableSorting: false,
         meta: { hideBelow: 'md' },
         cell: ({ row }) => (
-          <span className="text-secondary">{t(`report.category.${row.original.category}`, reportCategoryLabels[row.original.category])}</span>
+          <span className="text-secondary">{reportCategoryLabel(row.original.category, t)}</span>
         ),
       },
       {
@@ -188,7 +179,7 @@ export function Reports() {
             onValueChange={(value) => setParam('category', value)}
             options={[
               { value: '', label: t('reports.allProblems', 'All problem types') },
-              ...ALL_REPORT_CATEGORIES.map((value) => ({ value, label: t(`report.category.${value}`, reportCategoryLabels[value]) })),
+              ...ALL_REPORT_CATEGORIES.map((value) => ({ value, label: reportCategoryLabel(value, t) })),
             ]}
           />
           <Select

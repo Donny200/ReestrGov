@@ -38,12 +38,6 @@ export interface SupportThread {
   recoveryCodeSet: boolean;
 }
 
-export interface SupportUpdates {
-  messages: SupportMessage[];
-  unread: number;
-  latestReplyId: number | null;
-}
-
 export interface SupportUnread {
   unread: number;
   latestReplyId: number | null;

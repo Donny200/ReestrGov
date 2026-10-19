@@ -1,6 +1,6 @@
 import type { AppointmentStatus, Availability, ClosureKind, VisitorAppointment, Weekday } from '../../types/appointments';
-
-type Translate = (key: string, fallback?: string) => string;
+import type { Translate } from '../../utils/errors';
+import { addDays, formatCalendarDate } from '../../utils/format';
 
 /** Date of an instant in the organization's time zone, e.g. "Monday, 19 October 2026". */
 export function zonedDate(instant: string, timeZone: string, locale: string): string {
@@ -11,15 +11,8 @@ export function zonedDate(instant: string, timeZone: string, locale: string): st
   }
 }
 
-/** A local calendar date ("2026-10-19") as a readable date, without shifting it through the browser's time zone. */
 export function calendarDate(date: string, locale: string, options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' }): string {
-  const [year, month, day] = date.split('-').map(Number);
-  const value = new Date(Date.UTC(year, month - 1, day, 12));
-  try {
-    return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(value);
-  } catch {
-    return date;
-  }
+  return formatCalendarDate(date, locale, options);
 }
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
@@ -46,6 +39,5 @@ export const closureKindLabels: Record<ClosureKind, string> = { HOLIDAY: 'Holida
 export function laterFrom(availability: Availability | undefined): string | undefined {
   const last = availability?.days.at(-1)?.date;
   if (!last || !availability?.lastBookableDate || last >= availability.lastBookableDate) return undefined;
-  const [year, month, day] = last.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  return addDays(last, 1);
 }

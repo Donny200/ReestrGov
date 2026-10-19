@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -45,7 +46,7 @@ public class UserService {
 
     /** Adds enrollment state to list responses in one query instead of one per user. */
     public List<UserResponse> withMfaStatus(List<UserResponse> responses, MfaService mfa) {
-        java.util.Set<Long> enrolled = mfa.enrolledUserIds();
+        Set<Long> enrolled = mfa.enrolledUserIds();
         boolean overdue = mfa.enrollmentOverdue();
         return responses.stream().map(response -> {
             boolean required = mfa.enabled() && response.getRole() != null && mfa.requiredRoles().contains(response.getRole());
@@ -155,8 +156,7 @@ public class UserService {
         if (Objects.equals(current.getId(), target.getId())) {
             throw new IllegalStateException("You cannot deactivate your own account");
         }
-        if (isEnabledSuperAdmin(target)
-                && userRepository.countByRole_NameAndEnabledTrue(SystemRole.SUPER_ADMIN.authority()) <= 1) {
+        if (SuperAdmins.isLastEnabled(target, userRepository)) {
             throw new IllegalStateException("The last enabled SUPER_ADMIN cannot be deactivated");
         }
         if (Boolean.TRUE.equals(target.getEnabled())) {
@@ -168,8 +168,8 @@ public class UserService {
 
     /** A deactivated account keeps no live session. */
     public void endSessions(User user) {
-        if (refreshTokenRepository != null && user.getId() != null) {
-            refreshTokenRepository.revokeAllByUserId(user.getId(), java.time.Instant.now(), "ACCOUNT_DEACTIVATED");
+        if (user.getId() != null) {
+            refreshTokenRepository.revokeAllByUserId(user.getId(), Instant.now(), SessionService.REASON_DEACTIVATED);
         }
     }
 
@@ -193,24 +193,15 @@ public class UserService {
     }
 
     private void requireSuperAdminForSuperAdminRole(User current, Role requestedRole) {
-        if (SystemRole.SUPER_ADMIN.authority().equals(requestedRole.getName()) && !isSuperAdmin(current)) {
+        if (SystemRole.SUPER_ADMIN.authority().equals(requestedRole.getName()) && !SystemRole.SUPER_ADMIN.isHeldBy(current)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can create another SUPER_ADMIN");
         }
     }
 
     private void requireSuperAdminForSuperAdminTarget(User current, User target) {
-        if (isSuperAdmin(target) && !isSuperAdmin(current)) {
+        if (SystemRole.SUPER_ADMIN.isHeldBy(target) && !SystemRole.SUPER_ADMIN.isHeldBy(current)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can manage another SUPER_ADMIN");
         }
-    }
-
-    private static boolean isSuperAdmin(User user) {
-        return user.getRole() != null
-                && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
-    }
-
-    private static boolean isEnabledSuperAdmin(User user) {
-        return Boolean.TRUE.equals(user.getEnabled()) && isSuperAdmin(user);
     }
 
     private Role resolveRole(Long roleId) {

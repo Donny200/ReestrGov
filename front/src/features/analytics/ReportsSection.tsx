@@ -14,7 +14,7 @@ import type { AnalyticsFilters, ReportCounts } from '../../types/analytics';
 import type { InformationReport, ReportQuery } from '../../types/reports';
 import { formatDateTime } from '../../utils/format';
 import { useReports } from '../reports/queries';
-import { canViewReports, reportCategoryLabels, reportStatusLabel, reportStatusTones } from '../reports/reportOptions';
+import { canViewReports, reportCategoryLabel, reportStatusLabel, reportStatusTones } from '../reports/reportOptions';
 import { ReportReviewDialog } from '../reports/ReportReviewDialog';
 import { ExportButton } from './ExportButton';
 import { MetricTile } from './MetricTile';
@@ -99,7 +99,7 @@ export function ReportsSection({ filters, counts, loading }: ReportsSectionProps
                       <p className="font-medium text-foreground wrap-anywhere">{report.entityLabel}</p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-secondary">
                         <StatusPill tone={reportStatusTones[report.status]}>{reportStatusLabel(report.status, t)}</StatusPill>
-                        <span>{t(`report.category.${report.category}`, reportCategoryLabels[report.category])}</span>
+                        <span>{reportCategoryLabel(report.category, t)}</span>
                         <span className="tabular-nums">· {formatDateTime(report.createdAt, locale)}</span>
                       </p>
                     </div>

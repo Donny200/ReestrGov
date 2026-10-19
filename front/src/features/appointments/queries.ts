@@ -26,7 +26,7 @@ export const useBookAppointment = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (body: BookAppointmentRequest) => bookAppointment(body),
-    onSettled: () => client.invalidateQueries({ queryKey: [...appointmentKeys.all, 'availability'] }),
+    onSettled: () => client.invalidateQueries({ queryKey: appointmentKeys.availabilities() }),
   });
 };
 
@@ -41,12 +41,12 @@ export function useVisitorAppointmentActions(reference: string, token: string | 
   const client = useQueryClient();
   const refresh = (appointment: unknown) => {
     client.setQueryData(appointmentKeys.visitor(reference), appointment);
-    return client.invalidateQueries({ queryKey: [...appointmentKeys.all, 'reschedule', reference] });
+    return client.invalidateQueries({ queryKey: appointmentKeys.reschedules(reference) });
   };
   return {
     cancel: useMutation({ mutationFn: () => cancelAppointment(reference, token ?? ''), onSuccess: refresh }),
     reschedule: useMutation({ mutationFn: (startsAt: string) => rescheduleAppointment(reference, token ?? '', startsAt), onSuccess: refresh,
-      onError: () => client.invalidateQueries({ queryKey: [...appointmentKeys.all, 'reschedule', reference] }) }),
+      onError: () => client.invalidateQueries({ queryKey: appointmentKeys.reschedules(reference) }) }),
   };
 }
 
@@ -58,7 +58,7 @@ export const useStaffAppointmentStatus = () => {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: AppointmentStatus }) => setStaffAppointmentStatus(id, status),
-    onSuccess: () => client.invalidateQueries({ queryKey: [...appointmentKeys.all, 'staff'] }),
+    onSuccess: () => client.invalidateQueries({ queryKey: appointmentKeys.staffLists() }),
   });
 };
 

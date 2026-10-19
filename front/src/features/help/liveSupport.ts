@@ -77,9 +77,9 @@ export function useLiveSupport(channel: LiveChannel, enabled: boolean, restartKe
         void client.invalidateQueries({ queryKey: helpKeys.thread() });
         void client.invalidateQueries({ queryKey: helpKeys.unread() });
       } else {
-        void client.invalidateQueries({ queryKey: [...helpKeys.all, 'inbox'] });
+        void client.invalidateQueries({ queryKey: helpKeys.inboxes() });
         void client.invalidateQueries({ queryKey: helpKeys.inboxUnread() });
-        void client.invalidateQueries({ queryKey: [...helpKeys.all, 'detail'] });
+        void client.invalidateQueries({ queryKey: helpKeys.details() });
       }
     };
     // Becoming visible again (or enabling the stream) reloads at once; the stream's "ready" event reloads again.
@@ -95,7 +95,7 @@ export function useLiveSupport(channel: LiveChannel, enabled: boolean, restartKe
           void client.invalidateQueries({ queryKey: helpKeys.thread() });
           void client.invalidateQueries({ queryKey: helpKeys.unread() });
         } else if (channel === 'staff' && event.event === 'inbox') {
-          void client.invalidateQueries({ queryKey: [...helpKeys.all, 'inbox'] });
+          void client.invalidateQueries({ queryKey: helpKeys.inboxes() });
           void client.invalidateQueries({ queryKey: helpKeys.inboxUnread() });
           if (typeof data.conversationId === 'number') void client.invalidateQueries({ queryKey: helpKeys.detail(data.conversationId) });
         }

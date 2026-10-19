@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AlertTriangleIcon, InboxIcon, Loader2Icon, LockIcon, SearchXIcon, WifiOffIcon } from 'lucide-react';
+import { AlertTriangleIcon, InboxIcon, LockIcon, SearchXIcon, WifiOffIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from './Button';
 import { errorMessage, statusOf } from '../../utils/errors';
@@ -33,16 +33,6 @@ export function EmptyState({ title, description, action, icon }: { title: string
 
 export function NoResultsState({ title, description }: { title: string; description?: string }) {
   return <EmptyState title={title} description={description} icon={<SearchXIcon className="h-6 w-6" aria-hidden="true" />} />;
-}
-
-export function LoadingState({ label }: { label?: string }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-3 px-6 py-10 text-secondary" role="status" aria-live="polite">
-      <Loader2Icon className="h-6 w-6 animate-spin text-foreground motion-reduce:animate-none" aria-hidden="true" />
-      <span className="text-sm font-medium">{label ?? t('state.loading')}</span>
-    </div>
-  );
 }
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {

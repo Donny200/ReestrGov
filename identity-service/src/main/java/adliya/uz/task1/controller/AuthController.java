@@ -24,7 +24,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,7 +57,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
-        loginRateLimiter.acquire(clientAddress(http));
+        loginRateLimiter.acquire(ClientAddresses.of(http, loginProperties.getClientAddressHeader()));
         loginAttemptGuard.check(request.getEmail());
         User user;
         try {
@@ -133,13 +132,6 @@ public class AuthController {
     }
 
     private UserResponse withMfa(User user) {
-        return UserResponse.from(user).withMfa(new UserResponse.MfaSummary(mfaService.requiredFor(user), mfaService.enrolled(user),
-                mfaProperties.getEnrollmentDeadline(), mfaService.requiredFor(user) && !mfaService.enrolled(user) && mfaService.enrollmentOverdue()));
-    }
-
-    private String clientAddress(HttpServletRequest request) {
-        String header = loginProperties.getClientAddressHeader();
-        String forwarded = StringUtils.hasText(header) ? request.getHeader(header) : null;
-        return StringUtils.hasText(forwarded) ? forwarded.trim() : request.getRemoteAddr();
+        return UserResponse.from(user).withMfa(mfaService.summary(user));
     }
 }

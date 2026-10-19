@@ -1,36 +1,31 @@
 package adliya.uz.task1.service;
 
+import adliya.uz.task1.config.ClientRateLimitProperties;
 import adliya.uz.task1.exception.RateLimitExceededException;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.Map;
 
-/** Fixed-window limiter keyed by a salted hash of the client key (same design as {@link PasswordResetRateLimiter}). */
+/** Fixed-window limiter keyed by a salted hash of the client key; client keys themselves are never stored. */
 public class FixedWindowRateLimiter {
 
     private final Limits limits;
     private final Clock clock;
-    private final byte[] salt = new byte[16];
+    private final byte[] salt = SecureTokens.randomSalt();
     private final Map<String, Window> clients = new HashMap<>();
     private Window global;
 
     public FixedWindowRateLimiter(Limits limits, Clock clock) {
         this.limits = limits;
         this.clock = clock;
-        new SecureRandom().nextBytes(salt);
     }
 
     public synchronized void acquire(String clientKey) {
         Instant now = clock.instant();
-        String key = fingerprint(clientKey);
+        String key = SecureTokens.saltedSha256Hex(salt, String.valueOf(clientKey));
         Window existing = clients.get(key);
         Window client = active(existing, now) ? existing : null;
         if (client == null && !hasCapacity(now)) {
@@ -64,18 +59,12 @@ public class FixedWindowRateLimiter {
         return window != null && window.end().isAfter(now);
     }
 
-    private String fingerprint(String clientKey) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(salt);
-            digest.update(String.valueOf(clientKey).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
+    public record Limits(int perClient, Duration perClientWindow, int global, Duration globalWindow, int maxTrackedClients) {
+        public static Limits of(ClientRateLimitProperties properties) {
+            return new Limits(properties.getPerClientLimit(), properties.getPerClientWindow(), properties.getGlobalLimit(),
+                    properties.getGlobalWindow(), properties.getMaxTrackedClients());
         }
     }
-
-    public record Limits(int perClient, Duration perClientWindow, int global, Duration globalWindow, int maxTrackedClients) {}
 
     private record Window(Instant end, int count) {
         Window increment() { return new Window(end, count + 1); }

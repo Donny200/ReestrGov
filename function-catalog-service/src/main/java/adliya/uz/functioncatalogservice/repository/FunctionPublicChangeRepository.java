@@ -13,7 +13,6 @@ public interface FunctionPublicChangeRepository extends JpaRepository<FunctionPu
     Optional<FunctionPublicChange> findFirstByFunctionIdOrderByPublishedAtDescIdDesc(Long functionId);
     List<FunctionPublicChange> findTop20ByFunctionIdOrderByPublishedAtDescIdDesc(Long functionId);
     boolean existsByFunctionId(Long functionId);
-    void deleteAllByFunctionId(Long functionId);
 
     /** Latest publication moment per card, for "last updated" on public lists. */
     @Query("select c.functionId, max(c.publishedAt) from FunctionPublicChange c where c.functionId in :ids group by c.functionId")

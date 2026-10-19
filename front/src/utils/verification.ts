@@ -1,7 +1,5 @@
 import type { VerificationStatus } from '../types/api';
 
-export const VERIFICATION_STATUSES: VerificationStatus[] = ['UNVERIFIED', 'VERIFIED', 'DUE', 'OUTDATED'];
-
 export const verificationLabels: Record<VerificationStatus, string> = {
   UNVERIFIED: 'Not verified',
   VERIFIED: 'Verified by organization',

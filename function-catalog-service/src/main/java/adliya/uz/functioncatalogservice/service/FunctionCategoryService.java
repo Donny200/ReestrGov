@@ -73,8 +73,7 @@ public class FunctionCategoryService {
         if (request.nameTranslations() != null) {
             category.setNameTranslations(TranslatedText.humanEdits(request.nameTranslations()));
         } else if (!previousName.equals(request.name())) {
-            category.getNameTranslations().entrySet().removeIf(entry ->
-                    entry.getValue() != null && TranslatedText.MACHINE.equals(entry.getValue().source()));
+            category.setNameTranslations(OrgFunctionTranslationService.withoutMachineTranslations(category.getNameTranslations()));
         }
         if (request.sourceLanguage() != null) {
             category.setSourceLanguage(sourceLanguage(request));

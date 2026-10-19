@@ -12,7 +12,7 @@ interface OrganizationInkCardProps {
 
 export function OrganizationInkCard({ organization, functionCount }: OrganizationInkCardProps) {
   const { locale, t } = useI18n();
-  const name = localizedText(organization.name, organization.nameTranslations, locale) ?? organization.name;
+  const name = localizedText(organization.name, organization.nameTranslations, locale);
   const description = localizedText(organization.description, organization.descriptionTranslations, locale);
 
   return (

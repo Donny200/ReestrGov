@@ -54,8 +54,8 @@ export function BookAppointment() {
   const honeypotId = useId();
 
   const organization = organizations.data?.find((item) => item.id === service.data?.organizationId);
-  const serviceName = service.data ? localizedText(service.data.name, service.data.nameTranslations, locale) ?? service.data.name : '';
-  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale) ?? organization.name : null;
+  const serviceName = service.data ? localizedText(service.data.name, service.data.nameTranslations, locale) : '';
+  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale) : null;
 
   const chooseSlot = (value: AppointmentSlot) => {
     setSlot(value);

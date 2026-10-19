@@ -21,13 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -39,8 +34,6 @@ import java.util.Optional;
 @Service
 @Slf4j
 public class PasswordResetService {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final PasswordResetTokenRepository tokens;
     private final UserRepository users;
@@ -79,7 +72,7 @@ public class PasswordResetService {
     @Transactional
     public PasswordResetLinkResponse initiateByAdmin(Long userId) {
         User admin = userService.getCurrentUser();
-        if (!isSuperAdmin(admin)) {
+        if (!SystemRole.SUPER_ADMIN.isHeldBy(admin)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can initiate a password reset");
         }
         if (admin.getId() != null && admin.getId().equals(userId)) {
@@ -133,7 +126,7 @@ public class PasswordResetService {
     @Transactional
     public User complete(String rawToken, String newPassword) {
         Instant now = clock.instant();
-        PasswordResetToken token = tokens.findByTokenHash(hash(rawToken == null ? "" : rawToken.trim()))
+        PasswordResetToken token = tokens.findByTokenHash(SecureTokens.sha256HexOfPresented(rawToken))
                 .filter(found -> found.isUsable(now))
                 .orElseThrow(() -> new InvalidPasswordResetTokenException("Reset token is invalid, expired or already used"));
         User user = token.getUser();
@@ -156,10 +149,10 @@ public class PasswordResetService {
     private Issued issue(User user, PasswordResetChannel channel, Long initiatedBy) {
         Instant now = clock.instant();
         tokens.invalidateOutstanding(user, now);
-        String rawToken = generateRawToken();
+        String rawToken = SecureTokens.randomUrlToken(32);
         Instant expiresAt = now.plus(properties.getTokenTtl());
         tokens.save(PasswordResetToken.builder()
-                .tokenHash(hash(rawToken))
+                .tokenHash(SecureTokens.sha256Hex(rawToken))
                 .user(user)
                 .channel(channel)
                 .initiatedByUserId(initiatedBy)
@@ -171,25 +164,6 @@ public class PasswordResetService {
 
     private String resetPath(String rawToken) {
         return properties.getResetPath() + "?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
-    }
-
-    private static boolean isSuperAdmin(User user) {
-        return user.getRole() != null && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
-    }
-
-    private static String generateRawToken() {
-        byte[] bytes = new byte[32];
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
-    static String hash(String rawToken) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     private record Issued(String rawToken, Instant expiresAt) {}

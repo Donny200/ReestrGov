@@ -84,6 +84,12 @@ public class CatalogAccess {
         }
     }
 
+    /** Translations are card edits: both the general edit and the translation permission are needed. */
+    public void requireTranslationEditor() {
+        requirePermission("FUNCTIONS_EDIT");
+        requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
+    }
+
     private static boolean isGlobal(JwtPrincipal principal) {
         return principal.isSuperAdmin() || principal.permissions().contains(MANAGE_ANY_ORGANIZATION);
     }

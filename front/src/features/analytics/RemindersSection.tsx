@@ -56,7 +56,7 @@ export function RemindersSection({ organizationId, categoryId }: RemindersSectio
         ) : (
           <ul className="divide-y divide-line">
             {visible.map((reminder) => {
-              const name = localizedText(reminder.functionName, reminder.functionNameTranslations ?? undefined, locale) ?? reminder.functionName ?? `#${reminder.functionId}`;
+              const name = localizedText(reminder.functionName, reminder.functionNameTranslations, locale) ?? `#${reminder.functionId}`;
               return (
                 <li key={reminder.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">

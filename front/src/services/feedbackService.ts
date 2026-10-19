@@ -1,4 +1,4 @@
-import { apiRequest } from './http';
+import { apiRequest, SESSIONLESS } from './http';
 
 export interface FeedbackVote {
   serviceId: number;
@@ -7,4 +7,4 @@ export interface FeedbackVote {
 
 /** Anonymous, aggregate-only vote: no identifiers travel with it and the request never triggers a session refresh. */
 export const submitFeedback = (vote: FeedbackVote) =>
-  apiRequest<void>('/api/feedback', { method: 'POST', body: vote, skipRefresh: true, skipUnauthorizedHandler: true });
+  apiRequest<void>('/api/feedback', { method: 'POST', body: vote, ...SESSIONLESS });

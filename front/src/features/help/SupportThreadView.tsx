@@ -6,7 +6,7 @@ import { useI18n } from '../../contexts/i18n';
 import { cn } from '../../lib/cn';
 import type { SupportMessage } from '../../types/help';
 import { formatDateTime } from '../../utils/format';
-import { reportCategoryLabels } from '../reports/reportOptions';
+import { reportCategoryLabel } from '../reports/reportOptions';
 
 /** A message the visitor sent that the server has not confirmed yet (or that failed and can be retried). */
 export interface PendingMessage {
@@ -87,7 +87,7 @@ export function SupportThreadView({ messages, pending, organizationName, onRetry
                 {message.category && (
                   <p className={cn('mb-1 flex items-center gap-1.5 text-xs font-semibold', visitor ? 'text-ink-secondary' : 'text-secondary')}>
                     <FlagIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {t('support.reportLabel', 'Report of incorrect information')}: {t(`report.category.${message.category}`, reportCategoryLabels[message.category])}
+                    {t('support.reportLabel', 'Report of incorrect information')}: {reportCategoryLabel(message.category, t)}
                   </p>
                 )}
                 <p className="whitespace-pre-line text-base leading-7 wrap-anywhere">{message.body}</p>

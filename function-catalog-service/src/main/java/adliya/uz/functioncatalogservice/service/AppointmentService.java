@@ -2,6 +2,7 @@ package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.config.AppointmentProperties;
 import adliya.uz.functioncatalogservice.dto.AppointmentDtos;
+import adliya.uz.functioncatalogservice.dto.ReportingPeriod;
 import adliya.uz.functioncatalogservice.entity.Appointment;
 import adliya.uz.functioncatalogservice.entity.AppointmentClosure;
 import adliya.uz.functioncatalogservice.entity.AppointmentSchedule;
@@ -95,8 +96,7 @@ public class AppointmentService {
     private AppointmentDtos.Availability availabilityOf(AppointmentSchedule schedule, Long serviceId, LocalDate from, Integer days) {
         int count = Math.max(1, Math.min(days == null ? 14 : days, properties.getMaxDaysPerRequest()));
         Instant now = Instant.now();
-        List<AppointmentClosure> active = closures.findAllByOrganizationIdAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
-                schedule.getOrganizationId(), AppointmentSlots.today(schedule, now));
+        List<AppointmentClosure> active = activeClosures(schedule, now);
         Map<Instant, Long> booked = bookedCounts(schedule, now);
         List<AppointmentDtos.Day> result = AppointmentSlots.days(schedule, active, booked, now, from, count).stream()
                 .map(day -> new AppointmentDtos.Day(day.date(), day.open(), day.slots().stream()
@@ -139,10 +139,10 @@ public class AppointmentService {
                 AppointmentSlots.Slot slot = freeSlot(schedule, request.startsAt(), now);
                 Appointment appointment = Appointment.builder()
                         .reference(newReference()).organizationId(schedule.getOrganizationId())
-                        .functionId(service.getId()).functionName(truncate(service.getName(), 150))
+                        .functionId(service.getId()).functionName(TextValues.truncate(service.getName(), 150))
                         .startsAt(slot.startsAt()).endsAt(slot.endsAt()).seat(freeSeat(schedule, slot.startsAt(), null))
                         .timeZone(schedule.getTimeZone()).status(Appointment.Status.BOOKED)
-                        .visitorName(name).visitorPhone(phone).visitorEmail(email).language(language(request.language()))
+                        .visitorName(name).visitorPhone(phone).visitorEmail(email).language(TextValues.language(request.language()))
                         .accessTokenHash(tokenHash).clientRequestId(request.clientRequestId())
                         .createdAt(now).updatedAt(now).build();
                 return appointments.saveAndFlush(appointment);
@@ -258,7 +258,7 @@ public class AppointmentService {
             schedule.setCapacity(request.capacity());
             schedule.setBookingHorizonDays(request.bookingHorizonDays());
             schedule.setMinNoticeMinutes(request.minNoticeMinutes());
-            schedule.setVisitorNote(blankToNull(request.visitorNote()));
+            schedule.setVisitorNote(TextValues.blankToNull(request.visitorNote()));
             schedule.setWeeklyHours(hours);
             schedule.setUpdatedAt(Instant.now());
             schedule.setUpdatedByUserId(access.principal().userId());
@@ -290,7 +290,7 @@ public class AppointmentService {
         transaction.executeWithoutResult(status -> {
             AppointmentClosure closure = closures.saveAndFlush(AppointmentClosure.builder().organizationId(organizationId)
                     .kind(request.kind()).startDate(request.startDate()).endDate(request.endDate()).startTime(start).endTime(end)
-                    .note(blankToNull(request.note())).createdAt(Instant.now()).createdByUserId(access.principal().userId()).build());
+                    .note(TextValues.blankToNull(request.note())).createdAt(Instant.now()).createdByUserId(access.principal().userId()).build());
             audit.schedule(organizationId, AuditAction.APPOINTMENT_CLOSURE_ADD, request.kind() + " #" + closure.getId() + ": "
                     + request.startDate() + " - " + request.endDate() + (start == null ? " (whole days)" : " " + start + "-" + end)
                     + "; existing bookings unchanged");
@@ -326,13 +326,12 @@ public class AppointmentService {
         if (to.isBefore(from)) {
             throw new IllegalArgumentException("to must not be before from");
         }
-        Instant start = from.atStartOfDay(zone).toInstant();
-        Instant end = to.plusDays(1).atStartOfDay(zone).toInstant();
+        ReportingPeriod days = new ReportingPeriod(from, to);
+        Instant start = days.start(zone);
+        Instant end = days.endExclusive(zone);
         Specification<Appointment> specification = (root, criteria, builder) -> builder.and(
                 builder.greaterThanOrEqualTo(root.get("startsAt"), start), builder.lessThan(root.get("startsAt"), end));
-        if (!scope.allOrganizations()) {
-            specification = specification.and((root, criteria, builder) -> root.get("organizationId").in(scope.organizationIds()));
-        }
+        specification = specification.and(ScopeSpecifications.inScope(scope));
         if (query.status() != null) {
             specification = specification.and((root, criteria, builder) -> builder.equal(root.get("status"), query.status()));
         }
@@ -379,8 +378,7 @@ public class AppointmentService {
     // ---------------------------------------------------------------- helpers
 
     private OrgFunction publishedService(Long serviceId) {
-        OrgFunction service = functions.findByIdAndStatus(serviceId, FunctionStatus.PUBLISHED)
-                .orElseThrow(() -> new NoSuchElementException("Service not found: " + serviceId));
+        OrgFunction service = functions.requirePublished(serviceId);
         if (service.getOrganizationId() == null) {
             throw new NoSuchElementException("Service not found: " + serviceId);
         }
@@ -393,9 +391,7 @@ public class AppointmentService {
     }
 
     private AppointmentSlots.Slot freeSlot(AppointmentSchedule schedule, Instant startsAt, Instant now) {
-        List<AppointmentClosure> active = closures.findAllByOrganizationIdAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
-                schedule.getOrganizationId(), AppointmentSlots.today(schedule, now));
-        return AppointmentSlots.bookable(schedule, active, bookedCounts(schedule, now), now, startsAt)
+        return AppointmentSlots.bookable(schedule, activeClosures(schedule, now), bookedCounts(schedule, now), now, startsAt)
                 .orElseThrow(() -> new WorkflowConflictException("This time is not available any more; choose another time"));
     }
 
@@ -411,6 +407,11 @@ public class AppointmentService {
             }
         }
         throw new WorkflowConflictException("This time was just booked by someone else; choose another time");
+    }
+
+    private List<AppointmentClosure> activeClosures(AppointmentSchedule schedule, Instant now) {
+        return closures.findAllByOrganizationIdAndEndDateGreaterThanEqualOrderByStartDateAscIdAsc(
+                schedule.getOrganizationId(), AppointmentSlots.today(schedule, now));
     }
 
     private Map<Instant, Long> bookedCounts(AppointmentSchedule schedule, Instant now) {
@@ -429,19 +430,23 @@ public class AppointmentService {
             throw new NoSuchElementException(NOT_FOUND);
         }
         Appointment appointment = appointments.findByReference(canonical).orElseThrow(() -> new NoSuchElementException(NOT_FOUND));
-        if (!MessageDigest.isEqual(appointment.getAccessTokenHash().getBytes(StandardCharsets.US_ASCII),
-                HelpAccessTokens.hash(token).getBytes(StandardCharsets.US_ASCII))) {
+        if (!sameHash(appointment, HelpAccessTokens.hash(token))) {
             throw new NoSuchElementException(NOT_FOUND);
         }
         return appointment;
     }
 
     private static Appointment sameToken(Appointment appointment, String tokenHash) {
-        if (!MessageDigest.isEqual(appointment.getAccessTokenHash().getBytes(StandardCharsets.US_ASCII),
-                tokenHash.getBytes(StandardCharsets.US_ASCII))) {
+        if (!sameHash(appointment, tokenHash)) {
             throw new WorkflowConflictException("This booking request was already used");
         }
         return appointment;
+    }
+
+    /** Constant-time comparison, so response timing reveals nothing about the stored hash. */
+    private static boolean sameHash(Appointment appointment, String tokenHash) {
+        return MessageDigest.isEqual(appointment.getAccessTokenHash().getBytes(StandardCharsets.US_ASCII),
+                tokenHash.getBytes(StandardCharsets.US_ASCII));
     }
 
     private AppointmentDtos.VisitorAppointment visitorView(Appointment appointment) {
@@ -514,8 +519,8 @@ public class AppointmentService {
             if (Duration.between(opens, closes).toMinutes() < slotMinutes) {
                 throw new InvalidFieldException("weeklyHours", day.day() + ": the opening hours are shorter than one appointment");
             }
-            String breakStarts = blankToNull(day.breakStarts());
-            String breakEnds = blankToNull(day.breakEnds());
+            String breakStarts = TextValues.blankToNull(day.breakStarts());
+            String breakEnds = TextValues.blankToNull(day.breakEnds());
             if ((breakStarts == null) != (breakEnds == null)) {
                 throw new InvalidFieldException("weeklyHours", day.day() + ": enter both break times, or none");
             }
@@ -585,17 +590,5 @@ public class AppointmentService {
             }
         }
         throw new IllegalStateException("Could not allocate a booking reference");
-    }
-
-    private static String language(String value) {
-        return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.strip();
-    }
-
-    private static String truncate(String value, int length) {
-        return value == null || value.length() <= length ? value : value.substring(0, length);
     }
 }

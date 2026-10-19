@@ -1,4 +1,4 @@
-import { apiRequest } from './http';
+import { apiRequest, SESSIONLESS } from './http';
 import type { StaffMember } from '../types/api';
 import type {
   HelpConversationDetail,
@@ -11,34 +11,28 @@ import type {
   SupportMessage,
   SupportThread,
   SupportUnread,
-  SupportUpdates,
 } from '../types/help';
 
 /** The visitor is recognised by an HttpOnly cookie or their account; no conversation id or secret is ever sent. */
-const visitor = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
+export const getSupportThread = () => apiRequest<SupportThread>('/api/help/support', SESSIONLESS);
 
-export const getSupportThread = () => apiRequest<SupportThread>('/api/help/support', visitor);
-
-export const getSupportUpdates = (after: number | null) =>
-  apiRequest<SupportUpdates>('/api/help/support/updates', { query: { after }, ...visitor });
-
-export const getSupportUnread = () => apiRequest<SupportUnread>('/api/help/support/unread', visitor);
+export const getSupportUnread = () => apiRequest<SupportUnread>('/api/help/support/unread', SESSIONLESS);
 
 export const sendSupportMessage = (body: SendSupportMessage) =>
-  apiRequest<SupportMessage>('/api/help/support/messages', { method: 'POST', body, ...visitor });
+  apiRequest<SupportMessage>('/api/help/support/messages', { method: 'POST', body, ...SESSIONLESS });
 
 export const markSupportRead = (upTo: number) =>
-  apiRequest<SupportUnread>('/api/help/support/read', { method: 'POST', body: { upTo }, ...visitor });
+  apiRequest<SupportUnread>('/api/help/support/read', { method: 'POST', body: { upTo }, ...SESSIONLESS });
 
 export const updateSupportContact = (contact: SupportContact) =>
-  apiRequest<SupportContact>('/api/help/support/contact', { method: 'PUT', body: contact, ...visitor });
+  apiRequest<SupportContact>('/api/help/support/contact', { method: 'PUT', body: contact, ...SESSIONLESS });
 
-export const createRecoveryCode = () => apiRequest<{ code: string }>('/api/help/support/recovery-code', { method: 'POST', ...visitor });
+export const createRecoveryCode = () => apiRequest<{ code: string }>('/api/help/support/recovery-code', { method: 'POST', ...SESSIONLESS });
 
 export const recoverSupport = (code: string) =>
-  apiRequest<SupportThread>('/api/help/support/recover', { method: 'POST', body: { code }, ...visitor });
+  apiRequest<SupportThread>('/api/help/support/recover', { method: 'POST', body: { code }, ...SESSIONLESS });
 
-export const forgetSupportBrowser = () => apiRequest<void>('/api/help/support/session', { method: 'DELETE', ...visitor });
+export const forgetSupportBrowser = () => apiRequest<void>('/api/help/support/session', { method: 'DELETE', ...SESSIONLESS });
 
 export const getHelpInbox = (query: HelpInboxQuery) =>
   apiRequest<HelpConversationSummary[]>('/api/help/inbox', { query: { ...query } });

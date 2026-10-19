@@ -3,9 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
 import { AuthShell } from '../components/layout/AuthShell';
 import { Button } from '../components/ui/Button';
 import { Eyebrow } from '../components/ui/Eyebrow';
@@ -13,8 +11,9 @@ import { Field } from '../components/ui/Field';
 import { Input } from '../components/ui/Input';
 import { homeRouteForRole, useAuth } from '../contexts/auth';
 import { useI18n } from '../contexts/i18n';
+import { InlineAlert } from '../features/functions/InlineAlert';
 import { emailPattern } from '../lib/validation';
-import { getPasswordResetOptions } from '../services/authService';
+import { usePasswordResetOptions } from '../features/passwordReset/queries';
 import { isLoginOutcome } from '../types/api';
 import { errorMessage, fieldErrorsOf, statusOf, type Translate } from '../utils/errors';
 
@@ -32,7 +31,7 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [formError, setFormError] = useState<string | null>(null);
-  const resetOptions = useQuery({ queryKey: ['auth', 'password-reset-options'], queryFn: getPasswordResetOptions, staleTime: 60_000, retry: false });
+  const resetOptions = usePasswordResetOptions({ retry: false });
   const schema = useMemo(() => loginSchema(t), [t]);
   const {
     register,
@@ -80,12 +79,7 @@ export function Login() {
       <h1 className="mt-4 text-4xl font-semibold text-foreground">{t('login.title')}</h1>
       <p className="mt-2 text-base leading-6 text-secondary">{t('login.subtitle')}</p>
 
-      {formError && (
-        <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-control bg-status-danger-bg px-4 py-3 text-sm font-medium leading-5 text-status-danger">
-          <AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          {formError}
-        </div>
-      )}
+      {formError && <InlineAlert tone="danger" className="mt-6">{formError}</InlineAlert>}
 
       <form className="mt-6 space-y-5" onSubmit={submit} noValidate>
         <Field label={t('field.email')} error={errors.email?.message} required>

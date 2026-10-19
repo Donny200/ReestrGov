@@ -15,7 +15,6 @@ public class EngagementRateLimiter extends ClientRateLimiter {
     }
 
     EngagementRateLimiter(AnalyticsProperties properties, Clock clock) {
-        super(new Limits(properties.getPerClientLimit(), properties.getPerClientWindow(), properties.getGlobalLimit(),
-                properties.getGlobalWindow(), properties.getMaxTrackedClients()), clock);
+        super(Limits.of(properties), clock);
     }
 }

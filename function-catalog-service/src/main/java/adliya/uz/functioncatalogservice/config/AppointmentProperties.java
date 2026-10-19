@@ -12,7 +12,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "catalog.appointments")
 @Getter
 @Setter
-public class AppointmentProperties {
+public class AppointmentProperties implements ClientLimitProperties {
     /** Time zone of a new organization schedule. */
     private String defaultTimeZone = "Asia/Tashkent";
     /** New bookings per visitor address and window (addresses are never stored, only a salted hash in memory). */

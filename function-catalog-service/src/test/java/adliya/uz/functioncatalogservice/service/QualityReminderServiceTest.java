@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.LongStream;
 
@@ -44,7 +45,7 @@ class QualityReminderServiceTest {
         when(access.scope(null)).thenReturn(OrganizationScope.of(Set.of(10L)));
         when(reminders.findAllByResolvedAtIsNullAndAcknowledgedAtIsNullAndOrganizationIdInOrderByNotifiedAtDescIdDesc(any()))
                 .thenReturn(open);
-        when(functions.findAllById(any())).thenReturn(List.of());
+        when(functions.mapById(any())).thenReturn(Map.of());
 
         QualityReminderResponse.Page page = service.active(null, null);
 

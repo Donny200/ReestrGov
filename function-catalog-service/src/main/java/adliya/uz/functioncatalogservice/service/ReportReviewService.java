@@ -59,13 +59,18 @@ public class ReportReviewService {
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))).getContent();
     }
 
+    /** Number of reports {@link #search} would find without a limit. */
+    public long count(ReportQuery query) {
+        OrganizationScope scope = access.scope(query.organizationId());
+        return scope.empty() ? 0 : reports.count(specification(query, scope));
+    }
+
     public OrganizationSummary.ReportCounts counts(OrganizationScope scope, Long serviceCategoryId, ReportingPeriod period) {
         if (scope.empty()) {
             return new OrganizationSummary.ReportCounts(0, 0, 0, 0, 0);
         }
-        Specification<InformationReport> base = serviceCategoryId == null
-                ? inScope(scope)
-                : inScope(scope).and(inServiceCategory(serviceCategoryId));
+        Specification<InformationReport> scoped = ScopeSpecifications.inScope(scope);
+        Specification<InformationReport> base = serviceCategoryId == null ? scoped : scoped.and(inServiceCategory(serviceCategoryId));
         ReportingPeriod previous = period.previous();
         return new OrganizationSummary.ReportCounts(
                 reports.count(base.and(withStatus(ReportStatus.OPEN))),
@@ -130,7 +135,7 @@ public class ReportReviewService {
     }
 
     private Specification<InformationReport> specification(ReportQuery query, OrganizationScope scope) {
-        Specification<InformationReport> specification = inScope(scope).and(withStatus(query.statuses()));
+        Specification<InformationReport> specification = ScopeSpecifications.<InformationReport>inScope(scope).and(withStatus(query.statuses()));
         if (query.category() != null) {
             specification = specification.and((root, criteria, builder) -> builder.equal(root.get("category"), query.category()));
         }
@@ -185,12 +190,6 @@ public class ReportReviewService {
             cards.select(card.get("id")).where(builder.equal(card.get("assignedUserId"), userId));
             return builder.and(builder.equal(root.get("entityType"), ReportEntityType.FUNCTION), root.get("entityId").in(cards));
         };
-    }
-
-    private static Specification<InformationReport> inScope(OrganizationScope scope) {
-        return scope.allOrganizations()
-                ? (root, criteria, builder) -> builder.conjunction()
-                : (root, criteria, builder) -> root.get("organizationId").in(scope.organizationIds());
     }
 
     private static Set<ReportStatus> allowedTargets(ReportStatus from) {

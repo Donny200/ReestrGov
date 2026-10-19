@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { cn } from '../../lib/cn';
 import { InlineAlert } from '../functions/InlineAlert';
-import { reportCategoryLabels } from '../reports/reportOptions';
+import { reportCategoryLabel } from '../reports/reportOptions';
 import type { HelpConversationStatus, HelpConversationSummary } from '../../types/help';
 import { errorMessage, fieldErrorsOf } from '../../utils/errors';
 import { formatDateTime } from '../../utils/format';
@@ -181,7 +181,7 @@ export function QuestionReviewDialog({ conversation, organizationName, onClose }
                 {message.category && (
                   <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-status-pending">
                     <FlagIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {t('support.reportLabel', 'Report of incorrect information')}: {t(`report.category.${message.category}`, reportCategoryLabels[message.category])}
+                    {t('support.reportLabel', 'Report of incorrect information')}: {reportCategoryLabel(message.category, t)}
                     {message.reportId && <Link to={`/admin/reports?entityId=${message.serviceId ?? ''}`} className="font-normal underline-offset-4 fine:hover:underline">#{message.reportId}</Link>}
                   </p>
                 )}

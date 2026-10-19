@@ -19,15 +19,14 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
-import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
+import { matchesStatus, statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { formatDate, truncate } from '../../utils/format';
 import { matchesVerification, parseVerificationFilter, type VerificationFilter } from '../../utils/verification';
 
 type DialogState = { mode: 'create' } | { mode: 'edit'; organization: Organization } | null;
 
 function matchesFilters(item: Organization, term: string, status: StatusFilter, verification: VerificationFilter): boolean {
-  if (status === 'active' && !item.enabled) return false;
-  if (status === 'inactive' && item.enabled) return false;
+  if (!matchesStatus(item.enabled, status)) return false;
   if (!matchesVerification(item.verificationStatus, verification)) return false;
   return !term || item.name.toLowerCase().includes(term) || (item.description ?? '').toLowerCase().includes(term);
 }

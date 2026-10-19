@@ -90,13 +90,9 @@ public class InformationReportController {
         };
     }
 
-    /** Only "me" is accepted: follow-up is routed to the caller's own responsibilities, never looked up for other users. */
     private Long assigneeOf(String assignee) {
-        if (assignee == null || assignee.isBlank()) {
+        if (!AssigneeParameter.me(assignee)) {
             return null;
-        }
-        if (!"me".equalsIgnoreCase(assignee.trim())) {
-            throw new IllegalArgumentException("assignee accepts only \"me\"");
         }
         Long me = access.principal().userId();
         return me == null ? -1L : me;

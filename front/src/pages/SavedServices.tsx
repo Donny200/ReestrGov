@@ -14,6 +14,7 @@ import { EmptyState, ErrorState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicFunctions } from '../features/functions/queries';
 import { usePublicOrganizations } from '../features/organizations/queries';
+import { useOrganizationNames } from '../features/organizations/useOrganizationNames';
 import { useSavedServices } from '../features/saved/useSavedServices';
 import { formatDate, truncate } from '../utils/format';
 import { localizedText } from '../utils/translations';
@@ -26,10 +27,7 @@ export function SavedServices() {
   const [confirmClear, setConfirmClear] = useState(false);
 
   const published = useMemo(() => new Map((functions.data ?? []).map((item) => [item.id, item])), [functions.data]);
-  const organizationName = (id: number) => {
-    const organization = organizations.data?.find((item) => item.id === id);
-    return organization ? localizedText(organization.name, organization.nameTranslations, locale) ?? organization.name : undefined;
-  };
+  const organizationNames = useOrganizationNames(organizations.data);
 
   const clearAll = () => {
     clear();
@@ -78,7 +76,7 @@ export function SavedServices() {
           <ul className="border-b border-line" aria-label={t('saved.title', 'Saved services')}>
             {items.map((saved) => {
               const record = published.get(saved.id);
-              const name = record ? localizedText(record.name, record.nameTranslations, locale) ?? record.name : saved.name;
+              const name = record ? localizedText(record.name, record.nameTranslations, locale) : saved.name;
               const description = record ? localizedText(record.description, record.descriptionTranslations, locale) : null;
               return (
                 <li key={saved.id} className="flex items-start gap-4 border-t border-line py-5 break-inside-avoid">
@@ -93,7 +91,7 @@ export function SavedServices() {
                     {description && <p lang={locale} className="mt-1.5 text-sm leading-6 text-secondary wrap-anywhere">{truncate(description, 160)}</p>}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {record ? (
-                        <Badge size="sm">{organizationName(record.organizationId) ?? t('fn.organizationUnknown', 'Organization unknown')}</Badge>
+                        <Badge size="sm">{organizationNames.get(record.organizationId) ?? t('fn.organizationUnknown', 'Organization unknown')}</Badge>
                       ) : (
                         <Badge size="sm">{t('saved.unavailable', 'No longer published')}</Badge>
                       )}

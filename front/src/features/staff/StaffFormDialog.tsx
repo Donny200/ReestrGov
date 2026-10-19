@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { Controller, useForm, type UseFormRegister, type FieldErrors, type UseFormSetError, type FieldValues, type Path } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { UserPlusIcon, UserCogIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,9 +8,10 @@ import { Button } from '../../components/ui/Button';
 import { Field } from '../../components/ui/Field';
 import { Checkbox, Input } from '../../components/ui/Input';
 import { useI18n } from '../../contexts/i18n';
-import { errorMessage, fieldErrorsOf } from '../../utils/errors';
+import { applyServerErrors } from '../../lib/forms';
 import type { Organization, StaffUser } from '../../types/api';
 import { OrganizationsField } from './OrganizationsField';
+import { PersonFields } from './PersonFields';
 import { useStaffMutation } from './queries';
 import { staffCreateSchema, staffEditSchema, type StaffCreateFormValues, type StaffEditFormValues } from './schema';
 import type { StaffConfig } from './types';
@@ -18,37 +19,7 @@ import type { StaffConfig } from './types';
 const CREATE_FORM_ID = 'staff-create-form';
 const EDIT_FORM_ID = 'staff-edit-form';
 
-function applyStaffErrors<T extends FieldValues>(error: unknown, setError: UseFormSetError<T>, t: (key: string, fallback?: string) => string) {
-  const fields = fieldErrorsOf(error);
-  if (fields.organizationId && !fields.organizationIds) fields.organizationIds = fields.organizationId;
-  const names = Object.keys(fields);
-  if (names.length === 0) {
-    toast.error(errorMessage(error, t));
-    return;
-  }
-  names.forEach((name) => setError(name as Path<T>, { type: 'server', message: fields[name] }));
-}
-
-interface PersonFieldsProps<T extends FieldValues> {
-  register: UseFormRegister<T>;
-  errors: FieldErrors<T>;
-  requiredNames: boolean;
-}
-
-function PersonFields<T extends FieldValues>({ register, errors, requiredNames }: PersonFieldsProps<T>) {
-  const { t } = useI18n();
-  const message = (name: keyof T) => errors[name]?.message as string | undefined;
-  return (
-    <>
-      <Field label={t('field.firstName')} error={message('firstName')} required={requiredNames}>
-        {(control) => <Input {...control} maxLength={70} autoComplete="given-name" {...register('firstName' as Path<T>)} />}
-      </Field>
-      <Field label={t('field.lastName')} error={message('lastName')} required={requiredNames}>
-        {(control) => <Input {...control} maxLength={70} autoComplete="family-name" {...register('lastName' as Path<T>)} />}
-      </Field>
-    </>
-  );
-}
+const organizationField = (field: string) => (field === 'organizationId' ? 'organizationIds' : field);
 
 interface DialogProps {
   config: StaffConfig;
@@ -83,7 +54,7 @@ export function StaffCreateDialog({ config, open, organizations, onClose }: Dial
       toast.success(t('toast.created'));
       onClose();
     } catch (error) {
-      applyStaffErrors(error, setError, t);
+      applyServerErrors(error, setError, (message) => toast.error(message), t, organizationField);
     }
   });
 
@@ -103,7 +74,7 @@ export function StaffCreateDialog({ config, open, organizations, onClose }: Dial
       }
     >
       <form id={CREATE_FORM_ID} onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
-        <PersonFields register={register} errors={errors} requiredNames />
+        <PersonFields register={register} errors={errors} />
         <Field label={t('field.email')} error={errors.email?.message} required className="sm:col-span-2">
           {(fieldControl) => <Input {...fieldControl} type="email" autoComplete="email" {...register('email')} />}
         </Field>
@@ -173,7 +144,7 @@ export function StaffEditDialog({ config, open, organizations, user, onClose }: 
       toast.success(t('toast.updated'));
       onClose();
     } catch (error) {
-      applyStaffErrors(error, setError, t);
+      applyServerErrors(error, setError, (message) => toast.error(message), t, organizationField);
     }
   });
 
@@ -193,7 +164,7 @@ export function StaffEditDialog({ config, open, organizations, user, onClose }: 
       }
     >
       <form id={EDIT_FORM_ID} onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
-        <PersonFields register={register} errors={errors} requiredNames />
+        <PersonFields register={register} errors={errors} />
         <Field label={t('field.phone')} error={errors.phone?.message} className="sm:col-span-2">
           {(fieldControl) => <Input {...fieldControl} type="tel" autoComplete="tel" maxLength={20} {...register('phone')} />}
         </Field>

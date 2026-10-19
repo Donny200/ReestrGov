@@ -9,6 +9,7 @@ import { useInitiatePasswordReset } from '../legacyUsers/queries';
 import type { PasswordResetLink } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
 import { formatDateTime, fullName } from '../../utils/format';
+import { copyText } from '../../utils/share';
 
 interface Props {
   user: { id: number; firstName: string; lastName: string; email: string } | null;
@@ -45,11 +46,10 @@ export function PasswordResetDialog({ user, onClose }: Props) {
   };
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(absoluteLink);
+    if (await copyText(absoluteLink)) {
       setCopied(true);
       toast.success(t('users.linkCopied', 'Link copied'));
-    } catch {
+    } else {
       toast.error(t('users.copyFailed', 'Could not copy automatically; select the link and copy it manually.'));
     }
   };

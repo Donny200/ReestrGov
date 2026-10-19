@@ -78,13 +78,3 @@ export function SkeletonRows({ rows = 5, columns = 5 }: { rows?: number; columns
     </div>
   );
 }
-
-export function SkeletonStat() {
-  return (
-    <div className="rounded-card-sm border border-line bg-background p-5">
-      <Skeleton className="h-3 w-24" />
-      <Skeleton className="mt-4 h-9 w-20" />
-      <Skeleton className="mt-3 h-3 w-32" />
-    </div>
-  );
-}

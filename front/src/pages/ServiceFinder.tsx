@@ -1,5 +1,5 @@
 import { useDeferredValue, useId, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CompassIcon, LifeBuoyIcon, ListIcon, RotateCcwIcon, SearchIcon, XIcon } from 'lucide-react';
 import { FunctionListRow } from '../components/catalog/FunctionListRow';
 import { SectionHeading } from '../components/home/SectionHeading';
@@ -13,10 +13,13 @@ import { EmptyState, ErrorState, NoResultsState } from '../components/ui/States'
 import { useI18n } from '../contexts/i18n';
 import { useFunctionCategories, usePublicFunctions } from '../features/functions/queries';
 import { usePublicOrganizations } from '../features/organizations/queries';
+import { useOrganizationNames } from '../features/organizations/useOrganizationNames';
 import { cn } from '../lib/cn';
+import type { TranslatedText } from '../types/api';
 import { FINDER_INTENTS, matchesIntent, rankServices, type MatchField, type RankingContext } from '../utils/finderRanking';
 import { searchTerms } from '../utils/search';
 import { localizedText } from '../utils/translations';
+import { usePatchSearchParams } from '../hooks/usePatchSearchParams';
 
 const RESULT_LIMIT = 50;
 
@@ -42,12 +45,15 @@ const REASON_LABELS: Record<MatchField, [string, string]> = {
  * simple guided path by everyday intent. Only published services (GET /api/functions) are ever listed; nothing typed
  * here is sent or stored.
  */
+const allNames = (item: { name: string; nameTranslations?: Record<string, TranslatedText> }) =>
+  [item.name, ...Object.values(item.nameTranslations ?? {}).map((value) => value?.text)];
+
 export function ServiceFinder() {
   const { t, locale } = useI18n();
   const functions = usePublicFunctions();
   const categories = useFunctionCategories();
   const organizations = usePublicOrganizations();
-  const [params, setParams] = useSearchParams();
+  const [params, update, setParams] = usePatchSearchParams();
   const searchId = useId();
   const resultsId = useId();
 
@@ -59,31 +65,17 @@ export function ServiceFinder() {
   const categoryId = params.get('category') ?? '';
   const showAll = params.get('all') === '1';
 
-  const update = (changes: Record<string, string>) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      Object.entries(changes).forEach(([name, value]) => (value ? next.set(name, value) : next.delete(name)));
-      return next;
-    }, { replace: true });
-  };
-
   const published = useMemo(() => functions.data ?? [], [functions.data]);
-  const organizationName = useMemo(() => {
-    const names = new Map<number, string>();
-    (organizations.data ?? []).forEach((item) => names.set(item.id, localizedText(item.name, item.nameTranslations, locale) ?? item.name));
-    return names;
-  }, [organizations.data, locale]);
-  const context = useMemo<RankingContext>(() => ({
-    locale,
-    organizationNames: (id) => {
-      const found = organizations.data?.find((item) => item.id === id);
-      return found ? [found.name, ...Object.values(found.nameTranslations ?? {}).map((value) => value?.text)] : [];
-    },
-    categoryNames: (id) => {
-      const found = categories.data?.find((item) => item.id === id);
-      return found ? [found.name, ...Object.values(found.nameTranslations ?? {}).map((value) => value?.text)] : [];
-    },
-  }), [locale, organizations.data, categories.data]);
+  const organizationName = useOrganizationNames(organizations.data);
+  const context = useMemo<RankingContext>(() => {
+    const organizationNames = new Map((organizations.data ?? []).map((item) => [item.id, allNames(item)]));
+    const categoryNames = new Map((categories.data ?? []).map((item) => [item.id, allNames(item)]));
+    return {
+      locale,
+      organizationNames: (id) => organizationNames.get(id) ?? [],
+      categoryNames: (id) => (id == null ? [] : categoryNames.get(id) ?? []),
+    };
+  }, [locale, organizations.data, categories.data]);
 
   const filtered = useMemo(
     () => published.filter((item) => (!organizationId || item.organizationId === Number(organizationId))
@@ -114,7 +106,7 @@ export function ServiceFinder() {
     return [...ids]
       .map((id) => {
         const found = categories.data?.find((item) => item.id === id);
-        return { value: String(id), label: found ? localizedText(found.name, found.nameTranslations, locale) ?? found.name : `#${id}` };
+        return { value: String(id), label: found ? localizedText(found.name, found.nameTranslations, locale) : `#${id}` };
       })
       .sort((a, b) => a.label.localeCompare(b.label, locale));
   }, [published, categories.data, locale]);

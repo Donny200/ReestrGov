@@ -10,7 +10,7 @@ import type {
 } from '../types/api';
 import { apiRequest } from './http';
 
-function normalizeUser(user: LegacyUserApi): StaffUser {
+export function toStaffUser(user: LegacyUserApi): StaffUser {
   return {
     id: user.id,
     firstName: user.firstName,
@@ -51,7 +51,7 @@ export const deactivateModerator = (id: number) => apiRequest<void>(`/api/admin/
 
 export const getRoleAssignmentCandidates = async (): Promise<StaffUser[]> => {
   const users = await apiRequest<LegacyUserApi[]>('/api/user');
-  return users.map(normalizeUser);
+  return users.map(toStaffUser);
 };
 
 export const getModeratorCandidates = () => apiRequest<StaffUser[]>('/api/admin/moderators/candidates');

@@ -125,10 +125,7 @@ public class OrganizationInsightsController {
     public QualityReminderResponse.Page reminders(@RequestParam(required = false) Long organizationId,
                                                    @RequestParam(required = false) Long categoryId,
                                                    @RequestParam(required = false) String assignee) {
-        if (assignee != null && !assignee.isBlank() && !"me".equalsIgnoreCase(assignee.trim())) {
-            throw new IllegalArgumentException("assignee accepts only \"me\"");
-        }
-        return reminders.active(organizationId, categoryId, assignee != null && !assignee.isBlank());
+        return reminders.active(organizationId, categoryId, AssigneeParameter.me(assignee));
     }
 
     @GetMapping("/feedback")

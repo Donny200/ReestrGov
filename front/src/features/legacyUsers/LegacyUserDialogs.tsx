@@ -13,6 +13,7 @@ import { useI18n } from '../../contexts/i18n';
 import { applyServerErrors } from '../../lib/forms';
 import type { LegacyUser, Organization, RoleEntity } from '../../types/api';
 import { roleLabel } from '../../utils/format';
+import { PersonFields } from '../staff/PersonFields';
 import { useCreateLegacyUser, useUpdateLegacyUser } from './queries';
 import { legacyUserCreateSchema, legacyUserEditSchema, type LegacyUserCreateValues, type LegacyUserEditValues } from './schema';
 
@@ -80,12 +81,7 @@ export function LegacyUserCreateDialog({ open, roles, organizations, onClose }: 
       }
     >
       <form id={CREATE_FORM_ID} onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
-        <Field label={t('field.firstName')} error={errors.firstName?.message} required>
-          {(fieldControl) => <Input {...fieldControl} maxLength={70} autoComplete="given-name" {...register('firstName')} />}
-        </Field>
-        <Field label={t('field.lastName')} error={errors.lastName?.message} required>
-          {(fieldControl) => <Input {...fieldControl} maxLength={70} autoComplete="family-name" {...register('lastName')} />}
-        </Field>
+        <PersonFields register={register} errors={errors} />
         <Field label={t('field.email')} error={errors.email?.message} required>
           {(fieldControl) => <Input {...fieldControl} type="email" autoComplete="email" {...register('email')} />}
         </Field>
@@ -189,12 +185,7 @@ export function LegacyUserEditDialog({ open, user, onClose }: EditDialogProps) {
       }
     >
       <form id={EDIT_FORM_ID} onSubmit={submit} noValidate className="space-y-4">
-        <Field label={t('field.firstName')} error={errors.firstName?.message} required>
-          {(fieldControl) => <Input {...fieldControl} maxLength={70} autoComplete="given-name" {...register('firstName')} />}
-        </Field>
-        <Field label={t('field.lastName')} error={errors.lastName?.message} required>
-          {(fieldControl) => <Input {...fieldControl} maxLength={70} autoComplete="family-name" {...register('lastName')} />}
-        </Field>
+        <PersonFields register={register} errors={errors} />
         <Field label={t('field.email')} error={errors.email?.message} required>
           {(fieldControl) => <Input {...fieldControl} type="email" autoComplete="email" {...register('email')} />}
         </Field>

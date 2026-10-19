@@ -103,7 +103,7 @@ async function storeFunction(client: QueryClient, record: AdminFunction) {
   const related = [record.id, record.revisionOfId ?? null, record.revision?.id ?? null].filter((id): id is number => id !== null);
   await Promise.all([
     client.invalidateQueries({ queryKey: functionKeys.admin() }),
-    client.invalidateQueries({ queryKey: [...functionKeys.all, 'public'] }),
+    client.invalidateQueries({ queryKey: functionKeys.public() }),
     // Workflow responses do not embed the pending-revision summary; refetch the detail and every related record.
     ...related.flatMap((id) => [
       client.invalidateQueries({ queryKey: functionKeys.detail(id) }),

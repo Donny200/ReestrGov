@@ -12,7 +12,7 @@ import java.time.Duration;
 @Setter
 @Component
 @ConfigurationProperties(prefix = "app.login")
-public class LoginProperties {
+public class LoginProperties implements ClientRateLimitProperties {
     /** Header carrying the visitor address when the service sits behind nginx / the gateway. */
     private String clientAddressHeader = "X-Real-IP";
     /** Password attempts (successful or not) accepted per client address within perClientWindow. */

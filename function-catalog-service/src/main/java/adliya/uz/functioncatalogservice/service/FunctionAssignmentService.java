@@ -55,7 +55,7 @@ public class FunctionAssignmentService {
         String previous = describe(function);
         function.setAssignedUserId(member.id());
         function.setAssignedUserEmail(member.email());
-        function.setAssignedUserName(truncate(member.displayName(), 150));
+        function.setAssignedUserName(TextValues.truncate(member.displayName(), 150));
         function.setAssignedAt(Instant.now());
         functions.saveAndFlush(function);
         audit.function(function, AuditAction.ASSIGNEE_CHANGE, "Responsible staff: " + previous + " -> " + describe(function));
@@ -154,9 +154,5 @@ public class FunctionAssignmentService {
 
     private static String describe(OrgFunction function) {
         return function.getAssignedUserId() == null ? "nobody" : "#" + function.getAssignedUserId() + " (" + function.getAssignedUserEmail() + ")";
-    }
-
-    private static String truncate(String value, int max) {
-        return value == null || value.length() <= max ? value : value.substring(0, max);
     }
 }

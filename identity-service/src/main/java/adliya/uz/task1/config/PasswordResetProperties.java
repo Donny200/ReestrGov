@@ -11,7 +11,7 @@ import java.time.Duration;
 @Setter
 @Component
 @ConfigurationProperties(prefix = "app.password-reset")
-public class PasswordResetProperties {
+public class PasswordResetProperties implements ClientRateLimitProperties {
     /** Lifetime of a reset token (single use). */
     private Duration tokenTtl = Duration.ofMinutes(60);
     /** Path on the frontend that completes a reset; the raw token is appended as the {@code token} query parameter. */

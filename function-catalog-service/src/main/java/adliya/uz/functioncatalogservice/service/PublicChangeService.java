@@ -75,11 +75,6 @@ public class PublicChangeService {
         return result;
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void forget(Long functionId) {
-        changes.deleteAllByFunctionId(functionId);
-    }
-
     /**
      * Gives cards that were published before this history existed a first entry, so their next publication can report
      * which sections changed. The entry is dated by the last recorded publication in the internal audit log when known.

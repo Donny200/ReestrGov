@@ -1,4 +1,4 @@
-import type { CatalogFunction, InstructionField, ServiceInstructions } from '../types/api';
+import type { CatalogFunction, InstructionField } from '../types/api';
 import { requirementLines } from './format';
 
 export interface InstructionFieldMeta {
@@ -17,15 +17,6 @@ export const INSTRUCTION_FIELDS: InstructionFieldMeta[] = [
   { key: 'processingTime', list: false, max: 500, labelKey: 'instructions.processingTime', label: 'Processing time' },
   { key: 'fee', list: false, max: 500, labelKey: 'instructions.fee', label: 'Official fee' },
 ];
-
-export const EMPTY_INSTRUCTIONS: ServiceInstructions = {
-  whoCanUse: null,
-  steps: null,
-  requiredDocuments: null,
-  whereHowToApply: null,
-  processingTime: null,
-  fee: null,
-};
 
 type InstructionRecord = Pick<CatalogFunction, 'instructions' | 'instructionTranslations' | 'sourceLanguage'>;
 
@@ -51,8 +42,4 @@ export function localizedInstruction(record: InstructionRecord, field: Instructi
 
 export function instructionItems(text: string | null | undefined): string[] {
   return requirementLines(text);
-}
-
-export function hasAnyInstruction(record: InstructionRecord): boolean {
-  return INSTRUCTION_FIELDS.some((field) => instructionSource(record, field.key) !== null);
 }

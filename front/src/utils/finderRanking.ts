@@ -48,8 +48,8 @@ function texts(original: string | null | undefined, translations: Record<string,
   return [original ?? '', ...Object.values(translations ?? {}).map((value) => value?.text ?? '')].filter(Boolean);
 }
 
-function indexes(item: CatalogFunction, context: RankingContext): ServiceIndexes {
-  const shown = localizedText(item.name, item.nameTranslations, context.locale) ?? item.name;
+function buildIndexes(item: CatalogFunction, context: RankingContext): ServiceIndexes {
+  const shown = localizedText(item.name, item.nameTranslations, context.locale);
   const names = texts(item.name, item.nameTranslations);
   return {
     shownName: buildSearchIndex([shown]),
@@ -68,6 +68,23 @@ function indexes(item: CatalogFunction, context: RankingContext): ServiceIndexes
     ]),
     nameForms: names.map(matchForm),
   };
+}
+
+/** Indexes depend only on the service and the context, so each pair is built once (intents rank every service many times). */
+const indexCache = new WeakMap<RankingContext, WeakMap<CatalogFunction, ServiceIndexes>>();
+
+function indexes(item: CatalogFunction, context: RankingContext): ServiceIndexes {
+  let byItem = indexCache.get(context);
+  if (!byItem) {
+    byItem = new WeakMap();
+    indexCache.set(context, byItem);
+  }
+  let index = byItem.get(item);
+  if (!index) {
+    index = buildIndexes(item, context);
+    byItem.set(item, index);
+  }
+  return index;
 }
 
 /** Best field of one word, or null when it matches nowhere. */
@@ -108,7 +125,7 @@ export function rankService(item: CatalogFunction, query: string, context: Ranki
 
 /** Matching services, best first. Without query words every service is returned in name order. */
 export function rankServices(items: CatalogFunction[], query: string, context: RankingContext): RankedService[] {
-  const name = (item: CatalogFunction) => localizedText(item.name, item.nameTranslations, context.locale) ?? item.name;
+  const name = (item: CatalogFunction) => localizedText(item.name, item.nameTranslations, context.locale);
   return items
     .map((item) => rankService(item, query, context))
     .filter((ranked): ranked is RankedService => ranked !== null)

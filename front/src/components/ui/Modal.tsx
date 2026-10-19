@@ -141,5 +141,3 @@ export function ConfirmModal({ open, title, message, confirmLabel, cancelLabel, 
     </Modal>
   );
 }
-
-export { Modal as Dialog, ConfirmModal as ConfirmDialog };

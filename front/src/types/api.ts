@@ -71,15 +71,6 @@ export interface SessionInfo {
   current: boolean;
 }
 
-export interface SecurityEvent {
-  id: number;
-  userId: number | null;
-  actorUserId: number | null;
-  action: string;
-  details: string | null;
-  performedAt: string;
-}
-
 export type PublicChangeType = 'FIRST_PUBLICATION' | 'UPDATE' | 'REPUBLISHED';
 
 /** Public history entry: only the publication moment, its kind and the names of changed sections. */
@@ -238,12 +229,6 @@ export interface Permission {
   code: string;
   name: string;
   category: string | null;
-}
-
-export interface CreatePermissionRequest {
-  code: string;
-  name: string;
-  category?: string;
 }
 
 export interface RoleEntity {

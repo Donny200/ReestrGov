@@ -30,7 +30,7 @@ export function ServiceAnswerPreview({ service, organization }: ServiceAnswerPre
   const documentItems = documents ? instructionItems(documents.text) : requirementLines(service.requirements);
   const stepItems = steps ? instructionItems(steps.text) : [];
   const contact = organization && hasContactDetails(organization.contact) ? organization.contact : null;
-  const name = localizedText(service.name, service.nameTranslations, locale) ?? service.name;
+  const name = localizedText(service.name, service.nameTranslations, locale);
   if (documentItems.length === 0 && stepItems.length === 0 && facts.length === 0 && !contact) return null;
 
   return (

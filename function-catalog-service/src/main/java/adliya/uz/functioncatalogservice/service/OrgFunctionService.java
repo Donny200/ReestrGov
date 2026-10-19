@@ -288,7 +288,7 @@ public class OrgFunctionService {
 
     @Transactional
     public OrgFunction updateTranslations(Long id, FunctionTranslationsRequest request) {
-        requireTranslationEditor();
+        access.requireTranslationEditor();
         OrgFunction function = scoped(id);
         requireEditable(function);
         if (request.nameTranslations() == null && request.descriptionTranslations() == null) {
@@ -317,7 +317,7 @@ public class OrgFunctionService {
 
     @Transactional
     public OrgFunction updateLanguageTranslation(Long id, String language, LanguageTranslationRequest request) {
-        requireTranslationEditor();
+        access.requireTranslationEditor();
         OrgFunction function = scoped(id);
         requireEditable(function);
         String code = language.toLowerCase(Locale.ROOT);
@@ -582,11 +582,6 @@ public class OrgFunctionService {
             throw new WorkflowConflictException(
                     "Editing requires DRAFT or DEACTIVATED; a card under review must be withdrawn or returned to draft first");
         }
-    }
-
-    private void requireTranslationEditor() {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
     }
 
     private static Map<String, TranslatedText> withSourceMirror(Map<String, TranslatedText> values, String language, String text) {

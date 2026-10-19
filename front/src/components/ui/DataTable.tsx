@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -34,100 +34,24 @@ const hiddenBelow = {
   xl: 'hidden xl:table-cell',
 } as const;
 
-export interface Column<T> {
-  key: string;
-  header: string;
-  render: (row: T) => ReactNode;
-  className?: string;
-  headerClassName?: string;
-}
-
-interface SharedProps<T> {
+export interface DataTableProps<T> {
+  columns: ColumnDef<T>[];
+  data: T[];
   rowKey: (row: T) => string | number;
+  empty: { title: string; description?: string; action?: ReactNode };
   caption?: string;
   loading?: boolean;
   error?: unknown;
   onRetry?: () => void;
-}
-
-export interface DataTableProps<T> extends SharedProps<T> {
-  columns: ColumnDef<T>[];
-  data: T[];
-  empty: { title: string; description?: string; action?: ReactNode };
   pageSize?: number;
   initialSorting?: SortingState;
 }
 
-export interface LegacyDataTableProps<T> extends SharedProps<T> {
-  columns: Column<T>[];
-  rows: T[];
-  emptyTitle: string;
-  emptyDescription?: string;
-  emptyAction?: ReactNode;
-}
-
-function legacyColumns<T>(columns: Column<T>[]): ColumnDef<T>[] {
-  return columns.map((column) => ({
-    id: column.key,
-    header: column.header,
-    enableSorting: false,
-    cell: ({ row }) => column.render(row.original),
-    meta: {
-      className: column.className,
-      headerClassName: column.headerClassName,
-      mobileHidden: column.className?.split(/\s+/).includes('hidden') ?? false,
-    },
-  }));
-}
-
-export function DataTable<T>(props: DataTableProps<T> | LegacyDataTableProps<T>) {
-  const legacy = 'rows' in props;
-  const sourceColumns = props.columns;
-  const columns = useMemo(
-    () => (legacy ? legacyColumns(sourceColumns as Column<T>[]) : (sourceColumns as ColumnDef<T>[])),
-    [legacy, sourceColumns],
-  );
-  const data = legacy ? (props as LegacyDataTableProps<T>).rows : (props as DataTableProps<T>).data;
-  const empty = legacy
-    ? {
-        title: (props as LegacyDataTableProps<T>).emptyTitle,
-        description: (props as LegacyDataTableProps<T>).emptyDescription,
-        action: (props as LegacyDataTableProps<T>).emptyAction,
-      }
-    : (props as DataTableProps<T>).empty;
-  const pageSize = legacy ? undefined : (props as DataTableProps<T>).pageSize ?? 25;
-  const initialSorting = legacy ? [] : (props as DataTableProps<T>).initialSorting ?? [];
-
-  return (
-    <TableView
-      columns={columns}
-      data={data}
-      rowKey={props.rowKey}
-      caption={props.caption}
-      loading={props.loading}
-      error={props.error}
-      onRetry={props.onRetry}
-      empty={empty}
-      pageSize={pageSize}
-      initialSorting={initialSorting}
-    />
-  );
-}
-
-interface TableViewProps<T> extends SharedProps<T> {
-  columns: ColumnDef<T>[];
-  data: T[];
-  empty: { title: string; description?: string; action?: ReactNode };
-  pageSize: number | undefined;
-  initialSorting: SortingState;
-}
-
 const STACK_LIMIT = 4;
 
-function TableView<T>({ columns, data, rowKey, caption, loading = false, error, onRetry, empty, pageSize, initialSorting }: TableViewProps<T>) {
+export function DataTable<T>({ columns, data, rowKey, caption, loading = false, error, onRetry, empty, pageSize = 25, initialSorting = [] }: DataTableProps<T>) {
   const { t } = useI18n();
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
-  const paginate = pageSize !== undefined;
   const table = useReactTable({
     data,
     columns,
@@ -136,8 +60,8 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
     getRowId: (row) => String(rowKey(row)),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    ...(paginate ? { getPaginationRowModel: getPaginationRowModel() } : {}),
-    initialState: paginate ? { pagination: { pageSize } } : undefined,
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize } },
   });
 
   if (loading) return <SkeletonRows rows={6} columns={Math.min(columns.length, 6)} />;
@@ -225,7 +149,7 @@ function TableView<T>({ columns, data, rowKey, caption, loading = false, error, 
         </table>
       </div>
 
-      {paginate && total > size && (
+      {total > size && (
         <div className="flex flex-col gap-3 border-t border-line px-5 py-3 text-sm text-secondary sm:flex-row sm:items-center sm:justify-between">
           <p aria-live="polite" className="tabular-nums">{from}–{to} / {total}</p>
           <div className="flex items-center gap-2">

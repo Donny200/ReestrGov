@@ -38,10 +38,10 @@ export function FeedbackSection({ filters, organizationName, showOrganization }:
           <div className="min-w-0 max-w-sm">
             {hasPermission('FUNCTIONS_VIEW') ? (
               <Link to={`/admin/functions/${row.original.functionId}`} className="rounded-sm font-medium text-foreground underline-offset-4 wrap-anywhere fine:hover:underline">
-                {localizedText(row.original.name, row.original.nameTranslations ?? undefined, locale) ?? row.original.name ?? `#${row.original.functionId}`}
+                {localizedText(row.original.name, row.original.nameTranslations, locale) ?? `#${row.original.functionId}`}
               </Link>
             ) : (
-              <span className="font-medium text-foreground wrap-anywhere">{localizedText(row.original.name, row.original.nameTranslations ?? undefined, locale) ?? row.original.name ?? `#${row.original.functionId}`}</span>
+              <span className="font-medium text-foreground wrap-anywhere">{localizedText(row.original.name, row.original.nameTranslations, locale) ?? `#${row.original.functionId}`}</span>
             )}
             <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-secondary">
               {row.original.status && <FunctionStatusBadge status={row.original.status} />}

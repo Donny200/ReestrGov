@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { BellIcon, BuildingIcon, FileTextIcon, FlagIcon, PlusIcon, ShieldAlertIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -14,10 +13,9 @@ import { useOrganizations } from '../../features/organizations/queries';
 import { useAdminFunctions } from '../../features/functions/queries';
 import { useReminders } from '../../features/analytics/queries';
 import { useReports } from '../../features/reports/queries';
-import { canViewReports } from '../../features/reports/reportOptions';
+import { canViewReports, reportStatusLabel } from '../../features/reports/reportOptions';
 import { needsRecheck } from '../../utils/verification';
-import { staffKeys } from '../../features/queryKeys';
-import { getModerators, getOrgAdmins } from '../../services/staffService';
+import { useModerators, useOrgAdmins } from '../../features/staff/queries';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { functionText } from '../../utils/functionLocalization';
@@ -36,8 +34,8 @@ export function Dashboard() {
 
   const organizations = useOrganizations();
   const functions = useAdminFunctions(canSeeFunctions);
-  const orgAdmins = useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins, enabled: canSeeOrgAdmins });
-  const moderators = useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators, enabled: canSeeModerators });
+  const orgAdmins = useOrgAdmins(canSeeOrgAdmins);
+  const moderators = useModerators(canSeeModerators);
   const openReports = useReports({ status: 'OPEN' }, canSeeReports);
   const reminders = useReminders({}, canSeeAnalytics);
 
@@ -111,7 +109,7 @@ export function Dashboard() {
       key: 'reports',
       label: t('reports.dashboardTitle', 'Open reports'),
       value: (openReports.data ?? []).length,
-      hint: `${(openReports.data ?? []).filter((item) => item.status === 'NEW').length} ${t('reports.status.NEW', 'New').toLowerCase()}`,
+      hint: `${(openReports.data ?? []).filter((item) => item.status === 'NEW').length} ${reportStatusLabel('NEW', t).toLowerCase()}`,
       icon: FlagIcon,
       to: '/admin/reports',
       loading: openReports.isPending,

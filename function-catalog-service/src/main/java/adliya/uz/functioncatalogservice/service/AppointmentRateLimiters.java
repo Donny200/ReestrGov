@@ -19,8 +19,7 @@ public class AppointmentRateLimiters {
     }
 
     AppointmentRateLimiters(AppointmentProperties properties, Clock clock) {
-        bookings = new ClientRateLimiter(new ClientRateLimiter.Limits(properties.getPerClientLimit(), properties.getPerClientWindow(),
-                properties.getGlobalLimit(), properties.getGlobalWindow(), properties.getMaxTrackedClients()), clock);
+        bookings = new ClientRateLimiter(ClientRateLimiter.Limits.of(properties), clock);
         lookups = new ClientRateLimiter(new ClientRateLimiter.Limits(properties.getLookupLimit(), properties.getLookupWindow(),
                 Integer.MAX_VALUE, properties.getGlobalWindow(), properties.getMaxTrackedClients()), clock);
     }

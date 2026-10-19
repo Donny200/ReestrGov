@@ -119,13 +119,10 @@ public class MfaController {
     }
 
     private String clientAddress(HttpServletRequest request) {
-        String header = properties.getClientAddressHeader();
-        String forwarded = StringUtils.hasText(header) ? request.getHeader(header) : null;
-        return StringUtils.hasText(forwarded) ? forwarded.trim() : request.getRemoteAddr();
+        return ClientAddresses.of(request, properties.getClientAddressHeader());
     }
 
     private UserResponse withMfa(User user) {
-        return UserResponse.from(user).withMfa(new UserResponse.MfaSummary(mfaService.requiredFor(user), mfaService.enrolled(user),
-                properties.getEnrollmentDeadline(), false));
+        return UserResponse.from(user).withMfa(mfaService.summary(user));
     }
 }

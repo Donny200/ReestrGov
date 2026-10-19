@@ -6,15 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
 
@@ -29,7 +24,7 @@ public class LoginAttemptGuard {
 
     private final LoginProperties properties;
     private final Clock clock;
-    private final byte[] salt = new byte[16];
+    private final byte[] salt = SecureTokens.randomSalt();
     private final Map<String, Failures> accounts = new HashMap<>();
 
     @Autowired
@@ -40,7 +35,6 @@ public class LoginAttemptGuard {
     LoginAttemptGuard(LoginProperties properties, Clock clock) {
         this.properties = properties;
         this.clock = clock;
-        new SecureRandom().nextBytes(salt);
     }
 
     /** Refuses the attempt while the account is locked. */
@@ -75,15 +69,7 @@ public class LoginAttemptGuard {
     }
 
     private String key(String email) {
-        String normalized = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(salt);
-            digest.update(normalized.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return SecureTokens.saltedSha256Hex(salt, email == null ? "" : email.trim().toLowerCase(Locale.ROOT));
     }
 
     private record Failures(Instant windowEnd, int count) {}

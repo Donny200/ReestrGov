@@ -1,4 +1,4 @@
-import { apiRequest } from './http';
+import { apiRequest, SESSIONLESS } from './http';
 import type {
   Availability,
   BookAppointmentRequest,
@@ -12,27 +12,26 @@ import type {
 } from '../types/appointments';
 
 /** Visitors manage a booking with its reference and the secret token their browser chose; the token goes in a header. */
-const visitor = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
 const tokenHeader = (token: string) => ({ 'X-Appointment-Token': token });
 
 export const getAvailability = (serviceId: number, from?: string, days = 14) =>
-  apiRequest<Availability>(`/api/appointments/services/${serviceId}/availability`, { query: { from, days }, ...visitor });
+  apiRequest<Availability>(`/api/appointments/services/${serviceId}/availability`, { query: { from, days }, ...SESSIONLESS });
 
 export const bookAppointment = (body: BookAppointmentRequest) =>
-  apiRequest<VisitorAppointment>('/api/appointments', { method: 'POST', body, ...visitor });
+  apiRequest<VisitorAppointment>('/api/appointments', { method: 'POST', body, ...SESSIONLESS });
 
 export const getAppointment = (reference: string, token: string) =>
-  apiRequest<VisitorAppointment>(`/api/appointments/${encodeURIComponent(reference)}`, { headers: tokenHeader(token), ...visitor });
+  apiRequest<VisitorAppointment>(`/api/appointments/${encodeURIComponent(reference)}`, { headers: tokenHeader(token), ...SESSIONLESS });
 
 export const getRescheduleAvailability = (reference: string, token: string, from?: string, days = 14) =>
-  apiRequest<Availability>(`/api/appointments/${encodeURIComponent(reference)}/availability`, { query: { from, days }, headers: tokenHeader(token), ...visitor });
+  apiRequest<Availability>(`/api/appointments/${encodeURIComponent(reference)}/availability`, { query: { from, days }, headers: tokenHeader(token), ...SESSIONLESS });
 
 export const cancelAppointment = (reference: string, token: string) =>
-  apiRequest<VisitorAppointment>(`/api/appointments/${encodeURIComponent(reference)}/cancel`, { method: 'POST', headers: tokenHeader(token), ...visitor });
+  apiRequest<VisitorAppointment>(`/api/appointments/${encodeURIComponent(reference)}/cancel`, { method: 'POST', headers: tokenHeader(token), ...SESSIONLESS });
 
 export const rescheduleAppointment = (reference: string, token: string, startsAt: string) =>
   apiRequest<VisitorAppointment>(`/api/appointments/${encodeURIComponent(reference)}/reschedule`, {
-    method: 'POST', body: { startsAt }, headers: tokenHeader(token), ...visitor,
+    method: 'POST', body: { startsAt }, headers: tokenHeader(token), ...SESSIONLESS,
   });
 
 export const getStaffAppointments = (query: StaffAppointmentQuery) =>
@@ -52,4 +51,4 @@ export const addClosure = (organizationId: number, body: ClosureRequest) =>
 export const removeClosure = (organizationId: number, closureId: number) =>
   apiRequest<Schedule>(`/api/appointments/schedules/${organizationId}/closures/${closureId}`, { method: 'DELETE' });
 
-export const getPublicSite = () => apiRequest<{ publicBaseUrl: string | null }>('/api/functions/public-site', visitor);
+export const getPublicSite = () => apiRequest<{ publicBaseUrl: string | null }>('/api/functions/public-site', SESSIONLESS);

@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Badge, StatusPill } from '../../components/ui/Badge';
@@ -19,6 +19,7 @@ import { useHelpInbox } from '../../features/help/queries';
 import { QuestionReviewDialog } from '../../features/help/QuestionReviewDialog';
 import type { HelpConversationSummary, HelpInboxQuery, HelpStatusFilter } from '../../types/help';
 import { formatDateTime } from '../../utils/format';
+import { usePatchSearchParams } from '../../hooks/usePatchSearchParams';
 
 const LIST_LIMIT = 500;
 
@@ -30,7 +31,7 @@ function parseStatus(value: string | null): HelpStatusFilter {
 export function VisitorQuestions() {
   const { t, locale } = useI18n();
   const scope = useScopeOptions();
-  const [params, setParams] = useSearchParams();
+  const [params, setParam] = usePatchSearchParams();
   const [selected, setSelected] = useState<HelpConversationSummary | null>(null);
 
   const query = useMemo<HelpInboxQuery>(() => ({
@@ -42,14 +43,6 @@ export function VisitorQuestions() {
     assignee: params.get('assignee') === 'me' ? 'me' : undefined,
   }), [params, scope.global]);
   const inbox = useHelpInbox(query);
-
-  const setParam = useCallback((changes: Record<string, string>) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      Object.entries(changes).forEach(([name, value]) => (value ? next.set(name, value) : next.delete(name)));
-      return next;
-    }, { replace: true });
-  }, [setParams]);
 
   const columns = useMemo<ColumnDef<HelpConversationSummary>[]>(() => [
     {

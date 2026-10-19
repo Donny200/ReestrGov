@@ -1,16 +1,14 @@
 package adliya.uz.functioncatalogservice.service;
 
+import adliya.uz.functioncatalogservice.config.ClientLimitProperties;
 import adliya.uz.functioncatalogservice.exception.RateLimitExceededException;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.Map;
 
 public class ClientRateLimiter {
@@ -64,17 +62,15 @@ public class ClientRateLimiter {
     }
 
     private String fingerprint(String clientAddress) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(salt);
-            digest.update(String.valueOf(clientAddress).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return Sha256.hex(salt, String.valueOf(clientAddress).getBytes(StandardCharsets.UTF_8));
     }
 
-    public record Limits(int perClient, Duration perClientWindow, int global, Duration globalWindow, int maxTrackedClients) {}
+    public record Limits(int perClient, Duration perClientWindow, int global, Duration globalWindow, int maxTrackedClients) {
+        public static Limits of(ClientLimitProperties properties) {
+            return new Limits(properties.getPerClientLimit(), properties.getPerClientWindow(), properties.getGlobalLimit(),
+                    properties.getGlobalWindow(), properties.getMaxTrackedClients());
+        }
+    }
 
     private record Window(Instant end, int count) {
         Window increment() { return new Window(end, count + 1); }

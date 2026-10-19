@@ -5,7 +5,6 @@ import adliya.uz.functioncatalogservice.dto.HelpConversationSummary;
 import adliya.uz.functioncatalogservice.dto.StaffMember;
 import adliya.uz.functioncatalogservice.dto.SupportDtos;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
-import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.HelpConversation;
 import adliya.uz.functioncatalogservice.entity.HelpConversationStatus;
 import adliya.uz.functioncatalogservice.entity.HelpGuest;
@@ -69,7 +68,6 @@ public class HelpConversationService {
 
     public static final int LIST_LIMIT = 500;
     private static final int LABEL_MAX_LENGTH = 150;
-    private static final int MAX_LINKS = 3;
     /** Polls also return messages created this recently, so a message committed out of id order is not missed. */
     private static final Duration POLL_OVERLAP = Duration.ofSeconds(60);
     private static final String NOT_FOUND = "Conversation not found";
@@ -213,7 +211,7 @@ public class HelpConversationService {
         HelpConversation conversation = conversations.findRoute(guest.getId(), route.organizationId())
                 .orElseGet(() -> conversations.saveAndFlush(HelpConversation.builder()
                         .guestId(guest.getId()).organizationId(route.organizationId())
-                        .status(HelpConversationStatus.NEW).language(language(request.language()))
+                        .status(HelpConversationStatus.NEW).language(TextValues.language(request.language()))
                         .createdAt(now).updatedAt(now).lastVisitorMessageAt(now).lastMessageAt(now).build()));
         List<HelpMessage> thread = messages.findAllByConversationIdOrderByIdAsc(conversation.getId());
         if (thread.size() >= properties.getMaxMessages()) {
@@ -255,14 +253,14 @@ public class HelpConversationService {
     /** Organization responsible for the message's context; central support when there is none. */
     private Route route(SupportDtos.SendRequest request) {
         if (request.serviceId() != null) {
-            OrgFunction service = functions.findByIdAndStatus(request.serviceId(), FunctionStatus.PUBLISHED)
-                    .orElseThrow(() -> new NoSuchElementException("Service not found: " + request.serviceId()));
-            return new Route(service.getOrganizationId(), service.getId(), truncate(service.getName()),
+            OrgFunction service = functions.requirePublished(request.serviceId());
+            return new Route(service.getOrganizationId(), service.getId(), TextValues.truncate(service.getName(), LABEL_MAX_LENGTH),
                     ReportEntityType.FUNCTION, service.getId());
         }
         if (request.organizationId() != null) {
             IdentityOrganizationClient.PublicOrganization organization = organizations.requirePublic(request.organizationId());
-            return new Route(organization.id(), null, truncate(organization.name()), ReportEntityType.ORGANIZATION, organization.id());
+            return new Route(organization.id(), null, TextValues.truncate(organization.name(), LABEL_MAX_LENGTH),
+                    ReportEntityType.ORGANIZATION, organization.id());
         }
         return new Route(null, null, null, null, null);
     }
@@ -311,7 +309,7 @@ public class HelpConversationService {
         if (scope.empty()) {
             return List.of();
         }
-        Specification<HelpConversation> specification = inScope(scope)
+        Specification<HelpConversation> specification = ScopeSpecifications.<HelpConversation>inScope(scope)
                 .and((root, criteria, builder) -> root.get("status").in(query.statuses()));
         if (query.generalOnly()) {
             specification = specification.and((root, criteria, builder) -> builder.isNull(root.get("organizationId")));
@@ -341,7 +339,8 @@ public class HelpConversationService {
         if (scope.empty()) {
             return new HelpConversationSummary.Unread(0, 0);
         }
-        List<Long> ids = conversations.findAll(inScope(scope).and(hasUnreadVisitorMessages())).stream().map(HelpConversation::getId).toList();
+        List<Long> ids = conversations.findAll(ScopeSpecifications.<HelpConversation>inScope(scope).and(hasUnreadVisitorMessages()))
+                .stream().map(HelpConversation::getId).toList();
         long count = ids.isEmpty() ? 0 : messages.countByConversationIdInAndAuthorAndReadAtIsNull(ids, HelpMessage.Author.VISITOR);
         return new HelpConversationSummary.Unread(ids.size(), count);
     }
@@ -515,12 +514,6 @@ public class HelpConversationService {
         };
     }
 
-    private static Specification<HelpConversation> inScope(OrganizationScope scope) {
-        return scope.allOrganizations()
-                ? (root, criteria, builder) -> builder.conjunction()
-                : (root, criteria, builder) -> root.get("organizationId").in(scope.organizationIds());
-    }
-
     private static String visitorText(String raw, boolean report) {
         String value = VisitorText.normalize(raw);
         if (!VisitorText.meaningful(value, report ? 10 : 1)) {
@@ -529,8 +522,8 @@ public class HelpConversationService {
         if (value.length() > 2000) {
             throw new InvalidFieldException("body", "A message may contain at most 2000 characters");
         }
-        if (VisitorText.links(value) > MAX_LINKS) {
-            throw new InvalidFieldException("body", "A message may contain at most " + MAX_LINKS + " links");
+        if (VisitorText.links(value) > VisitorText.MAX_LINKS) {
+            throw new InvalidFieldException("body", "A message may contain at most " + VisitorText.MAX_LINKS + " links");
         }
         if (VisitorText.containsLongNumber(value)) {
             throw new InvalidFieldException("body",
@@ -548,14 +541,6 @@ public class HelpConversationService {
             throw new InvalidFieldException("message", "A reply may contain at most 2000 characters");
         }
         return value;
-    }
-
-    private static String language(String value) {
-        return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private static String truncate(String value) {
-        return value == null || value.length() <= LABEL_MAX_LENGTH ? value : value.substring(0, LABEL_MAX_LENGTH);
     }
 
     public static Set<HelpConversationStatus> statuses(String value) {

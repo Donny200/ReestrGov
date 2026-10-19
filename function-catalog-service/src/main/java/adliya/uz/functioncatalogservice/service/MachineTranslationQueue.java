@@ -10,7 +10,6 @@ import adliya.uz.functioncatalogservice.entity.TranslationJob;
 import adliya.uz.functioncatalogservice.entity.TranslationJobStatus;
 import adliya.uz.functioncatalogservice.entity.TranslationTarget;
 import adliya.uz.functioncatalogservice.exception.TranslationUnavailableException;
-import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
 import adliya.uz.functioncatalogservice.repository.FunctionCategoryRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
 import adliya.uz.functioncatalogservice.repository.TranslationJobRepository;
@@ -96,14 +95,9 @@ public class MachineTranslationQueue {
     /** Explicit re-queue by staff of their own organization's draft; the worker handles it on the next tick. */
     @Transactional
     public MachineTranslationSummary retry(Long functionId) {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
-        OrgFunction function = functions.findById(functionId)
-                .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + functionId));
-        access.requireOrganization(function.getOrganizationId());
-        if (!function.isEditable()) {
-            throw new WorkflowConflictException("Translation requires DRAFT or DEACTIVATED; published cards are translated through a draft revision");
-        }
+        access.requireTranslationEditor();
+        OrgFunction function = FunctionAutoTranslationService.requireTranslatable(access, functions.findById(functionId)
+                .orElseThrow(() -> new NoSuchElementException("Function not found, ID: " + functionId)));
         return summary(function, enqueue(TranslationTarget.FUNCTION, functionId));
     }
 
@@ -136,8 +130,7 @@ public class MachineTranslationQueue {
      */
     @Transactional
     public TranslationBackfillResponse backfill(Long organizationId, Integer requestedLimit) {
-        access.requirePermission("FUNCTIONS_EDIT");
-        access.requirePermission("FUNCTIONS_TRANSLATIONS_EDIT");
+        access.requireTranslationEditor();
         OrganizationScope scope = access.scope(organizationId);
         int limit = Math.max(1, Math.min(requestedLimit == null ? DEFAULT_BACKFILL_LIMIT : requestedLimit, properties.getBackfillMaxLimit()));
         Set<String> active = languages.activeLanguageCodes().orElseThrow(() ->
@@ -150,6 +143,7 @@ public class MachineTranslationQueue {
                     : functions.findAllByStatusAndOrganizationIdIn(status, scope.organizationIds()));
         }
         candidates.sort(Comparator.comparing(OrgFunction::getId));
+        Set<Long> openFunctions = jobs.findOpenTargetIds(TranslationTarget.FUNCTION);
         int examined = 0;
         int queued = 0;
         int alreadyQueued = 0;
@@ -161,7 +155,7 @@ public class MachineTranslationQueue {
             if (MissingTranslations.of(function, active).isEmpty()) {
                 continue;
             }
-            if (isOpen(TranslationTarget.FUNCTION, function.getId())) {
+            if (openFunctions.contains(function.getId())) {
                 alreadyQueued++;
             } else {
                 enqueue(TranslationTarget.FUNCTION, function.getId());
@@ -169,6 +163,7 @@ public class MachineTranslationQueue {
             }
         }
         if (scope.allOrganizations()) {
+            Set<Long> openCategories = jobs.findOpenTargetIds(TranslationTarget.CATEGORY);
             for (FunctionCategory category : categories.findAll()) {
                 if (queued >= limit) {
                     return new TranslationBackfillResponse(examined, queued, alreadyQueued, limit, true);
@@ -177,7 +172,7 @@ public class MachineTranslationQueue {
                 if (MissingTranslations.of(category, active).isEmpty()) {
                     continue;
                 }
-                if (isOpen(TranslationTarget.CATEGORY, category.getId())) {
+                if (openCategories.contains(category.getId())) {
                     alreadyQueued++;
                 } else {
                     enqueue(TranslationTarget.CATEGORY, category.getId());
@@ -186,10 +181,6 @@ public class MachineTranslationQueue {
             }
         }
         return new TranslationBackfillResponse(examined, queued, alreadyQueued, limit, false);
-    }
-
-    private boolean isOpen(TranslationTarget type, Long id) {
-        return jobs.findByTargetTypeAndTargetId(type, id).map(TranslationJob::isOpen).orElse(false);
     }
 
     private MachineTranslationSummary summary(OrgFunction function, TranslationJob job) {

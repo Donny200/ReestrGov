@@ -6,6 +6,7 @@ import adliya.uz.task1.config.security.SystemRole;
 import adliya.uz.task1.config.security.Totp;
 import adliya.uz.task1.dto.MfaEnrollmentResponse;
 import adliya.uz.task1.dto.MfaStatusResponse;
+import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.MfaChallenge;
 import adliya.uz.task1.entity.MfaRecoveryCode;
 import adliya.uz.task1.entity.User;
@@ -24,18 +25,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashSet;
-import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -141,6 +138,15 @@ public class MfaService {
                 confirmed ? recoveryCodes.countByUserIdAndUsedAtIsNull(user.getId()) : 0);
     }
 
+    /** Second-factor state attached to the signed-in user's profile; reads the enrollment once. */
+    @Transactional(readOnly = true)
+    public UserResponse.MfaSummary summary(User user) {
+        boolean required = requiredFor(user);
+        boolean enrolled = enrolled(user);
+        return new UserResponse.MfaSummary(required, enrolled, properties.getEnrollmentDeadline(),
+                required && !enrolled && enrollmentOverdue());
+    }
+
     @Transactional(readOnly = true)
     public Set<Long> enrolledUserIds() {
         return enabled() ? new HashSet<>(enrollments.findConfirmedUserIds()) : Set.of();
@@ -152,18 +158,16 @@ public class MfaService {
     @Transactional
     public IssuedChallenge createChallenge(User user, MfaChallenge.Purpose purpose) {
         Instant now = clock.instant();
-        String raw = randomToken();
+        String raw = SecureTokens.randomUrlToken(32);
         Instant expiresAt = now.plus(properties.getChallengeTtl());
-        challenges.save(MfaChallenge.builder().tokenHash(hash(raw)).userId(user.getId()).purpose(purpose)
+        challenges.save(MfaChallenge.builder().tokenHash(SecureTokens.sha256Hex(raw)).userId(user.getId()).purpose(purpose)
                 .createdAt(now).expiresAt(expiresAt).build());
         return new IssuedChallenge(raw, expiresAt);
     }
 
     @Transactional(readOnly = true)
     public User userOfChallenge(String rawToken, MfaChallenge.Purpose purpose) {
-        return users.findById(requireChallenge(rawToken, purpose).getUserId())
-                .filter(user -> Boolean.TRUE.equals(user.getEnabled()))
-                .orElseThrow(() -> new MfaRequiredException("Sign in again"));
+        return enabledUser(requireChallenge(rawToken, purpose).getUserId());
     }
 
     /** Completes a VERIFY challenge with a TOTP or recovery code. Using a recovery code ends every other session. */
@@ -172,8 +176,7 @@ public class MfaService {
         rateLimiter.acquire(clientAddress);
         MfaChallenge challenge = requireChallenge(rawToken, MfaChallenge.Purpose.VERIFY);
         rateLimiter.acquire("user:" + challenge.getUserId());
-        User user = users.findById(challenge.getUserId()).filter(found -> Boolean.TRUE.equals(found.getEnabled()))
-                .orElseThrow(() -> new MfaRequiredException("Sign in again"));
+        User user = enabledUser(challenge.getUserId());
         UserMfa enrollment = enrollments.findById(user.getId()).filter(UserMfa::isConfirmed)
                 .orElseThrow(() -> new MfaRequiredException("Sign in again"));
         if (!accept(user, enrollment, code, true)) {
@@ -189,7 +192,7 @@ public class MfaService {
 
     @Transactional
     public void consumeChallenge(String rawToken) {
-        challenges.findByTokenHash(hash(rawToken == null ? "" : rawToken.trim())).ifPresent(challenge -> {
+        challenges.findByTokenHash(SecureTokens.sha256HexOfPresented(rawToken)).ifPresent(challenge -> {
             challenge.setUsedAt(clock.instant());
             challenges.save(challenge);
         });
@@ -238,14 +241,7 @@ public class MfaService {
 
     @Transactional(noRollbackFor = MfaRequiredException.class)
     public void disable(User user, String password, String code, String clientAddress) {
-        requireEnabled();
-        rateLimiter.acquire(clientAddress);
-        requirePassword(user, password);
-        UserMfa enrollment = enrollments.findById(user.getId()).filter(UserMfa::isConfirmed)
-                .orElseThrow(() -> new IllegalStateException("Two-factor authentication is not enabled"));
-        if (!accept(user, enrollment, code, false)) {
-            throw new MfaRequiredException("Invalid verification code");
-        }
+        UserMfa enrollment = requireReauthenticated(user, password, code, clientAddress);
         recoveryCodes.deleteAllByUserId(user.getId());
         enrollments.delete(enrollment);
         audit.record(user.getId(), user.getId(), SecurityAuditService.MFA_DISABLED, "Disabled by the user");
@@ -253,14 +249,7 @@ public class MfaService {
 
     @Transactional(noRollbackFor = MfaRequiredException.class)
     public List<String> regenerateRecoveryCodes(User user, String password, String code, String clientAddress) {
-        requireEnabled();
-        rateLimiter.acquire(clientAddress);
-        requirePassword(user, password);
-        UserMfa enrollment = enrollments.findById(user.getId()).filter(UserMfa::isConfirmed)
-                .orElseThrow(() -> new IllegalStateException("Two-factor authentication is not enabled"));
-        if (!accept(user, enrollment, code, false)) {
-            throw new MfaRequiredException("Invalid verification code");
-        }
+        requireReauthenticated(user, password, code, clientAddress);
         List<String> codes = replaceRecoveryCodes(user);
         audit.record(user.getId(), user.getId(), SecurityAuditService.MFA_RECOVERY_CODES_REGENERATED, codes.size() + " new recovery codes");
         return codes;
@@ -269,7 +258,7 @@ public class MfaService {
     /** SUPER_ADMIN removes a user's second factor (e.g. lost phone and codes). The user re-enrolls at the next sign-in. */
     @Transactional
     public void adminReset(User admin, Long targetUserId) {
-        if (admin.getRole() == null || !SystemRole.SUPER_ADMIN.authority().equals(admin.getRole().getName())) {
+        if (!SystemRole.SUPER_ADMIN.isHeldBy(admin)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can reset another user's second factor");
         }
         if (admin.getId() != null && admin.getId().equals(targetUserId)) {
@@ -303,7 +292,7 @@ public class MfaService {
             enrollments.save(enrollment);
             return true;
         }
-        Optional<MfaRecoveryCode> recovery = recoveryCodes.findByUserIdAndCodeHashAndUsedAtIsNull(user.getId(), hash(normalizeRecovery(normalized)));
+        Optional<MfaRecoveryCode> recovery = recoveryCodes.findByUserIdAndCodeHashAndUsedAtIsNull(user.getId(), recoveryHash(normalized));
         if (recovery.isEmpty()) {
             return false;
         }
@@ -318,23 +307,40 @@ public class MfaService {
 
     private List<String> replaceRecoveryCodes(User user) {
         recoveryCodes.deleteAllByUserId(user.getId());
-        List<String> codes = new ArrayList<>();
-        Set<String> hashes = new HashSet<>();
-        while (codes.size() < properties.getRecoveryCodeCount()) {
+        Map<String, String> codesByHash = new LinkedHashMap<>();
+        while (codesByHash.size() < properties.getRecoveryCodeCount()) {
             String code = randomRecoveryCode();
-            if (hashes.add(hash(normalizeRecovery(code)))) {
-                codes.add(code);
-            }
+            codesByHash.putIfAbsent(recoveryHash(code), code);
         }
         Instant now = clock.instant();
-        for (String code : codes) {
-            recoveryCodes.save(MfaRecoveryCode.builder().userId(user.getId()).codeHash(hash(normalizeRecovery(code))).createdAt(now).build());
+        codesByHash.keySet().forEach(codeHash ->
+                recoveryCodes.save(MfaRecoveryCode.builder().userId(user.getId()).codeHash(codeHash).createdAt(now).build()));
+        return List.copyOf(codesByHash.values());
+    }
+
+    /**
+     * Confirms a sensitive change by a signed-in user with the current password and a fresh code from the
+     * confirmed enrollment, which is returned.
+     */
+    private UserMfa requireReauthenticated(User user, String password, String code, String clientAddress) {
+        requireEnabled();
+        rateLimiter.acquire(clientAddress);
+        requirePassword(user, password);
+        UserMfa enrollment = enrollments.findById(user.getId()).filter(UserMfa::isConfirmed)
+                .orElseThrow(() -> new IllegalStateException("Two-factor authentication is not enabled"));
+        if (!accept(user, enrollment, code, false)) {
+            throw new MfaRequiredException("Invalid verification code");
         }
-        return codes;
+        return enrollment;
+    }
+
+    private User enabledUser(Long userId) {
+        return users.findById(userId).filter(user -> Boolean.TRUE.equals(user.getEnabled()))
+                .orElseThrow(() -> new MfaRequiredException("Sign in again"));
     }
 
     private MfaChallenge requireChallenge(String rawToken, MfaChallenge.Purpose purpose) {
-        return challenges.findByTokenHash(hash(rawToken == null ? "" : rawToken.trim()))
+        return challenges.findByTokenHash(SecureTokens.sha256HexOfPresented(rawToken))
                 .filter(challenge -> challenge.getPurpose() == purpose && challenge.isUsable(clock.instant(), properties.getMaxAttemptsPerChallenge()))
                 .orElseThrow(() -> new MfaRequiredException("Sign in again"));
     }
@@ -351,12 +357,6 @@ public class MfaService {
         }
     }
 
-    private static String randomToken() {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-    }
-
     private static String randomRecoveryCode() {
         StringBuilder code = new StringBuilder();
         for (int i = 0; i < RECOVERY_LENGTH; i++) {
@@ -368,17 +368,8 @@ public class MfaService {
         return code.toString();
     }
 
-    static String normalizeRecovery(String code) {
-        return code.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT);
-    }
-
-    static String hash(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
-        }
+    private static String recoveryHash(String code) {
+        return SecureTokens.sha256Hex(code.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT));
     }
 
     public record IssuedChallenge(String rawToken, Instant expiresAt) {}

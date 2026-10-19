@@ -164,11 +164,8 @@ public class HelpConversationController {
                                                @RequestParam(defaultValue = "false") boolean unread,
                                                @RequestParam(defaultValue = "LAST_MESSAGE") HelpConversationService.InboxSort sort,
                                                @RequestParam(required = false) String assignee) {
-        if (assignee != null && !assignee.isBlank() && !"me".equalsIgnoreCase(assignee.trim())) {
-            throw new IllegalArgumentException("assignee accepts only \"me\"");
-        }
         return help.inbox(new HelpConversationService.InboxQuery(HelpConversationService.statuses(status), organizationId, serviceId,
-                general, assignee != null && !assignee.isBlank(), unread, sort));
+                general, AssigneeParameter.me(assignee), unread, sort));
     }
 
     @GetMapping(value = "/inbox/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

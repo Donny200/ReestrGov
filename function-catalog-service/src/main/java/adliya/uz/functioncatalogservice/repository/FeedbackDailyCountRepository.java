@@ -24,6 +24,4 @@ public interface FeedbackDailyCountRepository extends JpaRepository<FeedbackDail
     @Modifying
     @Query("delete from FeedbackDailyCount d where d.activityDate < :cutoff")
     int deleteOlderThan(@Param("cutoff") LocalDate cutoff);
-
-    void deleteAllByFunctionId(Long functionId);
 }

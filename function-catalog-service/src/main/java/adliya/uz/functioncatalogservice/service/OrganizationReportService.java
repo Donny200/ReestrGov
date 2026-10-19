@@ -114,9 +114,10 @@ public class OrganizationReportService {
         Names names = names(labels);
         ReportingPeriod period = engagement.period(from, to);
         OrganizationSummary summary = summaries.summary(organizationId, categoryId, period.from(), period.to());
-        EngagementReport activity = engagement.report(organizationId, categoryId, period.from(), period.to(),
-                EngagementReport.Granularity.AUTO);
-        List<SubjectEngagement> subjects = engagement.subjects(organizationId, categoryId, period);
+        EngagementInsightsService.Activity engagementActivity = engagement.activity(organizationId, categoryId, period.from(),
+                period.to(), EngagementReport.Granularity.AUTO);
+        EngagementReport activity = engagementActivity.report();
+        List<SubjectEngagement> subjects = engagementActivity.subjects();
         FeedbackReport votes = feedback.report(organizationId, categoryId, period.from(), period.to());
         QualityQueue queue = quality.queue(organizationId, categoryId, null, null);
         boolean includeReports = access.canViewReports();

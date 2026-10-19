@@ -29,6 +29,7 @@ export const roleKeys = {
 export const languageKeys = {
   all: ['languages'] as const,
   list: () => [...languageKeys.all, 'list'] as const,
+  search: (query: string) => [...languageKeys.all, 'search', query] as const,
 };
 
 export const legacyUserKeys = {
@@ -47,10 +48,11 @@ export const functionKeys = {
   audit: (id: number) => [...functionKeys.all, 'audit', id] as const,
   categories: () => [...functionKeys.all, 'categories'] as const,
   capabilities: () => [...functionKeys.all, 'capabilities'] as const,
-  publicList: (query: FunctionQuery) => [...functionKeys.all, 'public', query] as const,
-  publicDetail: (id: number) => [...functionKeys.all, 'public-detail', id] as const,
+  public: () => [...functionKeys.all, 'public'] as const,
+  publicList: (query: FunctionQuery) => [...functionKeys.public(), 'list', query] as const,
+  publicDetail: (id: number) => [...functionKeys.public(), 'detail', id] as const,
+  publicHistory: (id: number) => [...functionKeys.public(), 'history', id] as const,
   options: (global: boolean, userId: number | null) => [...functionKeys.all, 'options', global, userId] as const,
-  publicHistory: (id: number) => [...functionKeys.all, 'public-history', id] as const,
   assigneeCandidates: (id: number) => [...functionKeys.all, 'assignee-candidates', id] as const,
 };
 
@@ -65,18 +67,23 @@ export const helpKeys = {
   all: ['help'] as const,
   thread: () => [...helpKeys.all, 'thread'] as const,
   unread: () => [...helpKeys.all, 'unread'] as const,
-  inbox: (query: HelpInboxQuery) => [...helpKeys.all, 'inbox', query] as const,
+  inboxes: () => [...helpKeys.all, 'inbox'] as const,
+  inbox: (query: HelpInboxQuery) => [...helpKeys.inboxes(), query] as const,
   inboxUnread: () => [...helpKeys.all, 'inbox-unread'] as const,
-  detail: (id: number) => [...helpKeys.all, 'detail', id] as const,
+  details: () => [...helpKeys.all, 'detail'] as const,
+  detail: (id: number) => [...helpKeys.details(), id] as const,
   candidates: (id: number) => [...helpKeys.all, 'candidates', id] as const,
 };
 
 export const appointmentKeys = {
   all: ['appointments'] as const,
-  availability: (serviceId: number, from: string | undefined) => [...appointmentKeys.all, 'availability', serviceId, from ?? ''] as const,
+  availabilities: () => [...appointmentKeys.all, 'availability'] as const,
+  availability: (serviceId: number, from: string | undefined) => [...appointmentKeys.availabilities(), serviceId, from ?? ''] as const,
   visitor: (reference: string) => [...appointmentKeys.all, 'visitor', reference] as const,
-  reschedule: (reference: string, from: string | undefined) => [...appointmentKeys.all, 'reschedule', reference, from ?? ''] as const,
-  staff: (query: StaffAppointmentQuery) => [...appointmentKeys.all, 'staff', query] as const,
+  reschedules: (reference: string) => [...appointmentKeys.all, 'reschedule', reference] as const,
+  reschedule: (reference: string, from: string | undefined) => [...appointmentKeys.reschedules(reference), from ?? ''] as const,
+  staffLists: () => [...appointmentKeys.all, 'staff'] as const,
+  staff: (query: StaffAppointmentQuery) => [...appointmentKeys.staffLists(), query] as const,
   schedule: (organizationId: number) => [...appointmentKeys.all, 'schedule', organizationId] as const,
 };
 
@@ -98,6 +105,6 @@ export const authKeys = {
   all: ['auth'] as const,
   mfa: () => [...authKeys.all, 'mfa'] as const,
   sessions: () => [...authKeys.all, 'sessions'] as const,
+  passwordResetOptions: () => [...authKeys.all, 'password-reset-options'] as const,
   userSessions: (id: number) => [...authKeys.all, 'user-sessions', id] as const,
-  userMfa: (id: number) => [...authKeys.all, 'user-mfa', id] as const,
 };

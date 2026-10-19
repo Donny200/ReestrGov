@@ -2,7 +2,6 @@ package adliya.uz.functioncatalogservice.service;
 
 import adliya.uz.functioncatalogservice.config.ReportProperties;
 import adliya.uz.functioncatalogservice.dto.SubmitReportRequest;
-import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.InformationReport;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.ReportCategory;
@@ -18,8 +17,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +24,6 @@ public class ReportSubmissionService {
 
     private static final Duration DEDUPLICATION_WINDOW = Duration.ofDays(1);
     private static final int MIN_DESCRIPTION_LENGTH = 10;
-    private static final int MAX_LINKS = 3;
     private static final int LABEL_MAX_LENGTH = 150;
 
     private final ReportRateLimiter rateLimiter;
@@ -80,12 +76,12 @@ public class ReportSubmissionService {
         InformationReport report = reports.save(InformationReport.builder()
                 .entityType(type)
                 .entityId(entityId)
-                .entityLabel(truncate(target.label()))
+                .entityLabel(TextValues.truncate(target.label(), LABEL_MAX_LENGTH))
                 .organizationId(target.organizationId())
                 .category(category)
                 .description(description)
-                .contact(blankToNull(contact))
-                .language(normalizedLanguage(language))
+                .contact(contact == null || contact.isBlank() ? null : contact.trim())
+                .language(TextValues.language(language))
                 .status(ReportStatus.NEW)
                 .createdAt(now)
                 .updatedAt(now)
@@ -96,8 +92,7 @@ public class ReportSubmissionService {
 
     private Target resolve(ReportEntityType type, Long id) {
         if (type == ReportEntityType.FUNCTION) {
-            OrgFunction function = functions.findByIdAndStatus(id, FunctionStatus.PUBLISHED)
-                    .orElseThrow(() -> new NoSuchElementException("Service not found: " + id));
+            OrgFunction function = functions.requirePublished(id);
             return new Target(function.getName(), function.getOrganizationId());
         }
         IdentityOrganizationClient.PublicOrganization organization = organizations.requirePublic(id);
@@ -109,23 +104,10 @@ public class ReportSubmissionService {
         if (!VisitorText.meaningful(value, MIN_DESCRIPTION_LENGTH)) {
             throw new IllegalArgumentException("Describe the problem in at least " + MIN_DESCRIPTION_LENGTH + " characters");
         }
-        if (VisitorText.links(value) > MAX_LINKS) {
-            throw new IllegalArgumentException("A report may contain at most " + MAX_LINKS + " links");
+        if (VisitorText.links(value) > VisitorText.MAX_LINKS) {
+            throw new IllegalArgumentException("A report may contain at most " + VisitorText.MAX_LINKS + " links");
         }
         return value;
-    }
-
-    private static String normalizedLanguage(String value) {
-        String language = blankToNull(value);
-        return language == null ? null : language.toLowerCase(Locale.ROOT);
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private static String truncate(String value) {
-        return value.length() <= LABEL_MAX_LENGTH ? value : value.substring(0, LABEL_MAX_LENGTH);
     }
 
     private record Target(String label, Long organizationId) {}

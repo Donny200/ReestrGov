@@ -27,8 +27,8 @@ function Box() {
  */
 export function VisitSheet({ record, organization, appointment, publicBaseUrl }: VisitSheetProps) {
   const { t, locale } = useI18n();
-  const name = localizedText(record.name, record.nameTranslations, locale) ?? record.name;
-  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale) ?? organization.name
+  const name = localizedText(record.name, record.nameTranslations, locale);
+  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale)
     : appointment?.organizationName ?? null;
   const description = localizedText(record.description, record.descriptionTranslations, locale);
   const value = (field: Parameters<typeof localizedInstruction>[1]) => localizedInstruction(record, field, locale);

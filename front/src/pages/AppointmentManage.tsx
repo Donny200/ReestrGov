@@ -63,9 +63,9 @@ export function AppointmentManage() {
 
   const data = appointment.data;
   const organization = organizations.data?.find((item) => item.id === data?.organizationId);
-  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale) ?? organization.name
-    : data?.organizationName ? localizedText(data.organizationName, data.organizationNameTranslations ?? undefined, locale) ?? data.organizationName : null;
-  const serviceName = data ? localizedText(data.serviceName, data.serviceNameTranslations ?? undefined, locale) ?? data.serviceName : '';
+  const organizationName = organization ? localizedText(organization.name, organization.nameTranslations, locale)
+    : data?.organizationName ? localizedText(data.organizationName, data.organizationNameTranslations, locale) : null;
+  const serviceName = data ? localizedText(data.serviceName, data.serviceNameTranslations, locale) : '';
   const contact = organization?.contact ?? data?.organizationContact ?? null;
 
   const copyLink = async () => {

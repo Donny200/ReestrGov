@@ -12,9 +12,9 @@ import adliya.uz.functioncatalogservice.entity.EngagementEventType;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.repository.EngagementDailyCountRepository;
 import adliya.uz.functioncatalogservice.repository.EngagementStatistics.DailyCount;
-import adliya.uz.functioncatalogservice.repository.EngagementStatistics.Filter;
 import adliya.uz.functioncatalogservice.repository.EngagementStatistics.SubjectCount;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
+import adliya.uz.functioncatalogservice.repository.StatisticsFilter;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import adliya.uz.functioncatalogservice.security.OrganizationScope;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,24 +53,29 @@ public class EngagementInsightsService {
     }
 
     public EngagementReport report(Long organizationId, Long categoryId, LocalDate from, LocalDate to, Granularity granularity) {
+        return activity(organizationId, categoryId, from, to, granularity).report();
+    }
+
+    /** The report together with every subject of the period, most viewed first, so the subjects are queried once. */
+    public Activity activity(Long organizationId, Long categoryId, LocalDate from, LocalDate to, Granularity granularity) {
         OrganizationScope scope = access.scope(organizationId);
         ReportingPeriod period = period(from, to);
         ReportingPeriod previous = period.previous();
         Granularity effective = effective(granularity, period);
-        Filter filter = new Filter(scope, categoryId);
+        StatisticsFilter filter = new StatisticsFilter(scope, categoryId);
         if (scope.empty()) {
-            return new EngagementReport(periodInfo(period), effective, complete(Map.of()), complete(Map.of()),
-                    series(List.of(), period, effective), List.of());
+            return new Activity(new EngagementReport(periodInfo(period), effective, complete(Map.of()), complete(Map.of()),
+                    series(List.of(), period, effective), List.of()), List.of());
         }
-        List<SubjectEngagement> top = subjects(filter, period).stream()
+        List<SubjectEngagement> subjects = subjects(filter, period).stream().sorted(MOST_VIEWED).toList();
+        List<SubjectEngagement> top = subjects.stream()
                 .filter(item -> item.subject() == SubjectType.SERVICE)
-                .sorted(MOST_VIEWED)
                 .limit(TOP_SERVICES)
                 .toList();
-        return new EngagementReport(periodInfo(period), effective,
+        return new Activity(new EngagementReport(periodInfo(period), effective,
                 complete(counts.totals(filter, period.from(), period.to())),
                 complete(counts.totals(filter, previous.from(), previous.to())),
-                series(counts.daily(filter, period.from(), period.to()), period, effective), top);
+                series(counts.daily(filter, period.from(), period.to()), period, effective), top), subjects);
     }
 
     public List<SubjectEngagement> subjects(Long organizationId, Long categoryId, ReportingPeriod period) {
@@ -79,12 +83,12 @@ public class EngagementInsightsService {
         if (scope.empty()) {
             return List.of();
         }
-        return subjects(new Filter(scope, categoryId), period).stream().sorted(MOST_VIEWED).toList();
+        return subjects(new StatisticsFilter(scope, categoryId), period).stream().sorted(MOST_VIEWED).toList();
     }
 
     public List<SeriesPoint> daily(Long organizationId, Long categoryId, ReportingPeriod period) {
         OrganizationScope scope = access.scope(organizationId);
-        List<DailyCount> rows = scope.empty() ? List.of() : counts.daily(new Filter(scope, categoryId), period.from(), period.to());
+        List<DailyCount> rows = scope.empty() ? List.of() : counts.daily(new StatisticsFilter(scope, categoryId), period.from(), period.to());
         return series(rows, period, Granularity.DAY);
     }
 
@@ -94,15 +98,14 @@ public class EngagementInsightsService {
         return counts.deleteOlderThan(cutoff);
     }
 
-    private List<SubjectEngagement> subjects(Filter filter, ReportingPeriod period) {
+    private List<SubjectEngagement> subjects(StatisticsFilter filter, ReportingPeriod period) {
         Map<SubjectKey, Map<EngagementEventType, Long>> grouped = new LinkedHashMap<>();
         for (SubjectCount row : counts.bySubject(filter, period.from(), period.to())) {
             grouped.computeIfAbsent(new SubjectKey(row.functionId(), row.organizationId()), key -> new EnumMap<>(EngagementEventType.class))
                     .merge(row.type(), row.count(), Long::sum);
         }
         Set<Long> functionIds = grouped.keySet().stream().map(SubjectKey::functionId).filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Long, OrgFunction> cards = functions.findAllById(functionIds).stream()
-                .collect(Collectors.toMap(OrgFunction::getId, Function.identity()));
+        Map<Long, OrgFunction> cards = functions.mapById(functionIds);
         return grouped.entrySet().stream().map(entry -> subject(entry.getKey(), cards.get(entry.getKey().functionId()),
                 complete(entry.getValue()))).toList();
     }
@@ -163,6 +166,8 @@ public class EngagementInsightsService {
         }
         return result;
     }
+
+    public record Activity(EngagementReport report, List<SubjectEngagement> subjects) {}
 
     private record SubjectKey(Long functionId, Long organizationId) {}
 }

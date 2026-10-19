@@ -18,16 +18,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/functions")
 @RequiredArgsConstructor
 public class FunctionAutoTranslationController {
+    static final String TRANSLATION_EDITOR = "hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')";
+
     private final FunctionAutoTranslationService service;
     private final MachineTranslationQueue queue;
 
     @GetMapping("/translation-capabilities")
-    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
+    @PreAuthorize(TRANSLATION_EDITOR)
     public Capabilities capabilities() { return new Capabilities(service.available(), queue.automatic()); }
 
     /** Immediate translation on request; the background queue covers the same content without a click. */
     @PostMapping("/{id}/translate")
-    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
+    @PreAuthorize(TRANSLATION_EDITOR)
     public OrgFunctionResponse translate(@PathVariable Long id, @Valid @RequestBody AutoTranslateRequest request) {
         OrgFunction function = service.translate(id, request);
         return OrgFunctionResponse.from(function).withMachineTranslation(queue.summary(function));
@@ -35,14 +37,14 @@ public class FunctionAutoTranslationController {
 
     /** Puts the card back on the background queue (after a failure or a skipped run). */
     @PostMapping("/{id}/translation-job")
-    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
+    @PreAuthorize(TRANSLATION_EDITOR)
     public ResponseEntity<MachineTranslationSummary> retry(@PathVariable Long id) {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(queue.retry(id));
     }
 
     /** Bounded, idempotent backfill of drafts that lack translations in an active language; org-scoped. */
     @PostMapping("/translations/backfill")
-    @PreAuthorize("hasAuthority('FUNCTIONS_EDIT') and hasAuthority('FUNCTIONS_TRANSLATIONS_EDIT')")
+    @PreAuthorize(TRANSLATION_EDITOR)
     public ResponseEntity<TranslationBackfillResponse> backfill(@RequestParam(required = false) Long organizationId,
                                                                  @RequestParam(required = false) Integer limit) {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(queue.backfill(organizationId, limit));

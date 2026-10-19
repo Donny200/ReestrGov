@@ -4,13 +4,12 @@ import adliya.uz.functioncatalogservice.config.AnalyticsProperties;
 import adliya.uz.functioncatalogservice.dto.FeedbackReport;
 import adliya.uz.functioncatalogservice.dto.FeedbackVoteRequest;
 import adliya.uz.functioncatalogservice.dto.ReportingPeriod;
-import adliya.uz.functioncatalogservice.entity.FunctionStatus;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.repository.FeedbackDailyCountRepository;
-import adliya.uz.functioncatalogservice.repository.FeedbackStatistics.Filter;
 import adliya.uz.functioncatalogservice.repository.FeedbackStatistics.ServiceTotals;
 import adliya.uz.functioncatalogservice.repository.FeedbackStatistics.Totals;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
+import adliya.uz.functioncatalogservice.repository.StatisticsFilter;
 import adliya.uz.functioncatalogservice.security.CatalogAccess;
 import adliya.uz.functioncatalogservice.security.OrganizationScope;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +20,8 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -54,8 +51,7 @@ public class FeedbackService {
             return false;
         }
         rateLimiter.acquire(clientAddress);
-        OrgFunction function = functions.findByIdAndStatus(request.serviceId(), FunctionStatus.PUBLISHED)
-                .orElseThrow(() -> new NoSuchElementException("Service not found: " + request.serviceId()));
+        OrgFunction function = functions.requirePublished(request.serviceId());
         boolean helpful = Boolean.TRUE.equals(request.helpful());
         counts.increment(LocalDate.now(properties.getZone()), function.getId(), function.getOrganizationId(), helpful ? 1 : 0, helpful ? 0 : 1);
         return true;
@@ -68,12 +64,12 @@ public class FeedbackService {
         if (scope.empty()) {
             return new FeedbackReport(engagement.periodInfo(period), FeedbackReport.Totals.of(0, 0), FeedbackReport.Totals.of(0, 0), List.of());
         }
-        Filter filter = new Filter(scope, categoryId);
+        StatisticsFilter filter = new StatisticsFilter(scope, categoryId);
         Totals current = counts.totals(filter, period.from(), period.to());
         Totals previous = counts.totals(filter, period.previous().from(), period.previous().to());
         List<ServiceTotals> rows = counts.byService(filter, period.from(), period.to());
         Set<Long> ids = rows.stream().map(ServiceTotals::functionId).filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Long, OrgFunction> cards = functions.findAllById(ids).stream().collect(Collectors.toMap(OrgFunction::getId, Function.identity()));
+        Map<Long, OrgFunction> cards = functions.mapById(ids);
         List<FeedbackReport.ServiceFeedback> services = rows.stream().map(row -> {
             OrgFunction card = cards.get(row.functionId());
             return new FeedbackReport.ServiceFeedback(row.functionId(), card == null ? null : card.getName(),

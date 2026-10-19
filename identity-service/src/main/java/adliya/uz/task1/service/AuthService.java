@@ -2,7 +2,6 @@ package adliya.uz.task1.service;
 
 import adliya.uz.task1.dto.ChangePasswordRequest;
 import adliya.uz.task1.dto.LoginRequest;
-import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,11 +25,6 @@ public class AuthService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         return userService.getByEmail(request.getEmail());
-    }
-
-    @Transactional(readOnly = true)
-    public UserResponse getCurrentUser() {
-        return UserResponse.from(userService.getCurrentUser());
     }
 
     @Transactional(readOnly = true)

@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,8 +49,6 @@ public class PasswordResetController {
     }
 
     private String clientAddress(HttpServletRequest request) {
-        String header = properties.getClientAddressHeader();
-        String forwarded = StringUtils.hasText(header) ? request.getHeader(header) : null;
-        return StringUtils.hasText(forwarded) ? forwarded.trim() : request.getRemoteAddr();
+        return ClientAddresses.of(request, properties.getClientAddressHeader());
     }
 }

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { StatusPill, type StatusTone } from '../../components/ui/Badge';
@@ -19,6 +18,8 @@ import { ScheduleEditor } from '../../features/appointments/ScheduleEditor';
 import { parseId, useScopeOptions } from '../../features/analytics/scope';
 import type { AppointmentStatus, StaffAppointment } from '../../types/appointments';
 import { errorMessage } from '../../utils/errors';
+import { addDays } from '../../utils/format';
+import { usePatchSearchParams } from '../../hooks/usePatchSearchParams';
 
 const STATUSES: AppointmentStatus[] = ['BOOKED', 'CANCELLED', 'ATTENDED', 'NO_SHOW'];
 const tones: Record<AppointmentStatus, StatusTone> = { BOOKED: 'published', CANCELLED: 'danger', ATTENDED: 'draft', NO_SHOW: 'pending' };
@@ -28,22 +29,17 @@ function today() {
   return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
-function plusDays(date: string, days: number) {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
-}
-
 /** Bookings and availability of the caller's organizations; the backend limits both to their organizations. */
 export function Appointments() {
   const { t, locale } = useI18n();
   const { user, hasPermission } = useAuth();
   const scope = useScopeOptions();
-  const [params, setParams] = useSearchParams();
+  const [params, set] = usePatchSearchParams();
   const tab = params.get('tab') === 'availability' ? 'availability' : 'bookings';
   const canManage = hasPermission(APPOINTMENT_MANAGE_PERMISSION);
   const organizationId = parseId(params.get('organization'));
   const [from, setFrom] = useState(today());
-  const [to, setTo] = useState(plusDays(today(), 14));
+  const [to, setTo] = useState(addDays(today(), 14));
   const [status, setStatus] = useState<AppointmentStatus | ''>('');
   const bookings = useStaffAppointments({ organizationId, from, to, status: status || undefined }, tab === 'bookings');
   const changeStatus = useStaffAppointmentStatus();
@@ -52,12 +48,6 @@ export function Appointments() {
   // The availability editor needs one organization: the chosen one, else the first the user can manage.
   const scheduleOrganization = organizationId ?? (ownOrganizations[0] ? Number(ownOrganizations[0].value) : user?.organizationIds[0] ?? null);
   const schedule = useSchedule(tab === 'availability' ? scheduleOrganization : null);
-
-  const set = (changes: Record<string, string>) => setParams((current) => {
-    const next = new URLSearchParams(current);
-    Object.entries(changes).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
-    return next;
-  }, { replace: true });
 
   const grouped = useMemo(() => {
     const map = new Map<string, StaffAppointment[]>();

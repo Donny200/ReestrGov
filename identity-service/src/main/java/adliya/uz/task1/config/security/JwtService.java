@@ -4,6 +4,7 @@ import adliya.uz.task1.entity.Organization;
 import adliya.uz.task1.entity.Permission;
 import adliya.uz.task1.entity.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
@@ -22,14 +23,16 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class JwtService {
 
-    public static final String SESSION_CLAIM = "sid";
+    private static final String SESSION_CLAIM = "sid";
 
     private final JwtProperties jwtProperties;
     private SecretKey secretKey;
+    private JwtParser parser;
 
     @PostConstruct
     public void init() {
         secretKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+        parser = Jwts.parser().verifyWith(secretKey).build();
     }
 
     public String generateToken(User user) {
@@ -64,28 +67,36 @@ public class JwtService {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> resolver) {
-        Claims claims = extractAllClaims(token);
-        return resolver.apply(claims);
+        return resolver.apply(extractAllClaims(token));
     }
 
+    /** Parses and verifies the token once; callers that need several claims should reuse the result. */
     public Claims extractAllClaims(String token) {
-        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
+        return parser.parseSignedClaims(token).getPayload();
+    }
+
+    public static String sessionId(Claims claims) {
+        return claims.get(SESSION_CLAIM, String.class);
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token) && !issuedBeforeCredentialsChange(token, userDetails);
+        return isTokenValid(extractAllClaims(token), userDetails);
+    }
+
+    public boolean isTokenValid(Claims claims, UserDetails userDetails) {
+        return claims.getSubject().equals(userDetails.getUsername()) && !isExpired(claims)
+                && !issuedBeforeCredentialsChange(claims, userDetails);
     }
 
     /**
      * A password change or reset invalidates every access token issued before it. JWT timestamps have second
      * precision, so a token issued within the same second as the change is still accepted.
      */
-    private boolean issuedBeforeCredentialsChange(String token, UserDetails userDetails) {
+    private static boolean issuedBeforeCredentialsChange(Claims claims, UserDetails userDetails) {
         if (!(userDetails instanceof CustomUserPrincipal principal) || principal.credentialsUpdatedAt() == null) {
             return false;
         }
-        Date issuedAt = extractClaim(token, Claims::getIssuedAt);
+        Date issuedAt = claims.getIssuedAt();
         if (issuedAt == null) {
             return true;
         }
@@ -93,7 +104,7 @@ public class JwtService {
         return !lastAccepted.isAfter(principal.credentialsUpdatedAt());
     }
 
-    public boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration).before(new Date());
+    private static boolean isExpired(Claims claims) {
+        return claims.getExpiration().before(new Date());
     }
 }

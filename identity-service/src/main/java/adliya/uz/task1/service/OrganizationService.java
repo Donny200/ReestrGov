@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,6 +32,7 @@ public class OrganizationService {
     private static final String ORGANIZATIONS_EDIT_OWN = "ORGANIZATIONS_EDIT_OWN";
     private static final String ORGANIZATIONS_DEACTIVATE = "ORGANIZATIONS_DEACTIVATE";
     private static final String ORGANIZATIONS_REACTIVATE = "ORGANIZATIONS_REACTIVATE";
+    private static final String FUNCTIONS_MANAGE_ANY_ORGANIZATION = "FUNCTIONS_MANAGE_ANY_ORGANIZATION";
     private static final Set<String> STAFF_ROLES = Set.of(
             SystemRole.ORG_ADMIN.authority(), SystemRole.MODERATOR.authority());
 
@@ -138,10 +138,8 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public List<User> activeMembers(Long organizationId) {
         User current = requireEnabledUser();
-        boolean global = SystemRole.SUPER_ADMIN.authority().equals(current.getRole().getName())
-                || hasPermission(current, "FUNCTIONS_MANAGE_ANY_ORGANIZATION");
-        boolean own = current.getOrganizations().stream().map(Organization::getId).anyMatch(organizationId::equals);
-        if (!global && !own) {
+        boolean global = SystemRole.SUPER_ADMIN.isHeldBy(current) || hasPermission(current, FUNCTIONS_MANAGE_ANY_ORGANIZATION);
+        if (!global && !belongsTo(current, organizationId)) {
             throw new AccessDeniedException("You can only view staff of your own organization(s)");
         }
         Organization organization = getById(organizationId);
@@ -169,11 +167,7 @@ public class OrganizationService {
         if (hasPermission(current, ORGANIZATIONS_EDIT)) {
             return current;
         }
-        boolean canEditOwn = hasPermission(current, ORGANIZATIONS_EDIT_OWN)
-                && current.getOrganizations().stream()
-                .map(Organization::getId)
-                .anyMatch(organizationId::equals);
-        if (!canEditOwn) {
+        if (!hasPermission(current, ORGANIZATIONS_EDIT_OWN) || !belongsTo(current, organizationId)) {
             throw new AccessDeniedException("You can only edit your own organization");
         }
         return current;
@@ -213,6 +207,10 @@ public class OrganizationService {
             throw new AccessDeniedException("An enabled user with an assigned role is required");
         }
         return current;
+    }
+
+    private static boolean belongsTo(User user, Long organizationId) {
+        return user.getOrganizations().stream().map(Organization::getId).anyMatch(organizationId::equals);
     }
 
     private static boolean hasPermission(User user, String permissionCode) {

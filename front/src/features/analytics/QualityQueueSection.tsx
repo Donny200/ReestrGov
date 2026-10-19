@@ -10,7 +10,7 @@ import { Select } from '../../components/ui/Select';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { exportQualityQueue } from '../../services/analyticsService';
-import { FUNCTION_STATUSES, statusLabels, type FunctionStatus } from '../../types/adminFunctions';
+import { FUNCTION_STATUSES, functionStatusLabel, type FunctionStatus } from '../../types/adminFunctions';
 import { QUALITY_ISSUE_TYPES, type QualityIssueType, type QualityQueueItem } from '../../types/analytics';
 import { formatDate } from '../../utils/format';
 import { localizedText } from '../../utils/translations';
@@ -55,7 +55,7 @@ export const QualityQueueSection = forwardRef<HTMLDivElement, QualityQueueSectio
           return (
             <div className="min-w-0 max-w-sm">
               <span className="block font-medium text-foreground wrap-anywhere">
-                {localizedText(item.name, item.nameTranslations ?? undefined, locale) ?? item.name}
+                {localizedText(item.name, item.nameTranslations, locale)}
               </span>
               <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-secondary">
                 <FunctionStatusBadge status={item.status} />
@@ -143,7 +143,7 @@ export const QualityQueueSection = forwardRef<HTMLDivElement, QualityQueueSectio
               { value: '', label: `${t('field.status')} · ${t('status.all')}` },
               ...FUNCTION_STATUSES.filter((value) => value !== 'DEACTIVATED').map((value) => ({
                 value,
-                label: t(`fnAdmin.status.${value}`, statusLabels[value]),
+                label: functionStatusLabel(value, t),
               })),
             ]}
           />

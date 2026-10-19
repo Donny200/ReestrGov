@@ -13,13 +13,9 @@ import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.ColumnText;
 import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfName;
-import com.lowagie.text.pdf.PdfString;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfPageEventHelper;
 import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 
@@ -49,11 +45,8 @@ public final class PdfReportWriter {
         Document pdf = new Document(PageSize.A4.rotate(), 36, 36, 40, 48);
         try {
             PdfWriter writer = PdfWriter.getInstance(pdf, out);
-            writer.setPageEvent(new Footer(document.title() + " · " + document.labels().generated() + " "
-                    + formats.dateTime(document.generatedAt()), document.labels().page()));
-            pdf.addTitle(document.title());
-            pdf.addCreator("ReestrGov");
-            writer.getExtraCatalog().put(PdfName.LANG, new PdfString(document.locale().toLanguageTag()));
+            PdfSupport.prepare(pdf, writer, document.title(), document.locale(), new PdfSupport.Footer(document.title() + " · "
+                    + document.labels().generated() + " " + formats.dateTime(document.generatedAt()), document.labels().page(), 22, 7));
             pdf.open();
 
             Paragraph title = new Paragraph(document.title(), PdfFonts.bold(18));
@@ -61,7 +54,7 @@ public final class PdfReportWriter {
             pdf.add(title);
             pdf.add(facts(document));
             for (String note : document.notes()) {
-                pdf.add(paragraph(note, PdfFonts.regular(8.5f, PdfFonts.MUTED), 4));
+                pdf.add(PdfSupport.paragraph(note, PdfFonts.regular(8.5f, PdfFonts.MUTED), 4));
             }
             for (Section section : document.sections()) {
                 section(pdf, writer, section, document, formats);
@@ -93,10 +86,10 @@ public final class PdfReportWriter {
         heading.setSpacingAfter(4);
         pdf.add(heading);
         if (section.note() != null) {
-            pdf.add(paragraph(section.note(), PdfFonts.regular(8.5f, PdfFonts.MUTED), 4));
+            pdf.add(PdfSupport.paragraph(section.note(), PdfFonts.regular(8.5f, PdfFonts.MUTED), 4));
         }
         if (section.empty()) {
-            pdf.add(paragraph(document.labels().empty(), PdfFonts.regular(9.5f, PdfFonts.MUTED), 4));
+            pdf.add(PdfSupport.paragraph(document.labels().empty(), PdfFonts.regular(9.5f, PdfFonts.MUTED), 4));
             return;
         }
         if (section.chart() != null && section.chart().values().stream().anyMatch(value -> value > 0)) {
@@ -111,12 +104,12 @@ public final class PdfReportWriter {
                 pdf.add(subtitle);
             }
             if (table.rows().isEmpty()) {
-                pdf.add(paragraph(document.labels().empty(), PdfFonts.regular(9, PdfFonts.MUTED), 2));
+                pdf.add(PdfSupport.paragraph(document.labels().empty(), PdfFonts.regular(9, PdfFonts.MUTED), 2));
                 continue;
             }
             pdf.add(table(table, formats));
             if (table.rows().size() > ROW_LIMIT) {
-                pdf.add(paragraph(document.labels().rowLimit().replace("{count}", formats.integer(ROW_LIMIT)),
+                pdf.add(PdfSupport.paragraph(document.labels().rowLimit().replace("{count}", formats.integer(ROW_LIMIT)),
                         PdfFonts.regular(8.5f, PdfFonts.MUTED), 2));
             }
         }
@@ -230,12 +223,6 @@ public final class PdfReportWriter {
         return cell;
     }
 
-    private static Paragraph paragraph(String text, Font font, float after) {
-        Paragraph paragraph = new Paragraph(text, font);
-        paragraph.setSpacingAfter(after);
-        return paragraph;
-    }
-
     /** Locale-aware cell text for the PDF (Excel keeps typed values instead). */
     static final class Formats {
         private final ReportDocument document;
@@ -262,12 +249,12 @@ public final class PdfReportWriter {
             if (value instanceof Number number) {
                 if (column.kind() == ReportDocument.Kind.PERCENT) {
                     double percent = number.doubleValue() * 100;
-                    return (percent > 0 ? "+" : "") + spaces(percents.format(percent)) + "%";
+                    return (percent > 0 ? "+" : "") + PdfSupport.spaces(percents.format(percent)) + "%";
                 }
                 return integer(number.longValue());
             }
             if (value instanceof LocalDate date) {
-                return spaces(dates.format(date));
+                return PdfSupport.spaces(dates.format(date));
             }
             if (value instanceof Instant instant) {
                 return dateTime(instant);
@@ -276,37 +263,11 @@ public final class PdfReportWriter {
         }
 
         String integer(long value) {
-            return spaces(integers.format(value));
+            return PdfSupport.spaces(integers.format(value));
         }
 
         String dateTime(Instant instant) {
-            return spaces(dateTimes.format(instant.atZone(document.zone())));
-        }
-
-        /** Locale formats may use narrow/no-break spaces; plain spaces always exist in the embedded font. */
-        private static String spaces(String text) {
-            return text.replace(' ', ' ').replace(' ', ' ');
-        }
-    }
-
-    private static final class Footer extends PdfPageEventHelper {
-        private final String text;
-        private final String page;
-
-        Footer(String text, String page) {
-            this.text = text;
-            this.page = page;
-        }
-
-        @Override
-        public void onEndPage(PdfWriter writer, Document document) {
-            PdfContentByte canvas = writer.getDirectContent();
-            float y = document.bottomMargin() - 22;
-            ColumnText.showTextAligned(canvas, Element.ALIGN_LEFT, new Phrase(text, PdfFonts.regular(7, PdfFonts.MUTED)),
-                    document.leftMargin(), y, 0);
-            ColumnText.showTextAligned(canvas, Element.ALIGN_RIGHT,
-                    new Phrase(page + " " + writer.getPageNumber(), PdfFonts.regular(7, PdfFonts.MUTED)),
-                    document.getPageSize().getWidth() - document.rightMargin(), y, 0);
+            return PdfSupport.spaces(dateTimes.format(instant.atZone(document.zone())));
         }
     }
 }

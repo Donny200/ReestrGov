@@ -30,7 +30,7 @@ export function useScopeOptions() {
       { value: '', label: t('analytics.allCategories', 'All categories') },
       ...(options.data?.categories ?? []).map((category) => ({
         value: String(category.id),
-        label: localizedText(category.name, category.nameTranslations, locale) ?? category.name,
+        label: localizedText(category.name, category.nameTranslations, locale),
       })),
     ],
     [options.data, t, locale],

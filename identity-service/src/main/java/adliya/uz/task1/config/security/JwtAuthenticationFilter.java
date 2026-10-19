@@ -1,8 +1,8 @@
 package adliya.uz.task1.config.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import adliya.uz.task1.service.SessionService;
@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor
@@ -31,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        String token = accessToken(request);
+        String token = SessionCookies.cookie(request, cookieProperties.getAccessTokenName());
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             authenticate(token, request);
         }
@@ -40,12 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
-            String email = jwtService.extractUsername(token);
+            Claims claims = jwtService.extractAllClaims(token);
+            String email = claims.getSubject();
             if (email == null) {
                 return;
             }
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-            if (jwtService.isTokenValid(token, userDetails) && userDetails.isEnabled() && sessionAlive(token)) {
+            if (jwtService.isTokenValid(claims, userDetails) && userDetails.isEnabled() && sessionAlive(claims)) {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -58,20 +58,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /** Tokens bound to a session are rejected as soon as that session was revoked; restricted tokens carry no session. */
-    private boolean sessionAlive(String token) {
-        String sessionId = jwtService.extractClaim(token, claims -> claims.get(JwtService.SESSION_CLAIM, String.class));
+    private boolean sessionAlive(Claims claims) {
+        String sessionId = JwtService.sessionId(claims);
         return sessionId == null || sessionService.isActive(sessionId);
-    }
-
-    private String accessToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return null;
-        }
-        return Arrays.stream(cookies)
-                .filter(cookie -> cookieProperties.getAccessTokenName().equals(cookie.getName()))
-                .map(Cookie::getValue)
-                .findFirst()
-                .orElse(null);
     }
 }

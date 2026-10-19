@@ -1,5 +1,5 @@
 import type { CatalogFunction, FunctionQuery, PublicChange, UpdateFunctionRequirementsRequest } from '../types/api';
-import { apiRequest } from './http';
+import { apiRequest, SESSIONLESS } from './http';
 
 export function getFunctions(query: FunctionQuery = {}): Promise<CatalogFunction[]> {
   return apiRequest<CatalogFunction[]>('/api/functions', {
@@ -13,7 +13,7 @@ export function getFunction(id: number): Promise<CatalogFunction> {
 
 /** Public history of approved publications; 404 for anything that is not published. */
 export function getFunctionHistory(id: number): Promise<PublicChange[]> {
-  return apiRequest<PublicChange[]>(`/api/functions/${id}/history`, { skipRefresh: true, skipUnauthorizedHandler: true });
+  return apiRequest<PublicChange[]>(`/api/functions/${id}/history`, SESSIONLESS);
 }
 
 export function updateFunctionRequirements(

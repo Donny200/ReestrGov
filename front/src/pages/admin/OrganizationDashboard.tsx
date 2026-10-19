@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { AlertTriangleIcon, ArchiveIcon, BellIcon, FileCheck2Icon, FilePenLineIcon, FileSearchIcon, FlagIcon, InfoIcon, LanguagesIcon, LinkIcon, ShieldAlertIcon, UserCheckIcon } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -37,8 +36,9 @@ import { parseId, useScopeOptions } from '../../features/analytics/scope';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { exportOrganizationReport } from '../../services/analyticsService';
 import { useHashTarget } from '../../hooks/useHashTarget';
-import { statusLabels, type FunctionStatus } from '../../types/adminFunctions';
+import { functionStatusLabel, type FunctionStatus } from '../../types/adminFunctions';
 import { QUALITY_ISSUE_TYPES, type AnalyticsFilters, type QualityIssueType } from '../../types/analytics';
+import { usePatchSearchParams } from '../../hooks/usePatchSearchParams';
 
 const statusIcons: Record<FunctionStatus, ComponentType<{ className?: string }>> = {
   PUBLISHED: FileCheck2Icon,
@@ -60,7 +60,7 @@ export function OrganizationDashboard() {
   const { t, locale } = useI18n();
   const { hasPermission } = useAuth();
   const scope = useScopeOptions();
-  const [params, setParams] = useSearchParams();
+  const [params, update] = usePatchSearchParams();
   const [issue, setIssue] = useState<QualityIssueType | ''>('');
   const [status, setStatus] = useState<FunctionStatus | ''>('');
   const queueRef = useRef<HTMLDivElement>(null);
@@ -82,16 +82,6 @@ export function OrganizationDashboard() {
   };
   const summary = useOrganizationSummary(filters, problem === null);
   const engagement = useEngagementReport(filters, problem === null);
-
-  const update = (changes: Record<string, string>) =>
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        Object.entries(changes).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
-        return next;
-      },
-      { replace: true },
-    );
 
   const choosePreset = (value: string) => {
     const next = value as PeriodPreset;
@@ -230,7 +220,7 @@ export function OrganizationDashboard() {
               {SNAPSHOT_ORDER.map((value) => (
                 <StatCard
                   key={value}
-                  label={t(`fnAdmin.status.${value}`, statusLabels[value])}
+                  label={functionStatusLabel(value, t)}
                   value={data?.services[value] ?? 0}
                   hint={t('analytics.currentState', 'Current state')}
                   icon={statusIcons[value]}

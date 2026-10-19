@@ -21,7 +21,7 @@ import {
   REPORT_NOTE_MAX,
   REPORT_TRANSITIONS,
   canManageReports,
-  reportCategoryLabels,
+  reportCategoryLabel,
   reportStatusLabel,
   reportStatusLabels,
   reportStatusTones,
@@ -129,7 +129,7 @@ export function ReportReviewDialog({ report, onClose }: ReportReviewDialogProps)
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={reportStatusTones[current.status]}>{reportStatusLabel(current.status, t)}</StatusPill>
-            <Badge size="sm" tone="accent">{t(`report.category.${current.category}`, reportCategoryLabels[current.category])}</Badge>
+            <Badge size="sm" tone="accent">{reportCategoryLabel(current.category, t)}</Badge>
             {current.language && <Badge size="sm">{current.language.toUpperCase()}</Badge>}
           </div>
           <section aria-label={t('reports.description', 'Report')}>

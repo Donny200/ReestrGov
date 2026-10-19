@@ -14,10 +14,10 @@ import { SkeletonCards, SkeletonList } from '../components/ui/Skeleton';
 import { ErrorState, NoResultsState } from '../components/ui/States';
 import { useI18n } from '../contexts/i18n';
 import { usePublicOrganizations } from '../features/organizations/queries';
+import { useOrganizationNames } from '../features/organizations/useOrganizationNames';
 import { usePublicFunctions } from '../features/functions/queries';
 import { usePageView } from '../features/engagement/tracking';
 import { useRegions } from '../features/reference/queries';
-import { localizedText } from '../utils/translations';
 import { matchesTerms, searchTerms, serviceHaystack } from '../utils/finder';
 
 export function Home() {
@@ -34,11 +34,7 @@ export function Home() {
   const orgList = useMemo(() => organizations.data ?? [], [organizations.data]);
   const fnList = useMemo(() => functions.data ?? [], [functions.data]);
 
-  const orgName = useMemo(() => {
-    const map = new Map<number, string>();
-    orgList.forEach((item) => map.set(item.id, localizedText(item.name, item.nameTranslations, locale) ?? item.name));
-    return map;
-  }, [orgList, locale]);
+  const orgName = useOrganizationNames(organizations.data);
 
   /** Organization names in every language, so a query in any supported script matches. */
   const orgSearchText = useMemo(() => {

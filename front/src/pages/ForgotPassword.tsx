@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeftIcon, MailCheckIcon } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '../components/ui/Button';
 import { Eyebrow } from '../components/ui/Eyebrow';
 import { Field } from '../components/ui/Field';
@@ -13,7 +12,8 @@ import { InlineAlert } from '../features/functions/InlineAlert';
 import { AuthShell } from '../components/layout/AuthShell';
 import { useI18n } from '../contexts/i18n';
 import { emailPattern } from '../lib/validation';
-import { getPasswordResetOptions, requestPasswordReset } from '../services/authService';
+import { usePasswordResetOptions } from '../features/passwordReset/queries';
+import { requestPasswordReset } from '../services/authService';
 import { errorMessage, statusOf, type Translate } from '../utils/errors';
 
 const schema = (t: Translate) => z.object({ email: z.string().trim().min(1, t('validation.required')).regex(emailPattern, t('validation.email')) });
@@ -23,7 +23,7 @@ type Values = z.infer<ReturnType<typeof schema>>;
 /** Self-service reset request. The answer is the same whether or not the address belongs to an account. */
 export function ForgotPassword() {
   const { t } = useI18n();
-  const options = useQuery({ queryKey: ['auth', 'password-reset-options'], queryFn: getPasswordResetOptions, staleTime: 60_000 });
+  const options = usePasswordResetOptions();
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const resolver = useMemo(() => zodResolver(schema(t)), [t]);

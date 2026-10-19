@@ -170,8 +170,7 @@ public class ModeratorService {
             if (!isSuperAdmin(current)) {
                 throw new AccessDeniedException("Only SUPER_ADMIN can change another SUPER_ADMIN role");
             }
-            if (Boolean.TRUE.equals(target.getEnabled())
-                    && userRepository.countByRole_NameAndEnabledTrue(SUPER_ADMIN_ROLE) <= 1) {
+            if (SuperAdmins.isLastEnabled(target, userRepository)) {
                 throw new IllegalStateException("The last enabled SUPER_ADMIN cannot be downgraded");
             }
         }
@@ -196,8 +195,8 @@ public class ModeratorService {
                 .collect(Collectors.toSet());
     }
 
-    private boolean isSuperAdmin(User user) {
-        return SUPER_ADMIN_ROLE.equals(user.getRole().getName());
+    private static boolean isSuperAdmin(User user) {
+        return SystemRole.SUPER_ADMIN.isHeldBy(user);
     }
 
     private void requireRole(User user, String expectedRole) {

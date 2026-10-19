@@ -55,8 +55,8 @@ public class OrganizationSummaryService {
         if (mine.isEmpty()) {
             return new OrganizationSummary.AssignedToMe(0, 0, 0);
         }
-        long openReports = reports.search(new ReportQuery(ReportStatus.OPEN, null, ReportEntityType.FUNCTION, null, null, null, null,
-                null, me), ReportReviewService.LIST_LIMIT).size();
+        long openReports = reports.count(new ReportQuery(ReportStatus.OPEN, null, ReportEntityType.FUNCTION, null, null, null, null,
+                null, me));
         return new OrganizationSummary.AssignedToMe(mine.size(), reminders.activeCount(scope, mine, me), openReports);
     }
 }

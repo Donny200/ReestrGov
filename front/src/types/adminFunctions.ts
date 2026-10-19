@@ -1,4 +1,5 @@
 import type { AssigneeSummary, CatalogFunction, DocumentDetail, DocumentForm, ServiceInstructions, TranslatedText } from './api';
+import type { Translate } from '../utils/errors';
 
 export type FunctionStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | 'DEACTIVATED';
 
@@ -112,9 +113,13 @@ export interface FunctionAuditEntry {
 
 export const FUNCTION_STATUSES: FunctionStatus[] = ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'DEACTIVATED'];
 
-export const statusLabels: Record<FunctionStatus, string> = {
+const statusLabels: Record<FunctionStatus, string> = {
   DRAFT: 'Draft',
   PENDING_REVIEW: 'Pending review',
   PUBLISHED: 'Published',
   DEACTIVATED: 'Deactivated',
 };
+
+export function functionStatusLabel(status: FunctionStatus, t: Translate): string {
+  return t(`fnAdmin.status.${status}`, statusLabels[status]);
+}

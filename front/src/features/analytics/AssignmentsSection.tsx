@@ -41,7 +41,7 @@ export function AssignmentsSection({ organizationId, organizationName, showOrgan
         accessorFn: (row) => row.name,
         cell: ({ row }) => (
           <div className="min-w-0 max-w-sm">
-            <span className="block font-medium text-foreground wrap-anywhere">{localizedText(row.original.name, row.original.nameTranslations ?? undefined, locale) ?? row.original.name}</span>
+            <span className="block font-medium text-foreground wrap-anywhere">{localizedText(row.original.name, row.original.nameTranslations, locale)}</span>
             <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-secondary">
               <FunctionStatusBadge status={row.original.status} />
               <span className="tabular-nums">#{row.original.functionId}</span>

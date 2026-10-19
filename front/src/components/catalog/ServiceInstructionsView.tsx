@@ -3,13 +3,12 @@ import { InfoIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/i18n';
 import { cn } from '../../lib/cn';
 import type { CatalogFunction, InstructionField } from '../../types/api';
+import type { Translate } from '../../utils/errors';
 import { localizedInstruction, type LocalizedInstruction } from '../../utils/instructions';
 import { requirementLines } from '../../utils/format';
 import { ChecklistItems, ChecklistSummary } from '../../features/checklist/PreparationChecklist';
 import { detailFor, hasAnyDetail } from '../../utils/documentDetails';
 import { DocumentDetailNote } from './DocumentDetailNote';
-
-type Translate = (key: string, fallback?: string) => string;
 
 function NotProvided({ t }: { t: Translate }) {
   return (

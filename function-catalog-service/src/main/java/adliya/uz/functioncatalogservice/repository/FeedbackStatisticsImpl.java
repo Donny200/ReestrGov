@@ -15,37 +15,20 @@ public class FeedbackStatisticsImpl implements FeedbackStatistics {
     private final NamedParameterJdbcTemplate jdbc;
 
     @Override
-    public Totals totals(Filter filter, LocalDate from, LocalDate to) {
-        MapSqlParameterSource parameters = parameters(from, to);
+    public Totals totals(StatisticsFilter filter, LocalDate from, LocalDate to) {
+        MapSqlParameterSource parameters = StatisticsFilter.parameters(from, to);
         return jdbc.query("SELECT COALESCE(SUM(d.helpful_count), 0) AS helpful, COALESCE(SUM(d.not_helpful_count), 0) AS not_helpful"
-                        + FROM + where(filter, parameters), parameters,
+                        + FROM + filter.where("d", parameters), parameters,
                 (row, index) -> new Totals(row.getLong("helpful"), row.getLong("not_helpful")))
                 .stream().findFirst().orElse(Totals.none());
     }
 
     @Override
-    public List<ServiceTotals> byService(Filter filter, LocalDate from, LocalDate to) {
-        MapSqlParameterSource parameters = parameters(from, to);
+    public List<ServiceTotals> byService(StatisticsFilter filter, LocalDate from, LocalDate to) {
+        MapSqlParameterSource parameters = StatisticsFilter.parameters(from, to);
         return jdbc.query("SELECT d.function_id, d.organization_id, SUM(d.helpful_count) AS helpful, SUM(d.not_helpful_count) AS not_helpful"
-                        + FROM + where(filter, parameters) + " GROUP BY d.function_id, d.organization_id", parameters,
+                        + FROM + filter.where("d", parameters) + " GROUP BY d.function_id, d.organization_id", parameters,
                 (row, index) -> new ServiceTotals(row.getObject("function_id", Long.class), row.getObject("organization_id", Long.class),
                         row.getLong("helpful"), row.getLong("not_helpful")));
-    }
-
-    private static MapSqlParameterSource parameters(LocalDate from, LocalDate to) {
-        return new MapSqlParameterSource().addValue("from", from).addValue("to", to);
-    }
-
-    private static String where(Filter filter, MapSqlParameterSource parameters) {
-        StringBuilder sql = new StringBuilder(" WHERE d.activity_date BETWEEN :from AND :to");
-        if (!filter.scope().allOrganizations()) {
-            sql.append(" AND d.organization_id IN (:organizations)");
-            parameters.addValue("organizations", filter.scope().organizationIds());
-        }
-        if (filter.categoryId() != null) {
-            sql.append(" AND f.category_id = :category");
-            parameters.addValue("category", filter.categoryId());
-        }
-        return sql.toString();
     }
 }

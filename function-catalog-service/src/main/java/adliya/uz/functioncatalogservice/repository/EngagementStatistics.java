@@ -1,7 +1,6 @@
 package adliya.uz.functioncatalogservice.repository;
 
 import adliya.uz.functioncatalogservice.entity.EngagementEventType;
-import adliya.uz.functioncatalogservice.security.OrganizationScope;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -9,13 +8,11 @@ import java.util.Map;
 
 public interface EngagementStatistics {
 
-    Map<EngagementEventType, Long> totals(Filter filter, LocalDate from, LocalDate to);
+    Map<EngagementEventType, Long> totals(StatisticsFilter filter, LocalDate from, LocalDate to);
 
-    List<DailyCount> daily(Filter filter, LocalDate from, LocalDate to);
+    List<DailyCount> daily(StatisticsFilter filter, LocalDate from, LocalDate to);
 
-    List<SubjectCount> bySubject(Filter filter, LocalDate from, LocalDate to);
-
-    record Filter(OrganizationScope scope, Long categoryId) {}
+    List<SubjectCount> bySubject(StatisticsFilter filter, LocalDate from, LocalDate to);
 
     record DailyCount(LocalDate day, EngagementEventType type, long count) {}
 

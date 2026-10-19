@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { readStored, writeStored } from '../lib/storage';
 import { ThemeContext, type ResolvedTheme, type Theme } from './theme';
 
 const STORAGE_KEY = 'reestr-theme';
@@ -7,12 +8,8 @@ const THEME_COLOR: Record<ResolvedTheme, string> = { light: '#ffffff', dark: '#0
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 
 function readStoredTheme(): Theme {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : 'system';
-  } catch {
-    return 'system';
-  }
+  const stored = readStored(STORAGE_KEY);
+  return stored === 'light' || stored === 'dark' ? stored : 'system';
 }
 
 function resolveTheme(theme: Theme): ResolvedTheme {
@@ -49,11 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      return;
-    }
+    writeStored(STORAGE_KEY, next);
   }, []);
 
   const value = useMemo(() => ({ theme, resolved, setTheme }), [theme, resolved, setTheme]);

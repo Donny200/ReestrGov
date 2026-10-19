@@ -1,11 +1,8 @@
 package adliya.uz.functioncatalogservice.service;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.regex.Pattern;
 
 /**
@@ -30,10 +27,6 @@ public final class HelpAccessTokens {
     }
 
     public static String hash(String token) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.US_ASCII)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return Sha256.hex(token.getBytes(StandardCharsets.US_ASCII));
     }
 }

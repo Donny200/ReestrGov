@@ -105,7 +105,7 @@ class PasswordResetServiceTest {
         order.verify(tokens).invalidateOutstanding(target, NOW);
         order.verify(tokens).save(saved.capture());
         PasswordResetToken stored = saved.getValue();
-        assertThat(stored.getTokenHash()).isEqualTo(PasswordResetService.hash(rawToken)).hasSize(64).isNotEqualTo(rawToken);
+        assertThat(stored.getTokenHash()).isEqualTo(SecureTokens.sha256Hex(rawToken)).hasSize(64).isNotEqualTo(rawToken);
         assertThat(stored.getUser()).isSameAs(target);
         assertThat(stored.getChannel()).isEqualTo(PasswordResetChannel.ADMIN);
         assertThat(stored.getInitiatedByUserId()).isEqualTo(1L);
@@ -132,7 +132,7 @@ class PasswordResetServiceTest {
         User target = user(7L, "ROLE_MODERATOR", true);
         target.setMustChangePassword(true);
         PasswordResetToken token = token(target, NOW.plusSeconds(60));
-        when(tokens.findByTokenHash(PasswordResetService.hash("raw-token"))).thenReturn(Optional.of(token));
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("raw-token"))).thenReturn(Optional.of(token));
         when(passwordEncoder.encode("New-password-2026")).thenReturn("$2a$new-hash");
 
         User result = service.complete(" raw-token ", "New-password-2026");
@@ -160,11 +160,11 @@ class PasswordResetServiceTest {
         superseded.setInvalidatedAt(NOW.minusSeconds(30));
         User disabled = user(8L, "ROLE_MODERATOR", false);
         PasswordResetToken disabledOwner = token(disabled, NOW.plusSeconds(60));
-        when(tokens.findByTokenHash(PasswordResetService.hash("expired"))).thenReturn(Optional.of(expired));
-        when(tokens.findByTokenHash(PasswordResetService.hash("used"))).thenReturn(Optional.of(used));
-        when(tokens.findByTokenHash(PasswordResetService.hash("superseded"))).thenReturn(Optional.of(superseded));
-        when(tokens.findByTokenHash(PasswordResetService.hash("disabled"))).thenReturn(Optional.of(disabledOwner));
-        when(tokens.findByTokenHash(PasswordResetService.hash("unknown"))).thenReturn(Optional.empty());
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("expired"))).thenReturn(Optional.of(expired));
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("used"))).thenReturn(Optional.of(used));
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("superseded"))).thenReturn(Optional.of(superseded));
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("disabled"))).thenReturn(Optional.of(disabledOwner));
+        when(tokens.findByTokenHash(SecureTokens.sha256Hex("unknown"))).thenReturn(Optional.empty());
 
         for (String raw : new String[]{"expired", "used", "superseded", "disabled", "unknown"}) {
             assertThatThrownBy(() -> service.complete(raw, "New-password-2026"))
@@ -197,7 +197,7 @@ class PasswordResetServiceTest {
         ArgumentCaptor<PasswordResetToken> saved = ArgumentCaptor.forClass(PasswordResetToken.class);
         verify(tokens).save(saved.capture());
         String rawToken = URLDecoder.decode(link.getValue().substring(link.getValue().indexOf("token=") + 6), StandardCharsets.UTF_8);
-        assertThat(saved.getValue().getTokenHash()).isEqualTo(PasswordResetService.hash(rawToken));
+        assertThat(saved.getValue().getTokenHash()).isEqualTo(SecureTokens.sha256Hex(rawToken));
         assertThat(saved.getValue().getChannel()).isEqualTo(PasswordResetChannel.SELF_SERVICE);
         assertThat(saved.getValue().getInitiatedByUserId()).isNull();
         verify(tokens).invalidateOutstanding(known, NOW);

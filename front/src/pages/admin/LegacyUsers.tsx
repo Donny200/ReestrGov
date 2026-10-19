@@ -25,14 +25,13 @@ import { useRoles } from '../../features/roles/queries';
 import { useI18n } from '../../contexts/i18n';
 import type { LegacyUser } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
-import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
+import { matchesStatus, statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 
 type DialogState = { mode: 'create' } | { mode: 'edit'; user: LegacyUser } | null;
 
 function matchesFilters(item: LegacyUser, term: string, status: StatusFilter, role: string): boolean {
-  if (status === 'active' && !item.enabled) return false;
-  if (status === 'inactive' && item.enabled) return false;
+  if (!matchesStatus(item.enabled, status)) return false;
   if (role && item.role !== role) return false;
   return !term || fullName(item).toLowerCase().includes(term) || item.email.toLowerCase().includes(term);
 }

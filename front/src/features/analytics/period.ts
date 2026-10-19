@@ -1,3 +1,5 @@
+import { addDays, formatCalendarDate } from '../../utils/format';
+
 export const REPORTING_TIME_ZONE = 'Asia/Tashkent';
 export const MAX_PERIOD_DAYS = 366;
 export const PERIOD_PRESETS = ['7', '30', '90', '365'] as const;
@@ -13,12 +15,6 @@ export function isIsoDate(value: string | null | undefined): value is string {
 
 export function reportingToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: REPORTING_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-}
-
-export function addDays(date: string, days: number): string {
-  const value = new Date(`${date}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
 }
 
 export function periodDays(from: string, to: string): number {
@@ -40,12 +36,7 @@ export function rangeError(from: string, to: string): 'order' | 'length' | null 
 }
 
 export function formatDay(date: string, locale: string, options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }): string {
-  const value = new Date(`${date}T00:00:00Z`);
-  try {
-    return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(value);
-  } catch {
-    return date;
-  }
+  return formatCalendarDate(date, locale, options);
 }
 
 export function formatPeriod(from: string, to: string, locale: string): string {

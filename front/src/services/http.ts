@@ -33,10 +33,13 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Extra request headers, e.g. a visitor's private conversation token (kept out of URLs and server logs). */
   headers?: Record<string, string>;
-    skipRefresh?: boolean;
-    skipUnauthorizedHandler?: boolean;
+  skipRefresh?: boolean;
+  skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
 }
+
+/** For calls made outside a staff session (sign-in, visitors, public pages): a 401 neither refreshes nor signs anyone out. */
+export const SESSIONLESS = { skipRefresh: true, skipUnauthorizedHandler: true } as const;
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
   const origin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
@@ -130,50 +133,8 @@ function filenameOf(header: string | null): string | null {
   return plain ? plain[1] : null;
 }
 
-export async function apiDownload(path: string, query?: RequestOptions['query']): Promise<DownloadResult> {
-  const execute = () => fetch(buildUrl(path, query), { credentials: 'include' });
-  let response: Response;
-  try {
-    response = await execute();
-  } catch {
-    throw new ApiError(0, 'Network error');
-  }
-  if (response.status === 401) {
-    if (await refreshSession()) {
-      response = await execute();
-    } else {
-      unauthorizedHandler?.();
-      throw new ApiError(401, 'Session expired');
-    }
-  }
-  if (!response.ok) {
-    const payload = await parseBody(response);
-    throw new ApiError(response.status, messageFor(response.status, payload), extractFieldErrors(payload), payload);
-  }
-  const blob = await response.blob();
-  const filename = filenameOf(response.headers.get('Content-Disposition')) ?? 'export.csv';
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return { filename, truncated: response.headers.get('X-Export-Truncated') === 'true' };
-}
-
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, headers, skipRefresh, skipUnauthorizedHandler, signal } = options;
-
-  const execute = (): Promise<Response> =>
-  fetch(buildUrl(path, query), {
-    method,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal
-  });
+async function send(url: string, init: RequestInit, { skipRefresh, skipUnauthorizedHandler }: RequestOptions = {}): Promise<Response> {
+  const execute = () => fetch(url, { ...init, credentials: 'include' });
 
   let response: Response;
   try {
@@ -193,12 +154,41 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
   }
 
-  const payload = await parseBody(response);
-
   if (!response.ok) {
+    const payload = await parseBody(response);
     if (response.status === 401 && !skipUnauthorizedHandler) unauthorizedHandler?.();
     throw new ApiError(response.status, messageFor(response.status, payload), extractFieldErrors(payload), payload);
   }
 
-  return payload as T;
+  return response;
+}
+
+export async function apiDownload(path: string, query?: RequestOptions['query']): Promise<DownloadResult> {
+  const response = await send(buildUrl(path, query), {});
+  const blob = await response.blob();
+  const filename = filenameOf(response.headers.get('Content-Disposition')) ?? 'export.csv';
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { filename, truncated: response.headers.get('X-Export-Truncated') === 'true' };
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, query, headers, signal } = options;
+  const response = await send(
+    buildUrl(path, query),
+    {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    },
+    options,
+  );
+  return (await parseBody(response)) as T;
 }

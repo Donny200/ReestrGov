@@ -102,13 +102,6 @@ public class SessionService {
         return refreshTokens.revokeAllByUserId(userId, Instant.now(), reason);
     }
 
-    @Transactional
-    public int revokeAllExcept(Long userId, String keepSessionId, String reason) {
-        return keepSessionId == null
-                ? refreshTokens.revokeAllByUserId(userId, Instant.now(), reason)
-                : refreshTokens.revokeOtherSessions(userId, keepSessionId, Instant.now(), reason);
-    }
-
     @Transactional(readOnly = true)
     public List<adliya.uz.task1.entity.SecurityAuditEvent> securityEvents(Long userId) {
         requireSuperAdmin();
@@ -135,7 +128,7 @@ public class SessionService {
 
     private User requireSuperAdmin() {
         User current = userService.getCurrentUser();
-        if (current.getRole() == null || !SystemRole.SUPER_ADMIN.authority().equals(current.getRole().getName())) {
+        if (!SystemRole.SUPER_ADMIN.isHeldBy(current)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can manage sessions of other users");
         }
         return current;

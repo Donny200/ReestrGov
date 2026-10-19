@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/auth';
 import { ApiError } from '../../services/http';
 import { functionText, hasFunctionTranslation } from '../../utils/functionLocalization';
 import { localizedText } from '../../utils/translations';
-import { FUNCTION_STATUSES, isEditableStatus, statusLabels, type AdminFunction, type FunctionStatus } from '../../types/adminFunctions';
+import { FUNCTION_STATUSES, isEditableStatus, functionStatusLabel, type AdminFunction, type FunctionStatus } from '../../types/adminFunctions';
 import { matchesVerification, parseVerificationFilter, type VerificationFilter } from '../../utils/verification';
 
 const PAGE_SIZE = 50;
@@ -199,7 +199,7 @@ export function AdminFunctionsPage() {
                   onValueChange={setStatus}
                   options={[
                     { value: '', label: t('status.all') },
-                    ...FUNCTION_STATUSES.map((value) => ({ value, label: t(`fnAdmin.status.${value}`, statusLabels[value]) })),
+                    ...FUNCTION_STATUSES.map((value) => ({ value, label: functionStatusLabel(value, t) })),
                   ]}
                 />
               )}
@@ -230,7 +230,7 @@ export function AdminFunctionsPage() {
                     { value: '', label: t('status.all') },
                     ...(options.data?.categories ?? []).map((item) => ({
                       value: String(item.id),
-                      label: localizedText(item.name, item.nameTranslations, language) ?? item.name,
+                      label: localizedText(item.name, item.nameTranslations, language),
                     })),
                   ]}
                 />

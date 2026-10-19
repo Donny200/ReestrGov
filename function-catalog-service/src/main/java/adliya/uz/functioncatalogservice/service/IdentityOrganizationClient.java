@@ -1,6 +1,5 @@
 package adliya.uz.functioncatalogservice.service;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -10,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Consumer;
 import adliya.uz.functioncatalogservice.dto.StaffMember;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -17,18 +17,15 @@ import org.springframework.security.access.AccessDeniedException;
 public class IdentityOrganizationClient {
     private final RestClient client;
     public IdentityOrganizationClient(@Qualifier("identityRestClientBuilder") RestClient.Builder builder) {
-        client = builder.baseUrl("http://identity-service").build();
+        client = builder.clone().baseUrl("http://identity-service").build();
     }
     public void requireExisting(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Assign an organization before submitting for review");
         }
-        var attributes = RequestContextHolder.getRequestAttributes();
-        String cookie = attributes instanceof ServletRequestAttributes servlet
-                ? servlet.getRequest().getHeader(HttpHeaders.COOKIE) : null;
         try {
             Organization organization = client.get().uri("/api/organizations/{id}", id)
-                    .headers(headers -> { if (cookie != null) headers.set(HttpHeaders.COOKIE, cookie); })
+                    .headers(callerSession())
                     .retrieve().body(Organization.class);
             if (organization == null || !id.equals(organization.id()) || !Boolean.TRUE.equals(organization.enabled())) {
                 throw new IllegalArgumentException("Organization does not exist or is deactivated: " + id);
@@ -62,12 +59,9 @@ public class IdentityOrganizationClient {
         if (organizationId == null) {
             throw new IllegalArgumentException("The card has no organization");
         }
-        var attributes = RequestContextHolder.getRequestAttributes();
-        String cookie = attributes instanceof ServletRequestAttributes servlet
-                ? servlet.getRequest().getHeader(HttpHeaders.COOKIE) : null;
         try {
             StaffMember[] members = client.get().uri("/api/organizations/{id}/members", organizationId)
-                    .headers(headers -> { if (cookie != null) headers.set(HttpHeaders.COOKIE, cookie); })
+                    .headers(callerSession())
                     .retrieve().body(StaffMember[].class);
             return members == null ? List.of() : Arrays.stream(members).filter(member -> member.id() != null).toList();
         } catch (HttpClientErrorException.NotFound exception) {
@@ -108,6 +102,13 @@ public class IdentityOrganizationClient {
         } catch (RestClientException | IllegalStateException exception) {
             return java.util.Map.of();
         }
+    }
+    /** Forwards the caller's own session cookie, so identity-service authorizes the request as that user. */
+    private static Consumer<HttpHeaders> callerSession() {
+        var attributes = RequestContextHolder.getRequestAttributes();
+        String cookie = attributes instanceof ServletRequestAttributes servlet
+                ? servlet.getRequest().getHeader(HttpHeaders.COOKIE) : null;
+        return headers -> { if (cookie != null) headers.set(HttpHeaders.COOKIE, cookie); };
     }
     public record Organization(Long id, String name, Boolean enabled) {}
     public record PublicOrganization(Long id, String name,

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../contexts/i18n';
-import { statusLabels, type FunctionStatus } from '../../types/adminFunctions';
+import { functionStatusLabel, type FunctionStatus } from '../../types/adminFunctions';
 import type { VerificationStatus } from '../../types/api';
 import { verificationLabels } from '../../utils/verification';
 
@@ -23,8 +23,6 @@ const badgeVariants = cva(
     defaultVariants: { tone: 'neutral', size: 'md' },
   },
 );
-
-export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>['tone']>;
 
 interface BadgeProps extends VariantProps<typeof badgeVariants> {
   className?: string;
@@ -67,7 +65,7 @@ const functionTones: Record<FunctionStatus, StatusTone> = {
 
 export function FunctionStatusBadge({ status }: { status: FunctionStatus }) {
   const { t } = useI18n();
-  return <StatusPill tone={functionTones[status]}>{t(`fnAdmin.status.${status}`, statusLabels[status])}</StatusPill>;
+  return <StatusPill tone={functionTones[status]}>{functionStatusLabel(status, t)}</StatusPill>;
 }
 
 const verificationTones: Record<VerificationStatus, StatusTone> = {

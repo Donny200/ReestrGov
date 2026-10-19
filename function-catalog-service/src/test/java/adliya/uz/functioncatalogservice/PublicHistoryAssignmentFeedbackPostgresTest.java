@@ -1,6 +1,5 @@
 package adliya.uz.functioncatalogservice;
 
-import adliya.uz.functioncatalogservice.dto.AssignmentOverview;
 import adliya.uz.functioncatalogservice.dto.CreateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.dto.FeedbackVoteRequest;
 import adliya.uz.functioncatalogservice.dto.ServiceInstructions;
@@ -9,6 +8,7 @@ import adliya.uz.functioncatalogservice.dto.SubmitReportRequest;
 import adliya.uz.functioncatalogservice.dto.UpdateOrgFunctionRequest;
 import adliya.uz.functioncatalogservice.entity.AuditAction;
 import adliya.uz.functioncatalogservice.entity.FunctionPublicChange;
+import adliya.uz.functioncatalogservice.entity.InformationReport;
 import adliya.uz.functioncatalogservice.entity.OrgFunction;
 import adliya.uz.functioncatalogservice.entity.PublicChangeType;
 import adliya.uz.functioncatalogservice.entity.QualityReminder;
@@ -17,6 +17,7 @@ import adliya.uz.functioncatalogservice.entity.ReportEntityType;
 import adliya.uz.functioncatalogservice.exception.WorkflowConflictException;
 import adliya.uz.functioncatalogservice.repository.AuditLogRepository;
 import adliya.uz.functioncatalogservice.repository.FunctionPublicChangeRepository;
+import adliya.uz.functioncatalogservice.repository.InformationReportRepository;
 import adliya.uz.functioncatalogservice.repository.OrgFunctionRepository;
 import adliya.uz.functioncatalogservice.repository.QualityReminderRepository;
 import adliya.uz.functioncatalogservice.service.ActiveLanguageClient;
@@ -26,6 +27,7 @@ import adliya.uz.functioncatalogservice.service.IdentityOrganizationClient;
 import adliya.uz.functioncatalogservice.service.OrgFunctionService;
 import adliya.uz.functioncatalogservice.service.PublicChangeService;
 import adliya.uz.functioncatalogservice.service.QualityReminderService;
+import adliya.uz.functioncatalogservice.service.ReportReviewService;
 import adliya.uz.functioncatalogservice.service.ReportSubmissionService;
 import adliya.uz.functioncatalogservice.service.TranslationClient;
 import org.junit.jupiter.api.AfterEach;
@@ -52,6 +54,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static adliya.uz.functioncatalogservice.support.TestPrincipals.login;
 import static adliya.uz.functioncatalogservice.support.TestPrincipals.staff;
@@ -105,6 +108,7 @@ class PublicHistoryAssignmentFeedbackPostgresTest {
     @Autowired OrgFunctionRepository cards;
     @Autowired FunctionPublicChangeRepository changes;
     @Autowired QualityReminderRepository reminderRows;
+    @Autowired InformationReportRepository reportRows;
     @Autowired AuditLogRepository audit;
     @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
@@ -285,6 +289,15 @@ class PublicHistoryAssignmentFeedbackPostgresTest {
                 .andExpect(jsonPath("$.assignedToMe.services").value(1))
                 .andExpect(jsonPath("$.assignedToMe.openReports").value(1))
                 .andExpect(jsonPath("$.assignedToMe.openReminders").value(1));
+
+        // The count is not capped by the length of the report list.
+        Instant now = Instant.now();
+        reportRows.saveAll(IntStream.range(0, ReportReviewService.LIST_LIMIT).mapToObj(index -> InformationReport.builder()
+                .entityType(ReportEntityType.FUNCTION).entityId(first.getId()).entityLabel("First").organizationId(10L)
+                .category(ReportCategory.OTHER).description("Report number " + index).createdAt(now).updatedAt(now).build())
+                .toList());
+        perform(get("/api/analytics/summary").with(authentication(ann)))
+                .andExpect(jsonPath("$.assignedToMe.openReports").value(ReportReviewService.LIST_LIMIT + 1));
     }
 
     // ---- feedback --------------------------------------------------------------------------------------------------

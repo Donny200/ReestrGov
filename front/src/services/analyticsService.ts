@@ -1,4 +1,4 @@
-import { apiDownload, apiRequest } from './http';
+import { apiDownload, apiRequest, SESSIONLESS } from './http';
 import type {
   AnalyticsFilters,
   CsvDelimiter,
@@ -12,7 +12,7 @@ import type {
 } from '../types/analytics';
 
 export const recordEngagement = (event: EngagementEvent) =>
-  apiRequest<void>('/api/analytics/events', { method: 'POST', body: event, skipRefresh: true, skipUnauthorizedHandler: true });
+  apiRequest<void>('/api/analytics/events', { method: 'POST', body: event, ...SESSIONLESS });
 
 export const getOrganizationSummary = (filters: AnalyticsFilters) =>
   apiRequest<OrganizationSummary>('/api/analytics/summary', { query: { ...filters } });

@@ -1,5 +1,7 @@
 package adliya.uz.task1.config.security;
 
+import adliya.uz.task1.entity.User;
+
 import java.util.Arrays;
 
 public enum SystemRole {
@@ -15,6 +17,10 @@ public enum SystemRole {
 
     public String authority() {
         return authority;
+    }
+
+    public boolean isHeldBy(User user) {
+        return user.getRole() != null && authority.equals(user.getRole().getName());
     }
 
     public static boolean isSystemRole(String roleName) {

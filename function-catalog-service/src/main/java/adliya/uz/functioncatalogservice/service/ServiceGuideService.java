@@ -15,12 +15,8 @@ import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.ColumnText;
-import com.lowagie.text.pdf.PdfName;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfPageEventHelper;
-import com.lowagie.text.pdf.PdfString;
 import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,7 +66,7 @@ public class ServiceGuideService {
                 organization.map(found -> LocalizedContent.text(found.name(), found.nameTranslations(), code)).orElse(null),
                 function.getFunctionCategory() == null ? null : LocalizedContent.text(function.getFunctionCategory().getName(),
                         function.getFunctionCategory().getNameTranslations(), code),
-                blankToNull(LocalizedContent.text(function.getDescription(), function.getDescriptionTranslations(), code)),
+                TextValues.blankToNull(LocalizedContent.text(function.getDescription(), function.getDescriptionTranslations(), code)),
                 instruction(function, InstructionField.WHO_CAN_USE, code),
                 instruction(function, InstructionField.STEPS, code),
                 instruction(function, InstructionField.REQUIRED_DOCUMENTS, code),
@@ -98,17 +94,15 @@ public class ServiceGuideService {
             PdfWriter writer = PdfWriter.getInstance(pdf, out);
             String generated = labels.get("guide.generatedOn", "Downloaded on") + " " + format(dates, Instant.now());
             String site = PublicSiteUrl.page(publicBaseUrl, "/functions/" + guide.functionId());
-            writer.setPageEvent(new Footer(site == null ? generated : generated + " · " + site, labels.get("export.page", "Page")));
-            writer.getExtraCatalog().put(PdfName.LANG, new PdfString(locale.toLanguageTag()));
-            pdf.addTitle(guide.name());
-            pdf.addCreator("ReestrGov");
+            PdfSupport.prepare(pdf, writer, guide.name(), locale, new PdfSupport.Footer(site == null ? generated : generated + " · " + site,
+                    labels.get("export.page", "Page"), 26, 7.5f));
             pdf.open();
 
-            pdf.add(paragraph(labels.get("app.name", "ReestrGov") + " · " + labels.get("guide.title", "Service guide"),
+            pdf.add(PdfSupport.paragraph(labels.get("app.name", "ReestrGov") + " · " + labels.get("guide.title", "Service guide"),
                     PdfFonts.regular(9, PdfFonts.MUTED), 6));
-            pdf.add(paragraph(guide.name(), PdfFonts.bold(20), 4));
+            pdf.add(PdfSupport.paragraph(guide.name(), PdfFonts.bold(20), 4));
             if (guide.organization() != null) {
-                pdf.add(paragraph(guide.organization(), PdfFonts.regular(12, PdfFonts.ACCENT), 6));
+                pdf.add(PdfSupport.paragraph(guide.organization(), PdfFonts.regular(12, PdfFonts.ACCENT), 6));
             }
             List<String[]> meta = new ArrayList<>();
             if (guide.category() != null) {
@@ -128,11 +122,11 @@ public class ServiceGuideService {
             boolean fallback = Stream.of(guide.whoCanUse(), guide.steps(), guide.documents(), guide.whereHow(), guide.time(), guide.fee())
                     .anyMatch(value -> value != null && value.fallback());
             if (machine) {
-                pdf.add(paragraph(labels.get("fn.machineTranslated",
+                pdf.add(PdfSupport.paragraph(labels.get("fn.machineTranslated",
                         "Parts of this page were translated automatically and may contain mistakes."), PdfFonts.regular(9, PdfFonts.MUTED), 2));
             }
             if (fallback) {
-                pdf.add(paragraph(labels.get("fn.originalLanguageShown",
+                pdf.add(PdfSupport.paragraph(labels.get("fn.originalLanguageShown",
                         "Some details are shown in the original language because a translation is not available yet."),
                         PdfFonts.regular(9, PdfFonts.MUTED), 2));
             }
@@ -194,10 +188,10 @@ public class ServiceGuideService {
             if (!checklist.isEmpty()) {
                 heading(pdf, writer, labels.get("checklist.title", "Your preparation checklist"));
                 pdf.add(checklist(checklist));
-                pdf.add(paragraph(labels.get("checklist.disclaimer", "This checklist is a preparation aid. It is not an application "
+                pdf.add(PdfSupport.paragraph(labels.get("checklist.disclaimer", "This checklist is a preparation aid. It is not an application "
                         + "and not an official confirmation that you are eligible."), PdfFonts.regular(9, PdfFonts.MUTED), 2));
             }
-            Paragraph source = paragraph(labels.get("guide.sourceNote", "This guide contains the information published on this "
+            Paragraph source = PdfSupport.paragraph(labels.get("guide.sourceNote", "This guide contains the information published on this "
                     + "site at the time of download. Confirm details with the organization before you apply."),
                     PdfFonts.regular(8.5f, PdfFonts.MUTED), 0);
             source.setSpacingBefore(16);
@@ -287,12 +281,6 @@ public class ServiceGuideService {
         return cell;
     }
 
-    private static Paragraph paragraph(String text, Font font, float after) {
-        Paragraph paragraph = new Paragraph(text, font);
-        paragraph.setSpacingAfter(after);
-        return paragraph;
-    }
-
     private static void addIfPresent(List<String[]> rows, String label, String value) {
         if (value != null && !value.isBlank()) {
             rows.add(new String[]{label, value.strip()});
@@ -300,11 +288,7 @@ public class ServiceGuideService {
     }
 
     private static String format(DateTimeFormatter formatter, Instant instant) {
-        return formatter.format(instant).replace(' ', ' ').replace(' ', ' ');
-    }
-
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.strip();
+        return PdfSupport.spaces(formatter.format(instant));
     }
 
     private record Guide(String name, String organization, String category, String description, Instruction whoCanUse,
@@ -312,24 +296,4 @@ public class ServiceGuideService {
                          Instruction time, Instruction fee, IdentityOrganizationClient.Contact contact,
                          Instant lastUpdated, Instant lastVerified, Long functionId, String sourceDocuments,
                          List<DocumentDetail> documentDetails) {}
-
-    private static final class Footer extends PdfPageEventHelper {
-        private final String text;
-        private final String page;
-
-        Footer(String text, String page) {
-            this.text = text;
-            this.page = page;
-        }
-
-        @Override
-        public void onEndPage(PdfWriter writer, Document document) {
-            float y = document.bottomMargin() - 26;
-            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_LEFT,
-                    new Phrase(text, PdfFonts.regular(7.5f, PdfFonts.MUTED)), document.leftMargin(), y, 0);
-            ColumnText.showTextAligned(writer.getDirectContent(), Element.ALIGN_RIGHT,
-                    new Phrase(page + " " + writer.getPageNumber(), PdfFonts.regular(7.5f, PdfFonts.MUTED)),
-                    document.getPageSize().getWidth() - document.rightMargin(), y, 0);
-        }
-    }
 }

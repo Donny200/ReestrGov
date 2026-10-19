@@ -1,5 +1,6 @@
 package adliya.uz.referenceservice.service;
 
+import adliya.uz.referenceservice.config.CacheConfig;
 import adliya.uz.referenceservice.entity.Translation;
 import adliya.uz.referenceservice.repository.TranslationRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +25,7 @@ public class InterfaceTranslationDictionaryService {
 
     private final TranslationRepository translationRepository;
 
-    @Cacheable(cacheNames = "interfaceDictionaries", key = "#languageCode", sync = true)
+    @Cacheable(cacheNames = CacheConfig.DICTIONARY_CACHE, key = "#languageCode", sync = true)
     @Transactional(readOnly = true)
     public Map<String, String> getTranslations(String languageCode) {
         Map<String, String> result = dictionaryForCode(SOURCE_LANGUAGE_CODE);

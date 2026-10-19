@@ -110,10 +110,7 @@ public class AdminUserService {
     }
 
     private void protectLastSuperAdmin(User user) {
-        if (Boolean.TRUE.equals(user.getEnabled())
-                && user.getRole() != null
-                && SUPER_ADMIN_ROLE.equals(user.getRole().getName())
-                && userRepository.countByRole_NameAndEnabledTrue(SUPER_ADMIN_ROLE) <= 1) {
+        if (SuperAdmins.isLastEnabled(user, userRepository)) {
             throw new IllegalStateException("The last enabled SUPER_ADMIN cannot be downgraded");
         }
     }

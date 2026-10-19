@@ -12,7 +12,7 @@ import java.time.ZoneId;
 @ConfigurationProperties(prefix = "catalog.analytics")
 @Getter
 @Setter
-public class AnalyticsProperties {
+public class AnalyticsProperties implements ClientLimitProperties {
     private ZoneId zone = ZoneId.of("Asia/Tashkent");
     private Duration retention = Duration.ofDays(730);
     private int defaultPeriodDays = 30;

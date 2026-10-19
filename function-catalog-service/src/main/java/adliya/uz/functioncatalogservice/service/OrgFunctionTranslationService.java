@@ -42,7 +42,7 @@ public class OrgFunctionTranslationService {
         function.setInstructionTranslations(result);
     }
 
-    private static Map<String, TranslatedText> withoutMachineTranslations(Map<String, TranslatedText> translations) {
+    static Map<String, TranslatedText> withoutMachineTranslations(Map<String, TranslatedText> translations) {
         Map<String, TranslatedText> preserved = translations == null
                 ? new LinkedHashMap<>()
                 : new LinkedHashMap<>(translations);

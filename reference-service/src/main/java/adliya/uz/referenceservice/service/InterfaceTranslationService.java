@@ -1,5 +1,6 @@
 package adliya.uz.referenceservice.service;
 
+import adliya.uz.referenceservice.config.CacheConfig;
 import adliya.uz.referenceservice.dto.TranslationCoverageResponse;
 import adliya.uz.referenceservice.entity.Translation;
 import adliya.uz.referenceservice.entity.TranslationKey;
@@ -38,7 +39,7 @@ public class InterfaceTranslationService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "interfaceDictionaries", allEntries = true)
+    @CacheEvict(cacheNames = CacheConfig.DICTIONARY_CACHE, allEntries = true)
     public void updateTranslations(String languageCode, Map<String, String> translations) {
         String code = languageTagNormalizer.normalize(languageCode);
         if (translations == null || translations.isEmpty()) {
@@ -82,10 +83,10 @@ public class InterfaceTranslationService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "interfaceDictionaries", allEntries = true)
+    @CacheEvict(cacheNames = CacheConfig.DICTIONARY_CACHE, allEntries = true)
     public void deleteTranslation(String languageCode, String key) {
         String code = languageTagNormalizer.normalize(languageCode);
-        String normalizedKey = normalizedKey(key);
+        String normalizedKey = TranslationKeys.normalize(key);
         translationRepository.findByLanguageCodeAndTranslationKey_TranslationKey(code, normalizedKey)
                 .ifPresent(translationRepository::delete);
     }
@@ -126,23 +127,12 @@ public class InterfaceTranslationService {
     private Map<String, String> normalizeValues(Map<String, String> translations) {
         Map<String, String> normalized = new LinkedHashMap<>();
         translations.forEach((key, value) -> {
-            String normalizedKey = normalizedKey(key);
+            String normalizedKey = TranslationKeys.normalize(key);
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("Translation value must not be blank: " + normalizedKey);
             }
             normalized.put(normalizedKey, value.trim());
         });
-        return normalized;
-    }
-
-    private String normalizedKey(String key) {
-        if (key == null || key.isBlank()) {
-            throw new IllegalArgumentException("Translation key must not be blank");
-        }
-        String normalized = key.trim();
-        if (normalized.length() > 150) {
-            throw new IllegalArgumentException("Translation key is too long: " + normalized);
-        }
         return normalized;
     }
 }

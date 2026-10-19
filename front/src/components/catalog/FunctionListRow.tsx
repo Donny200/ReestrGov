@@ -17,7 +17,7 @@ interface FunctionListRowProps {
 
 export function FunctionListRow({ item, index, organizationName, reason }: FunctionListRowProps) {
   const { t, locale } = useI18n();
-  const name = localizedText(item.name, item.nameTranslations, locale) ?? item.name;
+  const name = localizedText(item.name, item.nameTranslations, locale);
   const description = localizedText(item.description, item.descriptionTranslations, locale);
 
   return (

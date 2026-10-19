@@ -3,8 +3,6 @@ import { AlertCircleIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useI18n } from '../../contexts/i18n';
 import { FieldControlContext, type FieldControlContextValue } from './fieldContext';
-import { Input, Textarea } from './Input';
-import { Select } from './Select';
 
 export interface FieldControl {
   id: string;
@@ -65,5 +63,3 @@ export function Field({ label, error, hint, success, required = false, className
     </div>
   );
 }
-
-export { Field as FormField, Input as TextInput, Textarea as TextArea, Select };

@@ -64,7 +64,7 @@ public class SessionCookies {
             return null;
         }
         try {
-            return jwtService.extractClaim(token, claims -> claims.get(JwtService.SESSION_CLAIM, String.class));
+            return jwtService.extractClaim(token, JwtService::sessionId);
         } catch (RuntimeException exception) {
             return null;
         }
@@ -83,7 +83,7 @@ public class SessionCookies {
         return cleaned.length() <= 255 ? cleaned : cleaned.substring(0, 255);
     }
 
-    private static String cookie(HttpServletRequest request, String name) {
+    static String cookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request == null ? null : request.getCookies();
         if (cookies == null) {
             return null;

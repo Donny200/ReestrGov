@@ -15,6 +15,9 @@ public final class VisitorText {
     /** 14+ digits, optionally separated by spaces or hyphens: personal identification, card or document numbers. */
     private static final Pattern LONG_NUMBER = Pattern.compile("\\d(?:[ \\-]?\\d){13,}");
 
+    /** Links one visitor text may contain. */
+    public static final int MAX_LINKS = 3;
+
     private VisitorText() {}
 
     /** Unix line breaks, no control characters, single spaces, at most one blank line in a row, trimmed. */

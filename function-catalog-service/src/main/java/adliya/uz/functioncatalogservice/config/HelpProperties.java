@@ -14,7 +14,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "catalog.help")
 @Getter
 @Setter
-public class HelpProperties {
+public class HelpProperties implements ClientLimitProperties {
     /** Visitor messages per visitor address and window (rate limit; addresses are never stored). */
     private int perClientLimit = 20;
     private Duration perClientWindow = Duration.ofMinutes(10);

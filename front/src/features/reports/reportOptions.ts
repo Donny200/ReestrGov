@@ -9,7 +9,7 @@ export const REPORT_CATEGORIES: Record<ReportEntityType, ReportCategory[]> = {
   ORGANIZATION: ['INCORRECT_INFORMATION', 'OUTDATED_INFORMATION', 'CONTACT_DETAILS', 'BROKEN_LINK', 'TRANSLATION', 'OTHER'],
 };
 
-export const reportCategoryLabels: Record<ReportCategory, string> = {
+const reportCategoryLabels: Record<ReportCategory, string> = {
   INCORRECT_INFORMATION: 'Information is incorrect',
   OUTDATED_INFORMATION: 'Information is outdated',
   DOCUMENTS_OR_STEPS: 'Documents or steps are wrong',
@@ -29,16 +29,7 @@ export const reportStatusLabels: Record<ReportStatus, string> = {
 
 export const REPORT_STATUS_FILTERS: ReportStatusFilter[] = ['OPEN', 'NEW', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'ALL'];
 
-export const ALL_REPORT_CATEGORIES: ReportCategory[] = [
-  'INCORRECT_INFORMATION',
-  'OUTDATED_INFORMATION',
-  'DOCUMENTS_OR_STEPS',
-  'FEES_OR_TIMING',
-  'CONTACT_DETAILS',
-  'BROKEN_LINK',
-  'TRANSLATION',
-  'OTHER',
-];
+export const ALL_REPORT_CATEGORIES = Object.keys(reportCategoryLabels) as ReportCategory[];
 
 export const reportStatusFilterLabels: Record<ReportStatusFilter, string> = {
   OPEN: 'Open',
@@ -75,6 +66,10 @@ export const reportStatusTones: Record<ReportStatus, StatusTone> = {
 
 export function reportStatusLabel(status: ReportStatus, t: Translate): string {
   return t(`reports.status.${status}`, reportStatusLabels[status]);
+}
+
+export function reportCategoryLabel(category: ReportCategory, t: Translate): string {
+  return t(`report.category.${category}`, reportCategoryLabels[category]);
 }
 
 export function reportTypeLabel(type: ReportEntityType, t: Translate): string {
