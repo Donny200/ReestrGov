@@ -13,9 +13,11 @@ import java.time.Duration;
 @EnableCaching
 public class CacheConfig {
 
+    public static final String DICTIONARY_CACHE = "interfaceDictionaries";
+
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("interfaceDictionaries");
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager(DICTIONARY_CACHE);
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(100)
                 .expireAfterWrite(Duration.ofMinutes(30)));

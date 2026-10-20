@@ -10,6 +10,7 @@ import adliya.uz.task1.entity.Role;
 import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.EmailAlreadyExistsException;
 import adliya.uz.task1.repository.OrganizationRepository;
+import adliya.uz.task1.repository.RefreshTokenRepository;
 import adliya.uz.task1.repository.RoleRepository;
 import adliya.uz.task1.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +34,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     private UserService userService;
@@ -205,6 +210,7 @@ class UserServiceTest {
 
         assertThat(target.getEnabled()).isFalse();
         verify(userRepository).save(target);
+        verify(refreshTokenRepository).revokeAllByUserId(eq(target.getId()), any(), eq(SessionService.REASON_DEACTIVATED));
         verify(userRepository, never()).delete(any(User.class));
         verify(userRepository, never()).deleteById(target.getId());
     }

@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ActivityIcon, BuildingIcon, FileTextIcon, PlusIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import { BellIcon, BuildingIcon, FileTextIcon, FlagIcon, PlusIcon, ShieldAlertIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge, FunctionStatusBadge, StatusBadge } from '../../components/ui/Badge';
@@ -12,8 +11,11 @@ import { StatCard } from '../../components/ui/StatCard';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useOrganizations } from '../../features/organizations/queries';
 import { useAdminFunctions } from '../../features/functions/queries';
-import { staffKeys } from '../../features/queryKeys';
-import { getModerators, getOrgAdmins } from '../../services/staffService';
+import { useReminders } from '../../features/analytics/queries';
+import { useReports } from '../../features/reports/queries';
+import { canViewReports, reportStatusLabel } from '../../features/reports/reportOptions';
+import { needsRecheck } from '../../utils/verification';
+import { useModerators, useOrgAdmins } from '../../features/staff/queries';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import { functionText } from '../../utils/functionLocalization';
@@ -27,11 +29,15 @@ export function Dashboard() {
   const canSeeOrgAdmins = isSuperAdmin;
   const canSeeModerators = hasRole('ROLE_SUPER_ADMIN', 'ROLE_ORG_ADMIN');
   const canSeeFunctions = hasPermission('FUNCTIONS_VIEW');
+  const canSeeReports = canViewReports(hasPermission);
+  const canSeeAnalytics = hasPermission('ORG_ANALYTICS_VIEW');
 
   const organizations = useOrganizations();
   const functions = useAdminFunctions(canSeeFunctions);
-  const orgAdmins = useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins, enabled: canSeeOrgAdmins });
-  const moderators = useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators, enabled: canSeeModerators });
+  const orgAdmins = useOrgAdmins(canSeeOrgAdmins);
+  const moderators = useModerators(canSeeModerators);
+  const openReports = useReports({ status: 'OPEN' }, canSeeReports);
+  const reminders = useReminders({}, canSeeAnalytics);
 
   const orgList = useMemo(() => organizations.data ?? [], [organizations.data]);
   const fnList = useMemo(() => functions.data ?? [], [functions.data]);
@@ -48,7 +54,6 @@ export function Dashboard() {
       to: '/admin/organizations',
       loading: organizations.isPending,
       visible: true,
-      tone: 'brand' as const,
     },
     {
       key: 'org-admins',
@@ -59,7 +64,6 @@ export function Dashboard() {
       to: '/admin/org-admins',
       loading: orgAdmins.isPending,
       visible: canSeeOrgAdmins,
-      tone: 'info' as const,
     },
     {
       key: 'moderators',
@@ -70,7 +74,6 @@ export function Dashboard() {
       to: '/admin/moderators',
       loading: moderators.isPending,
       visible: canSeeModerators,
-      tone: 'success' as const,
     },
     {
       key: 'functions',
@@ -81,7 +84,46 @@ export function Dashboard() {
       to: '/admin/functions',
       loading: functions.isPending,
       visible: canSeeFunctions,
-      tone: 'warning' as const,
+    },
+    {
+      key: 'functions-recheck',
+      label: t('verification.dashboardServices', 'Services to verify'),
+      value: fnList.filter((item) => item.status === 'PUBLISHED' && needsRecheck(item.verificationStatus)).length,
+      hint: t('verification.dashboardServicesHint', 'Published, need a check'),
+      icon: ShieldAlertIcon,
+      to: '/admin/functions?status=PUBLISHED&verification=due',
+      loading: functions.isPending,
+      visible: canSeeFunctions,
+    },
+    {
+      key: 'organizations-recheck',
+      label: t('verification.dashboardOrganizations', 'Organizations to verify'),
+      value: orgList.filter((item) => item.enabled && needsRecheck(item.verificationStatus)).length,
+      hint: t('verification.dashboardOrganizationsHint', 'Active, need a check'),
+      icon: ShieldAlertIcon,
+      to: '/admin/organizations?verification=due',
+      loading: organizations.isPending,
+      visible: true,
+    },
+    {
+      key: 'reports',
+      label: t('reports.dashboardTitle', 'Open reports'),
+      value: (openReports.data ?? []).length,
+      hint: `${(openReports.data ?? []).filter((item) => item.status === 'NEW').length} ${reportStatusLabel('NEW', t).toLowerCase()}`,
+      icon: FlagIcon,
+      to: '/admin/reports',
+      loading: openReports.isPending,
+      visible: canSeeReports,
+    },
+    {
+      key: 'reminders',
+      label: t('reminders.title', 'Reminders'),
+      value: reminders.data?.total ?? 0,
+      hint: t('reminders.dashboardHint', 'Quality issues to follow up'),
+      icon: BellIcon,
+      to: '/admin/organization-dashboard#reminders',
+      loading: reminders.isPending,
+      visible: canSeeAnalytics,
     },
   ].filter((card) => card.visible);
 
@@ -101,7 +143,7 @@ export function Dashboard() {
         accessorKey: 'name',
         header: t('field.name'),
         cell: ({ row }) => (
-          <Link to={`/organizations/${row.original.id}`} className="font-medium text-content-strong transition-colors hover:text-link">
+          <Link to={`/organizations/${row.original.id}`} className="rounded-sm font-medium text-foreground underline-offset-4 wrap-anywhere fine:hover:underline">
             {row.original.name}
           </Link>
         ),
@@ -111,7 +153,7 @@ export function Dashboard() {
         accessorKey: 'createdAt',
         header: t('field.createdAt'),
         meta: { hideBelow: 'md' },
-        cell: ({ row }) => <span className="tabular-nums text-content-muted">{formatDate(row.original.createdAt, locale)}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">{formatDate(row.original.createdAt, locale)}</span>,
       },
     ],
     [t, locale],
@@ -126,10 +168,10 @@ export function Dashboard() {
         accessorFn: (row) => functionText(row, 'name', locale),
         cell: ({ row }) => (
           <div className="min-w-0 max-w-md">
-            <Link to={`/admin/functions/${row.original.id}`} className="font-medium text-content-strong transition-colors hover:text-link">
+            <Link to={`/admin/functions/${row.original.id}`} className="rounded-sm font-medium text-foreground underline-offset-4 wrap-anywhere fine:hover:underline">
               {functionText(row.original, 'name', locale)}
             </Link>
-            <p className="mt-0.5 text-xs text-content-muted">{truncate(functionText(row.original, 'description', locale), 80)}</p>
+            <p className="mt-0.5 text-xs text-secondary wrap-anywhere">{truncate(functionText(row.original, 'description', locale), 80)}</p>
           </div>
         ),
       },
@@ -138,29 +180,28 @@ export function Dashboard() {
         header: t('field.category'),
         enableSorting: false,
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => (row.original.category ? <Badge tone="brand">{row.original.category}</Badge> : <span className="text-content-subtle">—</span>),
+        cell: ({ row }) => (row.original.category ? <Badge size="sm" tone="accent">{row.original.category}</Badge> : <span className="text-secondary">—</span>),
       },
       {
         id: 'organization',
         header: t('field.organization'),
         enableSorting: false,
         meta: { hideBelow: 'xl' },
-        cell: ({ row }) => <span className="text-content-muted">{organizationName(row.original.organizationId)}</span>,
+        cell: ({ row }) => <span className="text-secondary">{organizationName(row.original.organizationId)}</span>,
       },
     ],
     [t, locale, organizationName],
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.dashboard')}
         title={`${t('admin.welcome')}${user ? `, ${fullName(user)}` : ''}`}
         description={user ? `${roleLabel(user.role, t)} · ${user.email}` : undefined}
-        badge={user ? <Badge tone="brand" dot glow>{roleLabel(user.role, t)}</Badge> : undefined}
         actions={
           hasPermission('FUNCTIONS_CREATE') ? (
-            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'gradient' })}>
+            <Link to="/admin/functions/new" className={buttonVariants({ variant: 'dark', size: 'sm' })}>
               <PlusIcon aria-hidden="true" />
               {t('fnAdmin.create')}
             </Link>
@@ -170,7 +211,7 @@ export function Dashboard() {
 
       <div className="grid gap-4 min-[420px]:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <StatCard key={card.key} label={card.label} value={card.value} hint={card.hint} icon={card.icon} to={card.to} loading={card.loading} tone={card.tone} />
+          <StatCard key={card.key} label={card.label} value={card.value} hint={card.hint} icon={card.icon} to={card.to} loading={card.loading} />
         ))}
       </div>
 
@@ -179,8 +220,7 @@ export function Dashboard() {
           <CardHeader
             title={t('admin.recentOrgs')}
             description={t('home.orgsSubtitle')}
-            icon={<BuildingIcon className="h-4 w-4" />}
-            actions={<Link to="/admin/organizations" className={buttonVariants({ variant: 'link', size: 'sm' })}>{t('action.viewAll')}</Link>}
+            actions={<Link to="/admin/organizations" className={buttonVariants({ variant: 'outline', size: 'sm' })}>{t('action.viewAll')}</Link>}
           />
           <DataTable
             columns={organizationColumns}
@@ -196,15 +236,15 @@ export function Dashboard() {
         </Card>
 
         {canSeeFunctions && (
-          <Card glass>
-            <CardHeader title={t('admin.statusBreakdown', 'Catalogue status')} icon={<ActivityIcon className="h-4 w-4" />} />
-            <CardBody className="space-y-4">
+          <Card>
+            <CardHeader title={t('admin.statusBreakdown', 'Catalogue status')} />
+            <CardBody className="space-y-5">
               {functions.isPending ? (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {FUNCTION_STATUSES.map((status) => (
                     <div key={status} className="space-y-2">
-                      <Skeleton className="h-5 w-32 rounded-full" />
-                      <Skeleton className="h-1.5 w-full rounded-full" />
+                      <Skeleton className="h-5 w-32 rounded-pill" />
+                      <Skeleton className="h-1.5 w-full rounded-pill" />
                     </div>
                   ))}
                 </div>
@@ -213,12 +253,12 @@ export function Dashboard() {
                   <div key={item.status}>
                     <div className="flex items-center justify-between gap-3">
                       <FunctionStatusBadge status={item.status} />
-                      <span className="text-sm tabular-nums text-content-muted">
-                        <span className="font-semibold text-content-strong">{item.count}</span> · {item.share}%
+                      <span className="text-sm tabular-nums text-secondary">
+                        <span className="font-semibold text-foreground">{item.count}</span> · {item.share}%
                       </span>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-subtle" aria-hidden="true">
-                      <div className="h-full rounded-full bg-brand-gradient transition-[width] duration-slow ease-spring" style={{ width: `${item.share}%` }} />
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-pill bg-surface-2" aria-hidden="true">
+                      <div className="h-full rounded-pill bg-ink transition-[width] duration-reveal ease-out" style={{ width: `${item.share}%` }} />
                     </div>
                   </div>
                 ))
@@ -233,8 +273,7 @@ export function Dashboard() {
           <CardHeader
             title={t('admin.recentFunctions')}
             description={t('home.catalogSubtitle')}
-            icon={<FileTextIcon className="h-4 w-4" />}
-            actions={<Link to="/admin/functions" className={buttonVariants({ variant: 'link', size: 'sm' })}>{t('action.viewAll')}</Link>}
+            actions={<Link to="/admin/functions" className={buttonVariants({ variant: 'outline', size: 'sm' })}>{t('action.viewAll')}</Link>}
           />
           <DataTable
             columns={functionColumns}

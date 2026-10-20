@@ -7,6 +7,7 @@ import {
   getPublicOrganizations,
   reactivateOrganization,
   updateOrganization,
+  verifyOrganization,
 } from '../../services/organizationService';
 import type { CreateOrganizationRequest } from '../../types/api';
 import { organizationKeys } from '../queryKeys';
@@ -34,3 +35,5 @@ export const useSaveOrganization = () =>
 export const useDeactivateOrganization = () => useOrganizationMutation((id: number) => deactivateOrganization(id));
 
 export const useReactivateOrganization = () => useOrganizationMutation((id: number) => reactivateOrganization(id));
+
+export const useVerifyOrganization = () => useOrganizationMutation((id: number) => verifyOrganization(id));

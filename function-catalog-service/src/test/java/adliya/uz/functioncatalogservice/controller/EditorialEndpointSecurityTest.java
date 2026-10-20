@@ -35,6 +35,7 @@ class EditorialEndpointSecurityTest {
     @ParameterizedTest
     @CsvSource({
         "POST,/api/functions/1/submit-for-review,FUNCTIONS_SUBMIT_REVIEW",
+        "POST,/api/functions/1/withdraw,FUNCTIONS_SUBMIT_REVIEW",
         "GET,/api/functions/pending-review,FUNCTIONS_REVIEW",
         "POST,/api/functions/1/reject,FUNCTIONS_REVIEW",
         "POST,/api/functions/1/publish,FUNCTIONS_PUBLISH",
@@ -53,6 +54,7 @@ class EditorialEndpointSecurityTest {
 
         var function = OrgFunction.builder().id(1L).name("Draft").build();
         lenient().when(functions.submitForReview(1L)).thenReturn(function);
+        lenient().when(functions.withdraw(1L)).thenReturn(function);
         lenient().when(functions.reject(eq(1L),anyString())).thenReturn(function);
         lenient().when(functions.publish(1L)).thenReturn(function);
         lenient().when(functions.reactivate(1L)).thenReturn(function);

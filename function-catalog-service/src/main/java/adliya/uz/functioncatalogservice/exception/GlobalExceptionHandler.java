@@ -1,6 +1,7 @@
 package adliya.uz.functioncatalogservice.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -21,6 +22,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TranslationUnavailableException.class)
     public ResponseEntity<Map<String, Object>> translation(TranslationUnavailableException ex) {
         return build(ex.status(), ex.getMessage());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> rateLimited(RateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(Math.max(1, ex.retryAfter().toSeconds())))
+                .body(body(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidFieldException.class)
+    public ResponseEntity<Map<String, Object>> invalidField(InvalidFieldException ex) {
+        Map<String, Object> body = body(HttpStatus.BAD_REQUEST, ex.field() + ": " + ex.getMessage());
+        body.put("fieldErrors", Map.of(ex.field(), ex.getMessage()));
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

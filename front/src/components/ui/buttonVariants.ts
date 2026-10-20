@@ -1,27 +1,45 @@
 import { cva } from 'class-variance-authority';
 
 export const buttonVariants = cva(
-  'press inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-control text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0',
+  'group relative inline-flex min-h-10 select-none items-center justify-center gap-2 whitespace-nowrap rounded-pill border border-transparent text-sm font-medium transition-[transform,background-color,color,border-color] duration-snap ease-snap motion-safe:fine:hover:scale-[1.04] motion-safe:active:scale-[0.98] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-2 disabled:text-secondary disabled:hover:scale-100 [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary: 'bg-brand text-brand-fg shadow-xs hover:bg-brand-hover hover:shadow-glow active:bg-brand-pressed',
-        gradient: 'bg-brand-gradient text-white shadow-glow hover:brightness-110',
-        secondary: 'bg-surface-subtle text-content-strong hover:bg-line',
-        soft: 'bg-brand-subtle text-link hover:bg-brand/15',
-        outline: 'border border-line bg-surface/80 text-content-strong shadow-xs hover:border-line-strong hover:bg-surface-subtle',
-        ghost: 'text-content hover:bg-surface-subtle hover:text-content-strong',
-        danger: 'bg-danger text-white shadow-xs hover:bg-danger/90',
-        link: 'h-auto px-0 text-link underline-offset-4 hover:underline',
+        dark: 'bg-ink text-ink-fg',
+        light: 'bg-surface text-foreground fine:hover:bg-surface-2',
+        outline: 'border-line bg-transparent text-foreground fine:hover:bg-surface',
+        ghost: 'bg-transparent text-secondary fine:hover:bg-surface fine:hover:text-foreground',
+        danger: 'bg-danger-solid text-danger-fg',
+        link: 'min-h-0 rounded-sm px-0 text-accent-text underline-offset-4 hover:underline motion-safe:fine:hover:scale-100',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4',
-        lg: 'h-11 px-6 text-base',
-        icon: 'h-10 w-10',
-        iconSm: 'h-8 w-8',
+        sm: 'min-h-9 px-4 py-1.5',
+        md: 'px-7 py-3.5',
+        lg: 'px-8 py-4 text-base',
+        icon: 'h-10 w-10 p-0',
+        iconSm: 'h-9 w-9 p-0',
+      },
+      arrow: {
+        true: 'ps-6 pe-1.5 py-1.5',
       },
     },
-    defaultVariants: { variant: 'primary', size: 'md' },
+    defaultVariants: { variant: 'dark', size: 'md' },
+  },
+);
+
+export const arrowBadgeVariants = cva(
+  'flex h-9 w-9 shrink-0 items-center justify-center rounded-pill transition-transform duration-snap ease-snap motion-safe:fine:group-hover:translate-x-[3px] motion-safe:rtl:fine:group-hover:-translate-x-[3px] [&_svg]:rtl:-scale-x-100',
+  {
+    variants: {
+      variant: {
+        dark: 'bg-background text-ink',
+        light: 'bg-ink text-ink-fg',
+        outline: 'bg-ink text-ink-fg',
+        ghost: 'bg-ink text-ink-fg',
+        danger: 'bg-background text-danger-solid',
+        link: 'bg-ink text-ink-fg',
+      },
+    },
+    defaultVariants: { variant: 'dark' },
   },
 );

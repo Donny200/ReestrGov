@@ -2,7 +2,6 @@ package adliya.uz.task1.service;
 
 import adliya.uz.task1.dto.ChangePasswordRequest;
 import adliya.uz.task1.dto.LoginRequest;
-import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -11,6 +10,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -27,8 +28,11 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponse getCurrentUser() {
-        return UserResponse.from(userService.getCurrentUser());
+    public User getCurrentUserEntity() {
+        User user = userService.getCurrentUser();
+        user.getRole().getPermissions().size();
+        user.getOrganizations().size();
+        return user;
     }
 
     public User changePassword(ChangePasswordRequest request) {
@@ -38,6 +42,7 @@ public class AuthService {
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setMustChangePassword(false);
+        user.setCredentialsUpdatedAt(Instant.now());
         return userService.save(user);
     }
 }

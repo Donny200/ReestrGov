@@ -41,6 +41,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<Object> handleInvalidResetToken(InvalidPasswordResetTokenException ex) {
+        return build(HttpStatus.BAD_REQUEST, "This password reset link is invalid or has expired");
+    }
+
+    @ExceptionHandler(PasswordResetUnavailableException.class)
+    public ResponseEntity<Object> handleResetUnavailable(PasswordResetUnavailableException ex) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Object> handleRateLimit(RateLimitExceededException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(Math.max(1, ex.retryAfter().toSeconds())))
+                .body(errorBody(HttpStatus.TOO_MANY_REQUESTS, "Too many attempts; try again later"));
+    }
+
+    @ExceptionHandler(MfaRequiredException.class)
+    public ResponseEntity<Object> handleMfaRequired(MfaRequiredException ex) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Object> handleBadCredentials(BadCredentialsException ex) {
         return build(HttpStatus.UNAUTHORIZED, "Invalid email or password");

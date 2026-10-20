@@ -1,6 +1,7 @@
 package adliya.uz.task1.controller;
 
 import adliya.uz.task1.dto.CreateOrganizationRequest;
+import adliya.uz.task1.dto.OrganizationMemberResponse;
 import adliya.uz.task1.dto.OrganizationResponse;
 import adliya.uz.task1.dto.UpdateOrganizationRequest;
 import adliya.uz.task1.entity.Organization;
@@ -43,10 +44,23 @@ public class OrganizationController {
         return ResponseEntity.ok(OrganizationResponse.from(organizationService.getById(id)));
     }
 
+    /** Active users with access to the organization; visible to SUPER_ADMIN, global function managers and the organization's own staff. */
+    @GetMapping("/{id}/members")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OrganizationMemberResponse>> members(@PathVariable Long id) {
+        return ResponseEntity.ok(organizationService.activeMembers(id).stream().map(OrganizationMemberResponse::from).toList());
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ORGANIZATIONS_EDIT') or hasAuthority('ORGANIZATIONS_EDIT_OWN')")
     public ResponseEntity<OrganizationResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateOrganizationRequest request) {
         return ResponseEntity.ok(OrganizationResponse.from(organizationService.update(id, request)));
+    }
+
+    @PostMapping("/{id}/verify")
+    @PreAuthorize("hasAuthority('ORGANIZATIONS_EDIT') or hasAuthority('ORGANIZATIONS_EDIT_OWN')")
+    public ResponseEntity<OrganizationResponse> verify(@PathVariable Long id) {
+        return ResponseEntity.ok(OrganizationResponse.from(organizationService.verify(id)));
     }
 
     @DeleteMapping("/{id}")

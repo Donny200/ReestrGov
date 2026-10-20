@@ -23,6 +23,9 @@ eureka:
 app:
   demo-users:
     enabled: false
+  mfa:
+    enabled: true
+    encryption-key: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
   cookie:
     secure: false
     same-site: Lax

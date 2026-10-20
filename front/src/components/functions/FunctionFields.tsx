@@ -1,10 +1,14 @@
+import { Fragment } from 'react';
 import { Controller, type UseFormReturn } from 'react-hook-form';
+import { DocumentDetailsEditor } from './DocumentDetailsEditor';
 import { Field } from '../ui/Field';
 import { Input, Textarea } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { useI18n } from '../../contexts/i18n';
 import { localizedText } from '../../utils/translations';
-import { DESCRIPTION_MAX, NAME_MAX, REQUIREMENTS_MAX } from '../../features/functions/schema';
+import { DESCRIPTION_MAX, NAME_MAX, REQUIREMENTS_MAX, SOURCE_URL_MAX } from '../../features/functions/schema';
+import { INSTRUCTION_FIELDS } from '../../utils/instructions';
+import { fieldLabelClass } from '../ui/Field';
 import type { FunctionCategory, FunctionFormValues, FunctionOrganization } from '../../types/adminFunctions';
 
 interface Props {
@@ -71,7 +75,7 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
                     { value: '', label: t('fnAdmin.noCategory') },
                     ...categories.map((category) => ({
                       value: String(category.id),
-                      label: localizedText(category.name, category.nameTranslations, locale) ?? category.name,
+                      label: localizedText(category.name, category.nameTranslations, locale),
                     })),
                   ]}
                 />
@@ -80,6 +84,39 @@ export function FunctionFields({ form, organizations, categories, disabled = fal
           )}
         </Field>
       </div>
+      <fieldset className="grid min-w-0 gap-5 rounded-card-sm border border-line p-4 sm:p-5">
+        <legend className={`${fieldLabelClass} px-1`}>{t('instructions.editorTitle', 'Structured instructions')}</legend>
+        <p className="text-sm leading-6 text-secondary">
+          {t('instructions.editorHint', 'Fill in only what the official source confirms. Leave a field empty if it is unknown; visitors will see that it is not provided yet.')}
+        </p>
+        {INSTRUCTION_FIELDS.map((field) => (
+          <Fragment key={field.key}>
+          <Field
+            label={t(field.labelKey, field.label)}
+            hint={field.list ? t('instructions.oneItemPerLine', 'One item per line.') : undefined}
+            error={errors[field.key]?.message}
+          >
+            {(fieldControl) =>
+              field.max <= 500 ? (
+                <Input {...fieldControl} maxLength={field.max} autoComplete="off" {...register(field.key)} />
+              ) : (
+                <Textarea {...fieldControl} rows={field.list ? 5 : 3} maxLength={field.max} {...register(field.key)} />
+              )
+            }
+          </Field>
+          {field.key === 'requiredDocuments' && <DocumentDetailsEditor form={form} disabled={disabled} />}
+          </Fragment>
+        ))}
+        <Field
+          label={t('verification.officialSourceUrl', 'External source link (optional)')}
+          hint={t('verification.officialSourceHint', 'Optional. Add a link to an official page only if a useful source exists; this site is where the information is maintained.')}
+          error={errors.officialSourceUrl?.message}
+        >
+          {(fieldControl) => (
+            <Input {...fieldControl} type="url" inputMode="url" maxLength={SOURCE_URL_MAX} placeholder="https://" autoComplete="off" {...register('officialSourceUrl')} />
+          )}
+        </Field>
+      </fieldset>
       <Field label={t('fnAdmin.sourceLanguage')} required error={errors.sourceLanguage?.message}>
         {(fieldControl) => (
           <Controller

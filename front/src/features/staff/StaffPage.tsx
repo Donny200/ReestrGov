@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpCircleIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
+import { ArrowUpCircleIcon, KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, PowerOffIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../../components/layout/PageHeader';
 import { Card } from '../../components/ui/Card';
@@ -17,9 +17,10 @@ import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
 import type { Organization, StaffUser } from '../../types/api';
 import { errorMessage } from '../../utils/errors';
-import { statusFilterOptions, type StatusFilter } from '../../utils/filters';
+import { matchesStatus, statusFilterOptions, type StatusFilter } from '../../utils/filters';
 import { fullName, roleLabel } from '../../utils/format';
 import { useOrganizations } from '../organizations/queries';
+import { PasswordResetDialog } from '../passwordReset/PasswordResetDialog';
 import { PromoteDialog } from './PromoteDialog';
 import { StaffCreateDialog, StaffEditDialog } from './StaffFormDialog';
 import { useStaffMutation } from './queries';
@@ -36,14 +37,14 @@ function useAssignableOrganizations(all: Organization[] | undefined): Organizati
 }
 
 function matchesFilters(item: StaffUser, term: string, status: StatusFilter, organizationId: string): boolean {
-  if (status === 'active' && !item.enabled) return false;
-  if (status === 'inactive' && item.enabled) return false;
+  if (!matchesStatus(item.enabled, status)) return false;
   if (organizationId && !item.organizationIds.includes(Number(organizationId))) return false;
   return !term || fullName(item).toLowerCase().includes(term) || item.email.toLowerCase().includes(term) || (item.phone ?? '').includes(term);
 }
 
 export function StaffPage({ config }: { config: StaffConfig }) {
   const { t } = useI18n();
+  const { isSuperAdmin } = useAuth();
   const list = config.useList();
   const organizations = useOrganizations();
   const assignable = useAssignableOrganizations(organizations.data);
@@ -53,6 +54,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
   const [deactivating, setDeactivating] = useState<StaffUser | null>(null);
+  const [resetting, setResetting] = useState<StaffUser | null>(null);
 
   const organizationNames = useMemo(
     () => new Map((organizations.data ?? []).map((item) => [item.id, item.name])),
@@ -83,7 +85,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         id: 'name',
@@ -93,8 +95,8 @@ export function StaffPage({ config }: { config: StaffConfig }) {
           <div className="flex min-w-0 items-center gap-3">
             <Avatar user={row.original} size="sm" />
             <span className="min-w-0">
-              <span className="block truncate font-medium text-content-strong">{fullName(row.original)}</span>
-              <span className="block truncate text-xs text-content-muted">{row.original.email}</span>
+              <span className="block truncate font-medium text-foreground">{fullName(row.original)}</span>
+              <span className="block truncate text-xs text-secondary">{row.original.email}</span>
             </span>
           </div>
         ),
@@ -103,13 +105,13 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         accessorKey: 'phone',
         header: t('field.phone'),
         meta: { hideBelow: 'xl' },
-        cell: ({ row }) => <span className="tabular-nums text-content-muted">{row.original.phone ?? '—'}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">{row.original.phone ?? '—'}</span>,
       },
       {
         accessorKey: 'role',
         header: t('field.role'),
         meta: { hideBelow: 'lg' },
-        cell: ({ row }) => <Badge tone="brand">{roleLabel(row.original.role, t)}</Badge>,
+        cell: ({ row }) => <Badge size="sm" tone="accent">{roleLabel(row.original.role, t)}</Badge>,
       },
       {
         id: 'organizations',
@@ -118,11 +120,11 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         meta: { hideBelow: 'md' },
         cell: ({ row }) =>
           row.original.organizationIds.length === 0 ? (
-            <span className="text-content-subtle">—</span>
+            <span className="text-secondary">—</span>
           ) : (
             <div className="flex flex-wrap gap-1">
               {row.original.organizationIds.map((id) => (
-                <Badge key={id} tone="neutral">#{id} {organizationNames.get(id) ?? ''}</Badge>
+                <Badge key={id} size="sm">#{id} {organizationNames.get(id) ?? ''}</Badge>
               ))}
             </div>
           ),
@@ -149,6 +151,12 @@ export function StaffPage({ config }: { config: StaffConfig }) {
                 <PencilIcon />
                 {t('action.edit')}
               </DropdownMenuItem>
+              {isSuperAdmin && row.original.enabled && (
+                <DropdownMenuItem onSelect={() => setResetting(row.original)}>
+                  <KeyRoundIcon />
+                  {t('users.resetPassword', 'Reset password')}
+                </DropdownMenuItem>
+              )}
               {row.original.enabled && (
                 <DropdownMenuItem destructive onSelect={() => setDeactivating(row.original)}>
                   <PowerOffIcon />
@@ -160,16 +168,16 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         ),
       },
     ],
-    [t, organizationNames],
+    [t, organizationNames, isSuperAdmin],
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t(config.titleKey)}
         description={config.descriptionKey ? t(config.descriptionKey) : undefined}
-        badge={<Badge tone="brand" dot glow>{activeCount} {t('status.active').toLowerCase()}</Badge>}
+        badge={<Badge size="sm" tone="accent">{activeCount} {t('status.active').toLowerCase()}</Badge>}
         actions={
           <>
             <Button variant="outline" icon={<ArrowUpCircleIcon />} onClick={() => setDialog({ mode: 'promote' })}>{t('action.promote')}</Button>
@@ -225,6 +233,7 @@ export function StaffPage({ config }: { config: StaffConfig }) {
         onClose={() => setDialog(null)}
       />
       <PromoteDialog config={config} open={dialog?.mode === 'promote'} organizations={assignable} onClose={() => setDialog(null)} />
+      <PasswordResetDialog user={resetting} onClose={() => setResetting(null)} />
       <ConfirmModal
         open={Boolean(deactivating)}
         title={t('action.deactivate')}

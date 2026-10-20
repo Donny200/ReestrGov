@@ -15,7 +15,7 @@ import adliya.uz.task1.entity.Permission;
 import java.util.stream.Collectors;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserResponse {
@@ -33,7 +33,17 @@ public class UserResponse {
     private List<String> permissions;
     private List<OrganizationSummary> organizations;
 
+    /** Second-factor state; absent on responses that did not look it up. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private MfaSummary mfa;
+
     public record OrganizationSummary(Long id, String name) {}
+
+    public record MfaSummary(boolean required, boolean enrolled, java.time.Instant enrollmentDeadline, boolean enrollmentOverdue) {}
+
+    public UserResponse withMfa(MfaSummary summary) {
+        return toBuilder().mfa(summary).build();
+    }
 
     public static UserResponse from(User user) {
         return UserResponse.builder()

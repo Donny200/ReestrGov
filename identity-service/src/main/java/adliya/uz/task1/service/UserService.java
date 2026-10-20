@@ -10,6 +10,7 @@ import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.EmailAlreadyExistsException;
 import adliya.uz.task1.exception.ResourceNotFoundException;
 import adliya.uz.task1.repository.OrganizationRepository;
+import adliya.uz.task1.repository.RefreshTokenRepository;
 import adliya.uz.task1.repository.RoleRepository;
 import adliya.uz.task1.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -40,6 +42,18 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final OrganizationRepository organizationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    /** Adds enrollment state to list responses in one query instead of one per user. */
+    public List<UserResponse> withMfaStatus(List<UserResponse> responses, MfaService mfa) {
+        Set<Long> enrolled = mfa.enrolledUserIds();
+        boolean overdue = mfa.enrollmentOverdue();
+        return responses.stream().map(response -> {
+            boolean required = mfa.enabled() && response.getRole() != null && mfa.requiredRoles().contains(response.getRole());
+            boolean isEnrolled = enrolled.contains(response.getId());
+            return response.withMfa(new UserResponse.MfaSummary(required, isEnrolled, mfa.enrollmentDeadline(), required && !isEnrolled && overdue));
+        }).toList();
+    }
 
     public User getByEmail(String email) {
         return userRepository.findByEmail(email)
@@ -91,6 +105,14 @@ public class UserService {
                 .toList();
     }
 
+    /** One page of users (ordered by id) for callers that opt into server-side paging. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<UserResponse> getPageForLegacyApi(int page, int size) {
+        requirePermission(USERS_VIEW);
+        return userRepository.findAll(org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by("id"))).map(UserResponse::from);
+    }
+
     @Transactional(readOnly = true)
     public UserResponse getForLegacyApi(Long id) {
         requirePermission(USERS_VIEW);
@@ -134,13 +156,20 @@ public class UserService {
         if (Objects.equals(current.getId(), target.getId())) {
             throw new IllegalStateException("You cannot deactivate your own account");
         }
-        if (isEnabledSuperAdmin(target)
-                && userRepository.countByRole_NameAndEnabledTrue(SystemRole.SUPER_ADMIN.authority()) <= 1) {
+        if (SuperAdmins.isLastEnabled(target, userRepository)) {
             throw new IllegalStateException("The last enabled SUPER_ADMIN cannot be deactivated");
         }
         if (Boolean.TRUE.equals(target.getEnabled())) {
             target.setEnabled(false);
             userRepository.save(target);
+            endSessions(target);
+        }
+    }
+
+    /** A deactivated account keeps no live session. */
+    public void endSessions(User user) {
+        if (user.getId() != null) {
+            refreshTokenRepository.revokeAllByUserId(user.getId(), Instant.now(), SessionService.REASON_DEACTIVATED);
         }
     }
 
@@ -164,24 +193,15 @@ public class UserService {
     }
 
     private void requireSuperAdminForSuperAdminRole(User current, Role requestedRole) {
-        if (SystemRole.SUPER_ADMIN.authority().equals(requestedRole.getName()) && !isSuperAdmin(current)) {
+        if (SystemRole.SUPER_ADMIN.authority().equals(requestedRole.getName()) && !SystemRole.SUPER_ADMIN.isHeldBy(current)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can create another SUPER_ADMIN");
         }
     }
 
     private void requireSuperAdminForSuperAdminTarget(User current, User target) {
-        if (isSuperAdmin(target) && !isSuperAdmin(current)) {
+        if (SystemRole.SUPER_ADMIN.isHeldBy(target) && !SystemRole.SUPER_ADMIN.isHeldBy(current)) {
             throw new AccessDeniedException("Only SUPER_ADMIN can manage another SUPER_ADMIN");
         }
-    }
-
-    private static boolean isSuperAdmin(User user) {
-        return user.getRole() != null
-                && SystemRole.SUPER_ADMIN.authority().equals(user.getRole().getName());
-    }
-
-    private static boolean isEnabledSuperAdmin(User user) {
-        return Boolean.TRUE.equals(user.getEnabled()) && isSuperAdmin(user);
     }
 
     private Role resolveRole(Long roleId) {

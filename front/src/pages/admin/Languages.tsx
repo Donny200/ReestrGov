@@ -13,7 +13,8 @@ import { ConfirmModal } from '../../components/ui/Modal';
 import { SkeletonText } from '../../components/ui/Skeleton';
 import { EmptyState, ErrorState } from '../../components/ui/States';
 import { useAddLanguage, useDeleteLanguage, useLanguages } from '../../features/languages/queries';
-import { useDebouncedValue, useLanguageSearch } from '../../features/languages/search';
+import { useLanguageSearch } from '../../features/languages/search';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useI18n } from '../../contexts/i18n';
 import { cn } from '../../lib/cn';
 import type { Language } from '../../types/api';
@@ -67,20 +68,20 @@ export function Languages() {
         accessorKey: 'id',
         header: t('field.id'),
         meta: { hideBelow: 'xl', mobileHidden: true },
-        cell: ({ row }) => <span className="tabular-nums text-content-subtle">#{row.original.id}</span>,
+        cell: ({ row }) => <span className="tabular-nums text-secondary">#{row.original.id}</span>,
       },
       {
         accessorKey: 'code',
         header: 'ISO / BCP-47',
-        cell: ({ row }) => <Badge tone="neutral" className="font-mono text-[11px]">{row.original.code}</Badge>,
+        cell: ({ row }) => <Badge size="sm">{row.original.code}</Badge>,
       },
       {
         accessorKey: 'nativeName',
         header: t('lang.nativeName', 'Native name'),
         cell: ({ row }) => (
           <span className="min-w-0">
-            <span className="block font-medium text-content-strong">{row.original.nativeName}</span>
-            <span className="block text-xs text-content-muted">{row.original.name}</span>
+            <span className="block font-medium text-foreground">{row.original.nativeName}</span>
+            <span className="block text-xs text-secondary">{row.original.name}</span>
           </span>
         ),
       },
@@ -89,7 +90,7 @@ export function Languages() {
         header: t('lang.default'),
         meta: { hideBelow: 'md' },
         cell: ({ row }) =>
-          row.original.defaultLanguage ? <Badge tone="brand" dot glow>{t('lang.default')}</Badge> : <span className="text-content-subtle">—</span>,
+          row.original.defaultLanguage ? <Badge size="sm" tone="accent">{t('lang.default')}</Badge> : <span className="text-secondary">—</span>,
       },
       {
         id: 'actions',
@@ -98,9 +99,9 @@ export function Languages() {
         meta: { align: 'right', mobileHidden: true },
         cell: ({ row }) =>
           row.original.defaultLanguage ? (
-            <span className="text-xs text-content-subtle">{t('lang.default')}</span>
+            <span className="text-xs text-secondary">{t('lang.default')}</span>
           ) : (
-            <Button variant="ghost" size="iconSm" aria-label={`${t('action.delete')}: ${row.original.nativeName}`} className="text-danger hover:bg-danger/10 hover:text-danger" onClick={() => setDeleting(row.original)}>
+            <Button variant="ghost" size="iconSm" aria-label={`${t('action.delete')}: ${row.original.nativeName}`} className="text-danger fine:hover:bg-status-danger-bg fine:hover:text-danger" onClick={() => setDeleting(row.original)}>
               <Trash2Icon aria-hidden="true" />
             </Button>
           ),
@@ -110,12 +111,12 @@ export function Languages() {
   );
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
         eyebrow={t('nav.admin')}
         title={t('lang.title')}
         description={t('lang.current')}
-        badge={<Badge tone="brand">{(languages.data ?? []).length}</Badge>}
+        badge={<Badge size="sm" tone="accent">{(languages.data ?? []).length}</Badge>}
       />
 
       <div className="grid gap-6 xl:grid-cols-5">
@@ -135,13 +136,13 @@ export function Languages() {
           />
         </Card>
 
-        <Card glass className="h-fit xl:sticky xl:top-24 xl:col-span-2">
+        <Card className="h-fit xl:sticky xl:top-24 xl:col-span-2">
           <CardHeader title={t('lang.searchTitle')} icon={<LanguagesIcon className="h-4 w-4" aria-hidden="true" />} />
           <CardBody className="space-y-4">
             <label className="block">
-              <span className="block text-sm font-medium text-content-strong">{t('lang.searchPlaceholder')}</span>
+              <span className="block text-sm font-medium text-foreground">{t('lang.searchPlaceholder')}</span>
               <span className="relative mt-2 block">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" aria-hidden="true" />
+                <SearchIcon className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary" aria-hidden="true" />
                 <Input
                   value={query}
                   onChange={(event) => {
@@ -149,14 +150,14 @@ export function Languages() {
                     setSelectedCode('');
                   }}
                   placeholder={t('lang.searchPlaceholder')}
-                  className="pl-9"
+                  className="ps-9"
                 />
               </span>
             </label>
 
             <div className="min-h-36" aria-live="polite">
               {query.trim() === '' ? (
-                <p className="px-1 text-sm text-content-muted">{t('lang.searchPlaceholder')}</p>
+                <p className="px-1 text-sm text-secondary">{t('lang.searchPlaceholder')}</p>
               ) : searching ? (
                 <SkeletonText lines={4} />
               ) : results.error ? (
@@ -164,7 +165,7 @@ export function Languages() {
               ) : (results.data ?? []).length === 0 ? (
                 <EmptyState title={t('state.emptyTitle')} icon={<GlobeIcon className="h-6 w-6" aria-hidden="true" />} />
               ) : (
-                <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                <ul className="max-h-64 space-y-1 overflow-y-auto pe-1">
                   {(results.data ?? []).map((item) => {
                     const already = item.alreadyAdded || existingCodes.has(item.code.toLowerCase());
                     const selected = selectedCode === item.code;
@@ -176,18 +177,18 @@ export function Languages() {
                           aria-pressed={selected}
                           onClick={() => setSelectedCode(item.code)}
                           className={cn(
-                            'press flex min-h-14 w-full items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-left transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-60',
-                            selected ? 'border-brand/40 bg-brand-subtle shadow-glow' : 'border-line bg-surface/70 hover:border-line-strong hover:bg-surface-subtle',
+                            'flex min-h-14 w-full items-center justify-between gap-3 rounded-control border px-3 py-2.5 text-start transition-colors duration-snap disabled:cursor-not-allowed disabled:text-secondary',
+                            selected ? 'border-ink bg-surface' : 'border-line bg-background fine:hover:bg-surface',
                           )}
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium text-content-strong">{item.nativeName}</span>
-                            <span className="block truncate font-mono text-[11px] text-content-subtle">{item.code} · {item.name}</span>
+                            <span className="block truncate text-sm font-medium text-foreground">{item.nativeName}</span>
+                            <span className="block truncate text-xs text-secondary">{item.code} · {item.name}</span>
                           </span>
                           {already ? (
-                            <Badge tone="neutral">{t('lang.alreadyAdded', 'Already added')}</Badge>
+                            <Badge size="sm">{t('lang.alreadyAdded', 'Already added')}</Badge>
                           ) : selected ? (
-                            <CheckIcon className="h-4 w-4 shrink-0 text-link" aria-hidden="true" />
+                            <CheckIcon className="h-4 w-4 shrink-0 text-accent-text" aria-hidden="true" />
                           ) : null}
                         </button>
                       </li>

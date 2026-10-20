@@ -66,7 +66,7 @@ class CatalogPostgresTest {
     @MockitoBean TranslationClient translator;
 
     @BeforeEach void setup() {
-        jdbc.execute("TRUNCATE audit_log_functions, audit_logs, org_functions, function_categories RESTART IDENTITY CASCADE");
+        jdbc.execute("TRUNCATE translation_jobs, audit_log_functions, audit_logs, org_functions, function_categories RESTART IDENTITY CASCADE");
         login(List.of(10L), true);
         doAnswer(call -> {
             Long id = call.getArgument(0);
@@ -205,8 +205,7 @@ class CatalogPostgresTest {
         assertThat(functions.count()).isZero(); assertThat(audit.count()).isZero();
     }
 
-    @Test void seedIsIdempotentAndPreservesEditorialChangesAndHumanTranslations() throws Exception {
-        when(translator.translate(any(),eq("ru"),any())).thenReturn(Map.of("en","Machine English","uz","Mashina tarjimasi"));
+    @Test void seedIsIdempotentQueuesTranslationsOnceAndPreservesEditorialChanges() throws Exception {
         List<EditorialSeedService.Seed> seeds;
         try(var stream = new ClassPathResource("seed/editorial-functions.json").getInputStream()) {
             seeds = mapper.readValue(stream,new TypeReference<>() {});
@@ -215,36 +214,28 @@ class CatalogPostgresTest {
         assertThat(functions.count()).isEqualTo(8);
         assertThat(functions.findAll()).allSatisfy(f -> {
             assertThat(f.getStatus()).isEqualTo(DRAFT); assertThat(f.getOrganizationId()).isNull();
-            assertThat(f.getNameTranslations()).containsKeys("ru","en","uz");
-            assertThat(f.getDescriptionTranslations().get("uz").source()).isEqualTo("machine");
+            assertThat(f.getNameTranslations()).containsOnlyKeys("ru");
+            assertThat(f.getNameTranslations().get("ru").source()).isEqualTo("human");
         });
+        // Seeding never calls the provider; every draft is queued for the background worker instead.
+        verifyNoInteractions(translator);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM translation_jobs WHERE target_type = 'FUNCTION' AND status = 'PENDING'", Long.class)).isEqualTo(8L);
         long auditCount = audit.count();
         var edited = functions.findBySeedKey(seeds.get(0).key()).orElseThrow();
         edited.setName("Редактор изменил название");
         functions.saveAndFlush(edited);
         var human = functions.findBySeedKey(seeds.get(1).key()).orElseThrow();
         human.getNameTranslations().put("en",new TranslatedText("Human translation",TranslatedText.HUMAN));
-        human.getNameTranslations().remove("uz");
         functions.saveAndFlush(human);
+        jdbc.update("UPDATE translation_jobs SET status = 'DONE'");
         seeds.forEach(seeder::seed);
         assertThat(functions.count()).isEqualTo(8);
-        assertThat(audit.count()).isEqualTo(auditCount + 1);
+        assertThat(audit.count()).isEqualTo(auditCount);
         assertThat(functions.findById(human.getId()).orElseThrow().getNameTranslations().get("en").text())
                 .isEqualTo("Human translation");
         assertThat(functions.findById(edited.getId()).orElseThrow().getName()).isEqualTo("Редактор изменил название");
-        verify(translator,times(17)).translate(any(),eq("ru"),any());
-    }
-
-    @Test void seedRetriesMissingMachineTranslationsWithoutDuplicatingDraft() {
-        var seed = new EditorialSeedService.Seed("retry","Name","Description","Requirements","Category");
-        when(translator.translate(any(),eq("ru"),any())).thenReturn(Map.of());
-        seeder.seed(seed);
-        assertThat(functions.count()).isEqualTo(1);
-        assertThat(functions.findAll().get(0).getNameTranslations()).containsOnlyKeys("ru");
-        when(translator.translate(any(),eq("ru"),any())).thenReturn(Map.of("en","English","uz","Uzbek"));
-        seeder.seed(seed);
-        assertThat(functions.count()).isEqualTo(1);
-        assertThat(functions.findAll().get(0).getNameTranslations()).containsKeys("ru","en","uz");
+        // Restarting does not queue the same untouched drafts again.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM translation_jobs WHERE status = 'PENDING'", Long.class)).isZero();
     }
 
     @Test void migrationPreservesOldStatesCategoriesAndTranslationJson() {

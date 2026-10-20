@@ -1,24 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  createModerator,
-  createOrgAdmin,
-  deactivateModerator,
-  deactivateOrgAdmin,
-  getModeratorCandidates,
-  getModerators,
-  getOrgAdminCandidates,
-  getOrgAdmins,
-  promoteModerator,
-  promoteOrgAdmin,
-  updateModerator,
-  updateOrgAdmin,
-} from '../../services/staffService';
-import type { UpdateModeratorRequest, UpdateOrgAdminRequest } from '../../types/api';
+import { getModeratorCandidates, getModerators, getOrgAdminCandidates, getOrgAdmins } from '../../services/staffService';
 import { legacyUserKeys, roleKeys, staffKeys } from '../queryKeys';
 
-export const useOrgAdmins = () => useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins });
+export const useOrgAdmins = (enabled = true) => useQuery({ queryKey: staffKeys.orgAdmins(), queryFn: getOrgAdmins, enabled });
 export const useOrgAdminCandidates = () => useQuery({ queryKey: staffKeys.orgAdminCandidates(), queryFn: getOrgAdminCandidates });
-export const useModerators = () => useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators });
+export const useModerators = (enabled = true) => useQuery({ queryKey: staffKeys.moderators(), queryFn: getModerators, enabled });
 export const useModeratorCandidates = () => useQuery({ queryKey: staffKeys.moderatorCandidates(), queryFn: getModeratorCandidates });
 
 export function useStaffMutation<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
@@ -34,14 +20,3 @@ export function useStaffMutation<TVariables, TResult>(mutationFn: (variables: TV
   });
 }
 
-export const useCreateOrgAdmin = () => useStaffMutation(createOrgAdmin);
-export const usePromoteOrgAdmin = () => useStaffMutation(promoteOrgAdmin);
-export const useUpdateOrgAdmin = () =>
-  useStaffMutation(({ id, payload }: { id: number; payload: UpdateOrgAdminRequest }) => updateOrgAdmin(id, payload));
-export const useDeactivateOrgAdmin = () => useStaffMutation((id: number) => deactivateOrgAdmin(id));
-
-export const useCreateModerator = () => useStaffMutation(createModerator);
-export const usePromoteModerator = () => useStaffMutation(promoteModerator);
-export const useUpdateModerator = () =>
-  useStaffMutation(({ id, payload }: { id: number; payload: UpdateModeratorRequest }) => updateModerator(id, payload));
-export const useDeactivateModerator = () => useStaffMutation((id: number) => deactivateModerator(id));

@@ -12,38 +12,33 @@ interface StatCardProps {
   icon: ComponentType<{ className?: string }>;
   to?: string;
   loading?: boolean;
-  tone?: 'brand' | 'success' | 'warning' | 'info';
   className?: string;
 }
 
-const tones = {
-  brand: 'bg-brand-gradient-soft text-link',
-  success: 'bg-positive/10 text-positive',
-  warning: 'bg-warning/10 text-warning',
-  info: 'bg-info/10 text-info',
-};
-
-export function StatCard({ label, value, hint, icon: Icon, to, loading = false, tone = 'brand', className }: StatCardProps) {
+export function StatCard({ label, value, hint, icon: Icon, to, loading = false, className }: StatCardProps) {
   const animated = useAnimatedNumber(loading ? 0 : value);
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-content-muted">{label}</span>
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-control shadow-xs', tones[tone])}>
+        <span className="micro text-secondary">{label}</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-surface text-foreground">
           <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
         </span>
       </div>
       {loading ? (
         <Skeleton className="mt-4 h-9 w-20" />
       ) : (
-        <p className="mt-4 font-display text-[2rem] font-bold leading-none tabular-nums tracking-tight text-content-strong">{animated}</p>
+        <p className="mt-4 text-[2.25rem] font-semibold leading-none tabular-nums tracking-[-0.02em] text-foreground">
+          <span aria-hidden="true">{animated}</span>
+          <span className="sr-only">{value}</span>
+        </p>
       )}
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-content-muted">
+      <div className="mt-3 flex items-center justify-between gap-3 text-sm text-secondary">
         <span className="truncate">{hint}</span>
-        {to && <ArrowUpRightIcon className="h-4 w-4 shrink-0 text-content-subtle transition-colors group-hover:text-link" aria-hidden="true" />}
+        {to && <ArrowUpRightIcon className="h-4 w-4 shrink-0 transition-transform duration-snap ease-snap motion-safe:group-hover:rotate-45 rtl:-scale-x-100" aria-hidden="true" />}
       </div>
     </>
   );
-  const shell = cn('group relative block overflow-hidden rounded-surface border border-line bg-surface p-5 shadow-card', to && 'lift', className);
+  const shell = cn('group relative block rounded-card-sm border border-line bg-background p-5 transition-transform duration-snap ease-snap', to && 'motion-safe:fine:hover:-translate-y-1', className);
   return to ? <Link to={to} className={shell}>{body}</Link> : <div className={shell}>{body}</div>;
 }

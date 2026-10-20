@@ -1,10 +1,14 @@
 package adliya.uz.task1.controller;
 
+import adliya.uz.task1.config.MfaProperties;
+import adliya.uz.task1.config.security.CookieProperties;
 import adliya.uz.task1.config.security.CookieUtil;
+import adliya.uz.task1.config.security.SessionCookies;
+import adliya.uz.task1.service.MfaService;
+import adliya.uz.task1.service.SessionService;
 import adliya.uz.task1.config.security.CustomUserPrincipal;
 import adliya.uz.task1.config.security.JwtService;
 import adliya.uz.task1.config.security.MandatoryPasswordChangeFilter;
-import adliya.uz.task1.dto.UserResponse;
 import adliya.uz.task1.entity.Role;
 import adliya.uz.task1.entity.User;
 import adliya.uz.task1.exception.InvalidRefreshTokenException;
@@ -29,6 +33,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -52,6 +57,12 @@ class AuthControllerMandatoryPasswordChangeTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private MfaService mfaService;
+
+    @Mock
+    private SessionService sessionService;
+
     @Test
     void flaggedUserIsDeniedEveryOtherEndpoint() throws Exception {
         flaggedMockMvc().perform(get("/api/private-resource"))
@@ -64,14 +75,10 @@ class AuthControllerMandatoryPasswordChangeTest {
     void flaggedUserCanChangePasswordReadProfileAndLogout() throws Exception {
         User changedUser = user(false);
         when(authService.changePassword(any())).thenReturn(changedUser);
-        when(authService.getCurrentUser()).thenReturn(UserResponse.builder()
-                .id(1L)
-                .email("root@example.com")
-                .mustChangePassword(true)
-                .organizationIds(Set.of())
-                .build());
-        when(jwtService.generateToken(changedUser)).thenReturn("new-access-value");
-        when(refreshTokenService.createRefreshToken(changedUser)).thenReturn("new-refresh-value");
+        when(authService.getCurrentUserEntity()).thenReturn(user(true));
+        when(jwtService.generateToken(changedUser, "session-1")).thenReturn("new-access-value");
+        when(refreshTokenService.createSession(eq(changedUser), any()))
+                .thenReturn(new RefreshTokenService.IssuedSession("new-refresh-value", "session-1"));
         when(cookieUtil.createAccessCookie("new-access-value"))
                 .thenReturn(sessionCookie("accessToken", "new-access-value", "/"));
         when(cookieUtil.createRefreshCookie("new-refresh-value"))
@@ -125,6 +132,7 @@ class AuthControllerMandatoryPasswordChangeTest {
         assertThat(cookies).noneMatch(cookie -> cookie.startsWith("refreshToken=")
                 && !cookie.contains("Max-Age=0"));
         verify(refreshTokenService, never()).createRefreshToken(any());
+        verify(refreshTokenService, never()).createSession(any(), any());
     }
 
     @Test
@@ -143,8 +151,9 @@ class AuthControllerMandatoryPasswordChangeTest {
     void ordinaryLoginStillIssuesAccessAndRefreshCookies() throws Exception {
         User user = user(false);
         when(authService.login(any())).thenReturn(user);
-        when(jwtService.generateToken(user)).thenReturn("access-value");
-        when(refreshTokenService.createRefreshToken(user)).thenReturn("refresh-value");
+        when(jwtService.generateToken(user, "session-2")).thenReturn("access-value");
+        when(refreshTokenService.createSession(eq(user), any()))
+                .thenReturn(new RefreshTokenService.IssuedSession("refresh-value", "session-2"));
         when(cookieUtil.createAccessCookie("access-value"))
                 .thenReturn(sessionCookie("accessToken", "access-value", "/"));
         when(cookieUtil.createRefreshCookie("refresh-value"))
@@ -207,7 +216,12 @@ class AuthControllerMandatoryPasswordChangeTest {
     }
 
     private AuthController controller() {
-        return new AuthController(authService, jwtService, cookieUtil, refreshTokenService);
+        org.mockito.Mockito.lenient().when(mfaService.decide(any())).thenReturn(MfaService.Decision.FULL_SESSION);
+        SessionCookies sessionCookies = new SessionCookies(cookieUtil, jwtService, refreshTokenService, new CookieProperties());
+        adliya.uz.task1.config.LoginProperties loginProperties = new adliya.uz.task1.config.LoginProperties();
+        return new AuthController(authService, sessionCookies, refreshTokenService, mfaService, sessionService, new MfaProperties(),
+                loginProperties, new adliya.uz.task1.service.LoginRateLimiter(loginProperties),
+                new adliya.uz.task1.service.LoginAttemptGuard(loginProperties));
     }
 
     private User user(boolean mustChangePassword) {

@@ -7,13 +7,13 @@ interface AvatarProps {
   className?: string;
 }
 
-const sizes = { sm: 'h-7 w-7 text-[11px]', md: 'h-9 w-9 text-xs', lg: 'h-12 w-12 text-sm' };
+const sizes = { sm: 'h-8 w-8 text-[11px]', md: 'h-10 w-10 text-xs', lg: 'h-14 w-14 text-base' };
 
 export function Avatar({ user, size = 'md', className }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
-      className={cn('inline-flex shrink-0 items-center justify-center rounded-control bg-brand-gradient font-semibold tracking-wide text-white shadow-xs', sizes[size], className)}
+      className={cn('inline-flex shrink-0 items-center justify-center rounded-pill bg-ink font-semibold tracking-wide text-ink-fg', sizes[size], className)}
     >
       {initials(user)}
     </span>

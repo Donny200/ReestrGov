@@ -1,19 +1,21 @@
-import { useEffect, useState, type ComponentType } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ArrowLeftIcon,
+  BarChart3Icon,
   BuildingIcon,
+  CalendarDaysIcon,
   DatabaseIcon,
   FileTextIcon,
+  FlagIcon,
   GlobeIcon,
   KeyIcon,
   LayoutDashboardIcon,
   LockIcon,
+  MessagesSquareIcon,
   LogOutIcon,
   MenuIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
   ShieldCheckIcon,
   UsersIcon,
   XIcon,
@@ -25,13 +27,14 @@ import { navForRole, type AdminNavItem } from './adminNav';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
-import { Tooltip } from '../ui/Tooltip';
+import { FOCUSABLE, trapTab, useBodyScrollLock } from '../ui/dialogUtils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/DropdownMenu';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
+import { HELP_VIEW_PERMISSION } from '../../features/help/helpOptions';
+import { useLiveSupport } from '../../features/help/liveSupport';
+import { useHelpInboxUnread } from '../../features/help/queries';
 import { fullName, roleLabel } from '../../utils/format';
-
-export { PageHeader } from './PageHeader';
 
 const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>> = {
   functions: FileTextIcon,
@@ -43,51 +46,47 @@ const icons: Record<AdminNavItem['icon'], ComponentType<{ className?: string }>>
   globe: GlobeIcon,
   legacy: DatabaseIcon,
   lock: LockIcon,
+  reports: FlagIcon,
+  analytics: BarChart3Icon,
+  questions: MessagesSquareIcon,
+  calendar: CalendarDaysIcon,
 };
 
-const SIDEBAR_KEY = 'reestr-sidebar';
+const TOP_BAR_HEIGHT = '4.5rem';
 
-function readCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDEBAR_KEY) === 'collapsed';
-  } catch {
-    return false;
-  }
-}
-
-function SidebarNav({ items, collapsed, onNavigate }: { items: AdminNavItem[]; collapsed: boolean; onNavigate?: () => void }) {
+function SidebarNav({ items, onNavigate, badges = {} }: { items: AdminNavItem[]; onNavigate?: () => void; badges?: Record<string, number> }) {
   const { t } = useI18n();
   return (
-    <nav aria-label={t('nav.admin')} className="flex-1 overflow-y-auto px-2.5 py-3">
-      <ul className="space-y-0.5">
+    <nav aria-label={t('nav.admin')} className="flex-1 overflow-y-auto px-3 py-4">
+      <ul className="space-y-1">
         {items.map((item) => {
           const Icon = icons[item.icon];
-          const label = t(item.labelKey);
-          const link = (
-            <NavLink
-              to={item.to}
-              end={item.end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                cn(
-                  'group relative flex h-10 items-center gap-3 rounded-control px-3 text-sm font-medium transition-colors duration-fast',
-                  isActive ? 'bg-brand-subtle text-link' : 'text-content-muted hover:bg-surface-subtle hover:text-content-strong',
-                  collapsed && 'justify-center px-0',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand-gradient" aria-hidden="true" />}
-                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                  <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
-                </>
-              )}
-            </NavLink>
-          );
           return (
-            <li key={item.to} className={cn(item.dividerBefore && 'mt-3 border-t border-line/80 pt-3')}>
-              {collapsed ? <Tooltip content={label} side="right">{link}</Tooltip> : link}
+            <li key={item.to} className={cn(item.dividerBefore && 'mt-3 border-t border-ink-line pt-3')}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    'group flex min-h-11 items-center gap-3 rounded-pill px-4 text-sm font-medium transition-colors duration-snap ease-snap',
+                    isActive ? 'bg-ink-hover text-ink-fg' : 'text-ink-secondary fine:hover:bg-ink-hover fine:hover:text-ink-fg',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                    {(badges[item.to] ?? 0) > 0 && (
+                      <span className="rounded-pill bg-accent px-2 py-0.5 text-xs font-semibold tabular-nums text-ink" aria-label={`${badges[item.to]} ${t('support.unreadConversations', 'conversations with unread messages')}`}>
+                        {badges[item.to]}
+                      </span>
+                    )}
+                    {isActive && <span className="h-1.5 w-1.5 shrink-0 rounded-pill bg-accent" aria-hidden="true" />}
+                  </>
+                )}
+              </NavLink>
             </li>
           );
         })}
@@ -96,121 +95,138 @@ function SidebarNav({ items, collapsed, onNavigate }: { items: AdminNavItem[]; c
   );
 }
 
+function SidebarFooter() {
+  const { t } = useI18n();
+  return (
+    <div className="border-t border-ink-line p-3">
+      <Link to="/" className="flex min-h-11 items-center gap-3 rounded-pill px-4 text-sm font-medium text-ink-secondary transition-colors duration-snap fine:hover:bg-ink-hover fine:hover:text-ink-fg">
+        <ArrowLeftIcon className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
+        <span>{t('nav.backToSite')}</span>
+      </Link>
+    </div>
+  );
+}
+
 export function AdminLayout() {
   const { t } = useI18n();
   const { user, signOut } = useAuth();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerTitleId = useId();
   const items = navForRole(user?.role, user?.permissions);
+  const navigate = useNavigate();
+  const canViewSupport = user?.permissions.includes(HELP_VIEW_PERMISSION) ?? false;
+  useLiveSupport('staff', canViewSupport, user?.id ?? null);
+  const supportUnreadData = useHelpInboxUnread(canViewSupport).data;
+  const supportUnread = supportUnreadData?.conversations ?? 0;
+  const badges = { '/admin/questions': supportUnread };
+
+  // A new unread visitor message is announced once (not on the inbox itself, where the list already shows it).
+  const knownUnreadMessages = useRef<number | null>(null);
+  useEffect(() => {
+    const messages = supportUnreadData?.messages;
+    if (messages === undefined) return;
+    const previous = knownUnreadMessages.current;
+    knownUnreadMessages.current = messages;
+    if (previous !== null && messages > previous && location.pathname !== '/admin/questions') {
+      toast.info(t('support.newVisitorMessage', 'New message in the support inbox'), {
+        action: { label: t('support.openInbox', 'Open inbox'), onClick: () => navigate('/admin/questions') },
+      });
+    }
+  }, [supportUnreadData?.messages, location.pathname, navigate, t]);
 
   useEffect(() => setDrawerOpen(false), [location.pathname]);
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded');
-    } catch {
-      return;
-    }
-  }, [collapsed]);
+  useBodyScrollLock(drawerOpen);
   useEffect(() => {
     if (!drawerOpen) return undefined;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const frame = window.requestAnimationFrame(() => drawerRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus());
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDrawerOpen(false);
+      if (event.key === 'Escape') {
+        setDrawerOpen(false);
+        window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+        return;
+      }
+      if (event.key === 'Tab' && drawerRef.current) trapTab(event, drawerRef.current);
     };
     document.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = previous;
+      window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', onKey);
     };
   }, [drawerOpen]);
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+  };
 
   const currentItem = [...items].reverse().find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
   const pageTitle = location.pathname.startsWith('/admin/functions/') ? t('nav.functions') : currentItem ? t(currentItem.labelKey) : t('nav.admin');
 
   return (
-    <div className="flex min-h-dvh w-full">
-      <aside
-        aria-label={t('nav.admin')}
-        className={cn('glass hidden shrink-0 border-y-0 border-l-0 transition-[width] duration-base ease-spring lg:block', collapsed ? 'w-[4.5rem]' : 'w-64')}
-      >
-        <div className={cn('sticky top-0 flex h-dvh flex-col', collapsed ? 'w-[4.5rem]' : 'w-64')}>
-          <div className={cn('flex h-16 items-center border-b border-line/80 px-4', collapsed && 'justify-center px-0')}>
-            <Logo to="/admin" compact={collapsed} />
+    <div className="flex min-h-dvh w-full bg-surface text-foreground">
+      <aside aria-label={t('nav.admin')} className="ink hidden w-64 shrink-0 bg-ink text-ink-fg lg:block">
+        <div className="sticky top-0 flex h-dvh w-64 flex-col">
+          <div className="flex h-[4.5rem] items-center border-b border-ink-line px-6">
+            <Logo to="/admin" onInk />
           </div>
-          <SidebarNav items={items} collapsed={collapsed} />
-          <div className="border-t border-line/80 p-2.5">
-            <Link
-              to="/"
-              className={cn('flex h-10 items-center gap-3 rounded-control px-3 text-sm font-medium text-content-muted transition-colors hover:bg-surface-subtle hover:text-content-strong', collapsed && 'justify-center px-0')}
-            >
-              <ArrowLeftIcon className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              <span className={cn(collapsed && 'sr-only')}>{t('nav.backToSite')}</span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn('mt-1 h-10 w-full justify-start text-content-muted', collapsed && 'justify-center')}
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? t('nav.expand', 'Expand sidebar') : t('nav.collapse', 'Collapse sidebar')}
-              aria-pressed={collapsed}
-            >
-              {collapsed ? <PanelLeftOpenIcon aria-hidden="true" /> : <PanelLeftCloseIcon aria-hidden="true" />}
-              <span className={cn(collapsed && 'sr-only')}>{t('nav.collapse', 'Collapse')}</span>
-            </Button>
-          </div>
+          <SidebarNav badges={badges} items={items} />
+          <SidebarFooter />
         </div>
       </aside>
 
-      <AnimatePresence>
-        {drawerOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.button
-              type="button"
-              tabIndex={-1}
-              aria-label={t('action.close')}
-              onClick={() => setDrawerOpen(false)}
-              className="absolute inset-0 h-full w-full cursor-default bg-black/50 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            />
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label={t('nav.admin')}
-              className="glass-strong relative z-10 flex h-full w-[min(18rem,88vw)] flex-col shadow-overlay"
-              initial={{ x: -32, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -32, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="flex h-16 items-center justify-between border-b border-line/80 px-4">
-                <Logo to="/admin" />
-                <Button variant="ghost" size="iconSm" aria-label={t('action.close')} onClick={() => setDrawerOpen(false)}>
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </div>
-              <SidebarNav items={items} collapsed={false} onNavigate={() => setDrawerOpen(false)} />
-            </motion.div>
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label={t('action.close')}
+            onClick={closeDrawer}
+            className="absolute inset-0 h-full w-full cursor-default bg-[var(--backdrop)] backdrop-blur-[16px] animate-fade-in"
+          />
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={drawerTitleId}
+            className="ink relative z-10 flex h-full w-[min(18rem,88vw)] flex-col bg-ink text-ink-fg animate-fade-in"
+          >
+            <div className="flex h-[4.5rem] items-center justify-between border-b border-ink-line px-5">
+              <div id={drawerTitleId} className="min-w-0"><Logo to="/admin" onInk /></div>
+              <Button variant="ghost" size="iconSm" className="text-ink-fg fine:hover:bg-ink-hover fine:hover:text-ink-fg" aria-label={t('action.close')} onClick={closeDrawer}>
+                <XIcon aria-hidden="true" />
+              </Button>
+            </div>
+            <SidebarNav badges={badges} items={items} onNavigate={() => setDrawerOpen(false)} />
+            <SidebarFooter />
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="glass sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-x-0 border-t-0 px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-[4.5rem] items-center justify-between gap-3 border-b border-line bg-surface px-5 sm:px-8">
           <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setDrawerOpen(true)} aria-label={t('nav.admin')} aria-expanded={drawerOpen}>
+            <Button
+              ref={menuButtonRef}
+              variant="outline"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setDrawerOpen(true)}
+              aria-label={t('nav.admin')}
+              aria-expanded={drawerOpen}
+              aria-haspopup="dialog"
+            >
               <MenuIcon aria-hidden="true" />
             </Button>
             <div className="min-w-0">
-              <p className="truncate font-display text-sm font-semibold text-content-strong">{pageTitle}</p>
-              <p className="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-content-subtle sm:block">{t('app.name')}</p>
+              <p className="micro hidden text-secondary sm:block">{t('nav.admin')}</p>
+              <p className="truncate text-base font-semibold text-foreground">{pageTitle}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             <LanguageSwitcher compact />
             {user && (
@@ -218,16 +234,19 @@ export function AdminLayout() {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="press flex h-10 items-center gap-2 rounded-control border border-line bg-surface/80 px-1.5 shadow-xs transition-colors hover:bg-surface-subtle sm:pr-3"
+                    className="flex min-h-10 items-center gap-2 rounded-pill border border-line bg-background ps-1 pe-1 transition-colors duration-snap fine:hover:bg-surface-2 md:pe-4"
                     aria-label={fullName(user)}
                   >
                     <Avatar user={user} size="sm" />
-                    <span className="hidden max-w-40 truncate text-sm font-medium text-content-strong md:block">{fullName(user)}</span>
+                    <span className="hidden min-w-0 text-start md:block">
+                      <span className="block max-w-40 truncate text-sm font-medium leading-tight text-foreground">{fullName(user)}</span>
+                      <span className="block max-w-40 truncate text-xs leading-tight text-secondary">{roleLabel(user.role, t)}</span>
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-60">
+                <DropdownMenuContent className="w-64">
                   <DropdownMenuLabel>
-                    <span className="block truncate text-sm text-content-strong">{fullName(user)}</span>
+                    <span className="block truncate text-sm font-medium text-foreground">{fullName(user)}</span>
                     <span className="block truncate font-normal">{roleLabel(user.role, t)} · {user.email}</span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -244,8 +263,19 @@ export function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
-          <div className="mx-auto w-full max-w-7xl">
+        <main className="flex-1 px-5 py-6 sm:px-8 sm:py-8" style={{ '--sticky-top': TOP_BAR_HEIGHT } as CSSProperties}>
+          <div className="mx-auto w-full max-w-shell">
+            {user?.mfa?.required && !user.mfa.enrolled && !location.pathname.startsWith('/settings/security') && (
+              <div role="status" className="mb-6 flex flex-col gap-3 rounded-control bg-status-pending-bg px-4 py-3 text-sm leading-6 text-status-pending sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <ShieldCheckIcon className="me-2 inline h-4 w-4 align-text-bottom" aria-hidden="true" />
+                  {user.mfa.enrollmentDeadline
+                    ? `${t('mfa.bannerDeadline', 'Your role requires two-factor authentication. Set it up before')} ${new Date(user.mfa.enrollmentDeadline).toLocaleDateString()}.`
+                    : t('mfa.banner', 'Your role requires two-factor authentication. Set it up now.')}
+                </span>
+                <Link to="/settings/security#mfa" className="shrink-0 font-semibold underline-offset-4 fine:hover:underline">{t('mfa.setUp', 'Set up now')}</Link>
+              </div>
+            )}
             <Outlet />
           </div>
         </main>

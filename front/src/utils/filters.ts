@@ -10,3 +10,9 @@ export function statusFilterOptions(t: Translate): SelectOption[] {
     { value: 'inactive', label: t('status.inactive') },
   ];
 }
+
+export function matchesStatus(enabled: boolean, filter: StatusFilter): boolean {
+  if (filter === 'active') return enabled;
+  if (filter === 'inactive') return !enabled;
+  return true;
+}

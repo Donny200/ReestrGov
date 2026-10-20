@@ -26,8 +26,11 @@ public class DataInitializer implements CommandLineRunner {
     private static final List<String> ROLE_NAMES = Arrays.stream(SystemRole.values()).map(SystemRole::authority).toList();
     private static final List<String> ORG_ADMIN_PERMISSIONS = List.of(
             "ORGANIZATIONS_VIEW", "MODERATORS_VIEW", "MODERATORS_CREATE",
-            "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW");
-    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW");
+            "MODERATORS_EDIT", "MODERATORS_DEACTIVATE", "REPORTS_VIEW", "REPORTS_MANAGE",
+            "ORG_ANALYTICS_VIEW", "ORG_REPORTS_MANAGE", "FUNCTIONS_ASSIGN", "VISITOR_QUESTIONS_VIEW", "VISITOR_QUESTIONS_REPLY",
+            "APPOINTMENTS_VIEW", "APPOINTMENTS_MANAGE");
+    private static final List<String> MODERATOR_PERMISSIONS = List.of("ORGANIZATIONS_VIEW", "REPORTS_VIEW", "VISITOR_QUESTIONS_VIEW",
+            "APPOINTMENTS_VIEW");
     private static final List<PermissionSeed> PERMISSION_SEEDS = List.of(
             new PermissionSeed("ORGANIZATIONS_VIEW", "View organizations", "Organization Management"),
             new PermissionSeed("ORGANIZATIONS_CREATE", "Create organizations", "Organization Management"),
@@ -69,6 +72,7 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("FUNCTION_CATEGORIES_MANAGE", "Manage function categories", "Function Management"),
             new PermissionSeed("FUNCTIONS_IMPORT", "Import function drafts", "Function Management"),
             new PermissionSeed("AUDIT_VIEW", "View function audit history", "Function Management"),
+            new PermissionSeed("FUNCTIONS_ASSIGN", "Assign the staff member responsible for a function", "Function Management"),
 
             new PermissionSeed("TRANSLATION_KEYS_VIEW", "View translation keys", "Translation Management"),
             new PermissionSeed("TRANSLATION_KEYS_CREATE", "Create translation keys", "Translation Management"),
@@ -83,7 +87,17 @@ public class DataInitializer implements CommandLineRunner {
             new PermissionSeed("ROLES_DELETE", "Delete custom roles", "Role & Permission Management"),
             new PermissionSeed("ROLES_ASSIGN", "Assign roles to users", "Role & Permission Management"),
 
-            new PermissionSeed("REPORTS_VIEW", "View reports", "Reports")
+            new PermissionSeed("REPORTS_VIEW", "View reports", "Reports"),
+            new PermissionSeed("REPORTS_MANAGE", "Review and resolve information reports", "Reports"),
+            new PermissionSeed("ORG_REPORTS_MANAGE", "Handle visitor reports for own organizations", "Reports"),
+
+            new PermissionSeed("ORG_ANALYTICS_VIEW", "View organization dashboard, catalog engagement and quality queue", "Analytics"),
+
+            new PermissionSeed("VISITOR_QUESTIONS_VIEW", "View visitor questions for own organizations", "Visitor questions"),
+            new PermissionSeed("VISITOR_QUESTIONS_REPLY", "Reply to, assign and close visitor questions", "Visitor questions"),
+
+            new PermissionSeed("APPOINTMENTS_VIEW", "View appointment bookings of own organizations", "Appointments"),
+            new PermissionSeed("APPOINTMENTS_MANAGE", "Manage appointment availability and bookings of own organizations", "Appointments")
     );
 
     private final RoleRepository roleRepository;

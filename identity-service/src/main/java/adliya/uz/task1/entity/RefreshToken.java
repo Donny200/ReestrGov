@@ -47,4 +47,19 @@ public class RefreshToken {
     @Column(nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    /** Stable id of the browser session; rotation issues a new token row with the same session id. */
+    @Column(name = "session_id", length = 36)
+    private String sessionId;
+
+    /** Truncated User-Agent captured when the session started; shown in the session list, never used for decisions. */
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
+
+    private Instant lastUsedAt;
+
+    private Instant revokedAt;
+
+    @Column(name = "revoked_reason", length = 40)
+    private String revokedReason;
 }

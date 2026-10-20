@@ -6,7 +6,9 @@ import adliya.uz.task1.config.security.CookieProperties;
 import adliya.uz.task1.config.security.CustomUserDetailsService;
 import adliya.uz.task1.config.security.JwtAuthenticationFilter;
 import adliya.uz.task1.config.security.JwtService;
+import adliya.uz.task1.dto.PasswordResetLinkResponse;
 import adliya.uz.task1.dto.UserResponse;
+import adliya.uz.task1.service.PasswordResetService;
 import adliya.uz.task1.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,11 +45,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 class UserControllerSecurityTest {
 
+    @MockitoBean
+    private adliya.uz.task1.service.SessionService sessionService;
+    @MockitoBean
+    private adliya.uz.task1.service.MfaService mfaService;
+
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -63,6 +73,33 @@ class UserControllerSecurityTest {
 
     @MockitoBean
     private AuthenticationProvider authenticationProvider;
+
+    @Test
+    @WithMockUser(username = "orgadmin@example.com", authorities = {"ROLE_ORG_ADMIN", "USERS_VIEW", "USERS_EDIT"})
+    void mfaResetAndSessionAdministrationRequireSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/user/7/mfa")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/user/7/mfa/reset")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/user/7/sessions")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/user/7/sessions/s-1")).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/user/7/sessions")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/user/7/security-events")).andExpect(status().isForbidden());
+        verifyNoInteractions(mfaService, sessionService);
+    }
+
+    @Test
+    @WithMockUser(username = "root@example.com", authorities = {"ROLE_SUPER_ADMIN"})
+    void superAdminManagesSessionsAndSecondFactorsOfOtherUsersWithoutSeeingSecrets() throws Exception {
+        when(userService.getById(7L)).thenReturn(adliya.uz.task1.entity.User.builder().id(7L).build());
+        when(mfaService.status(any())).thenReturn(new adliya.uz.task1.dto.MfaStatusResponse(true, true, true, null, null, false, 8));
+        mockMvc.perform(get("/api/user/7/mfa")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.enrolled").value(true))
+                .andExpect(jsonPath("$.recoveryCodesRemaining").value(8))
+                .andExpect(jsonPath("$.secret").doesNotExist());
+        mockMvc.perform(post("/api/user/7/mfa/reset")).andExpect(status().isNoContent());
+        verify(mfaService).adminReset(any(), eq(7L));
+        mockMvc.perform(delete("/api/user/7/sessions")).andExpect(status().isNoContent());
+        verify(sessionService).revokeAllForAdmin(7L);
+    }
 
     @Test
     @WithMockUser(username = "viewer@example.com", authorities = "USERS_VIEW")
@@ -102,6 +139,32 @@ class UserControllerSecurityTest {
                 .andExpect(status().isForbidden());
 
         verify(userService).create(any());
+    }
+
+    @Test
+    @WithMockUser(username = "editor@example.com", authorities = {"USERS_VIEW", "USERS_EDIT", "USERS_CREATE", "USERS_DEACTIVATE", "ROLE_ORG_ADMIN"})
+    void onlySuperAdminCanInitiateAPasswordResetEvenWithEveryUserPermission() throws Exception {
+        mockMvc.perform(post("/api/user/7/password-reset"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(passwordResetService);
+    }
+
+    @Test
+    @WithMockUser(username = "root@example.com", authorities = "ROLE_SUPER_ADMIN")
+    void superAdminReceivesTheResetLinkOnceAndNeverAPassword() throws Exception {
+        when(passwordResetService.initiateByAdmin(7L)).thenReturn(new PasswordResetLinkResponse(7L,
+                "/reset-password?token=raw-token-value", java.time.Instant.parse("2026-10-12T10:00:00Z")));
+
+        var result = mockMvc.perform(post("/api/user/7/password-reset"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(7))
+                .andExpect(jsonPath("$.resetPath").value("/reset-password?token=raw-token-value"))
+                .andExpect(jsonPath("$.expiresAt").value("2026-10-12T10:00:00Z"))
+                .andReturn();
+        org.assertj.core.api.Assertions.assertThat(result.getResponse().getContentAsString().toLowerCase())
+                .doesNotContain("password\"", "hash");
+        verify(passwordResetService).initiateByAdmin(7L);
     }
 
     @Test

@@ -1,32 +1,37 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { GitBranchIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIsMutating } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeftIcon, FileTextIcon, SaveIcon } from 'lucide-react';
+import { ArrowLeftIcon } from 'lucide-react';
 import { PageHeader } from '../../components/layout/PageHeader';
-import { Card, CardBody, CardFooter, CardHeader } from '../../components/ui/Card';
+import { ActionBar } from '../../components/ui/ActionBar';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { buttonVariants } from '../../components/ui/buttonVariants';
-import { Badge, FunctionStatusBadge } from '../../components/ui/Badge';
+import { FunctionStatusBadge, StatusPill } from '../../components/ui/Badge';
 import { Skeleton, SkeletonText } from '../../components/ui/Skeleton';
+import { FunctionAssignee } from '../../components/functions/FunctionAssignee';
 import { FunctionAudit } from '../../components/functions/FunctionAudit';
 import { FunctionFields } from '../../components/functions/FunctionFields';
 import { FunctionPreview } from '../../components/functions/FunctionPreview';
 import { FunctionRequirementsEditor } from '../../components/functions/FunctionRequirementsEditor';
 import { FunctionTranslations } from '../../components/functions/FunctionTranslations';
+import { FunctionVerification } from '../../components/functions/FunctionVerification';
 import { FunctionWorkflow } from '../../components/functions/FunctionWorkflow';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
 import { InlineAlert } from '../../features/functions/InlineAlert';
 import { useAdminFunction, useFunctionOptions, useUpdateFunction } from '../../features/functions/queries';
 import { formOf, functionFormSchema, toUpdateRequest } from '../../features/functions/schema';
+import { useHashTarget } from '../../hooks/useHashTarget';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import { useAuth } from '../../contexts/auth';
 import { useI18n } from '../../contexts/i18n';
-import { applyServerErrors } from '../../lib/forms';
+import { applyServerErrors, withoutPrefix } from '../../lib/forms';
 import { functionText } from '../../utils/functionLocalization';
-import type { AdminFunction, FunctionFormValues } from '../../types/adminFunctions';
+import { isEditableStatus, type AdminFunction, type FunctionFormValues } from '../../types/adminFunctions';
 
 export function LegacyFunctionEditorRedirect() {
   const { id } = useParams();
@@ -35,13 +40,13 @@ export function LegacyFunctionEditorRedirect() {
 
 function EditorSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="animate-fade-in">
+    <div role="status" aria-busy="true">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-8 w-80" />
+        <Skeleton className="h-9 w-80 max-w-full" />
         <Skeleton className="h-4 w-56" />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <Card><CardBody><SkeletonText lines={9} /></CardBody></Card>
         <div className="space-y-6">
           <Card><CardBody><SkeletonText lines={3} /></CardBody></Card>
@@ -60,7 +65,7 @@ export function EditFunctionPage() {
   if (record.isPending) return <EditorSkeleton />;
   if (record.error || !record.data) {
     return (
-      <Card className="animate-fade-up">
+      <Card>
         <FunctionErrorState error={record.error} onRetry={() => void record.refetch()} />
       </Card>
     );
@@ -70,6 +75,7 @@ export function EditFunctionPage() {
 
 function FunctionEditor({ record }: { record: AdminFunction }) {
   const { t, locale } = useI18n();
+  useHashTarget();
   const { hasPermission } = useAuth();
   const options = useFunctionOptions();
   const update = useUpdateFunction(record.id);
@@ -85,8 +91,9 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
     reset(JSON.parse(baselineKey) as FunctionFormValues);
   }, [baselineKey, reset]);
 
-  const editable = record.status === 'DRAFT' && hasPermission('FUNCTIONS_EDIT');
-  const requirementsOnly = record.status === 'DRAFT' && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
+  const editable = isEditableStatus(record.status) && hasPermission('FUNCTIONS_EDIT');
+  const requirementsOnly = isEditableStatus(record.status) && !editable && hasPermission('FUNCTIONS_MANAGE_REQUIREMENTS');
+  const isRevision = Boolean(record.revisionOfId);
   const canTranslate = hasPermission('FUNCTIONS_EDIT') && hasPermission('FUNCTIONS_TRANSLATIONS_EDIT');
 
   useUnsavedChanges(isDirty, t('fnAdmin.discard'));
@@ -99,7 +106,7 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
       reset(formOf(saved));
       toast.success(t('fnAdmin.saved'));
     } catch (error) {
-      applyServerErrors(error, setError, setFormError, t);
+      applyServerErrors(error, setError, setFormError, t, withoutPrefix('instructions'));
     }
   });
 
@@ -114,45 +121,88 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
   const organizationName =
     organizations.find((organization) => organization.id === record.organizationId)?.name ?? t('fnAdmin.unassigned');
   const title = functionText(record, 'name', locale) || record.name;
-  const statusHint = editable || requirementsOnly
-    ? null
-    : t(
-        record.status === 'PENDING_REVIEW'
-          ? 'fnAdmin.reviewHint'
-          : record.status === 'PUBLISHED'
-            ? 'fnAdmin.publishedHint'
-            : record.status === 'DEACTIVATED'
-              ? 'fnAdmin.deactivatedHint'
-              : 'fnAdmin.readOnly',
-      );
+  const statusHint = (() => {
+    if (record.status === 'PENDING_REVIEW') {
+      if (hasPermission('FUNCTIONS_PUBLISH') || hasPermission('FUNCTIONS_REVIEW')) {
+        return t('fnAdmin.reviewHintReviewer', 'Under review: fields are locked so the reviewed text cannot change. Publish it, or return it to draft with a reason.');
+      }
+      if (hasPermission('FUNCTIONS_SUBMIT_REVIEW')) {
+        return t('fnAdmin.reviewHintSubmitter', 'Under review: fields are locked until a reviewer decides. Withdraw it from review to keep editing.');
+      }
+      return t('fnAdmin.reviewHint');
+    }
+    if (record.status === 'PUBLISHED') {
+      return hasPermission('FUNCTIONS_EDIT')
+        ? t('fnAdmin.publishedHint', 'Published and visible to visitors. Use “Edit” to open a draft revision; the public version stays unchanged until the revision is approved.')
+        : t('fnAdmin.publishedReadOnly', 'Published and visible to visitors. Service editor access is required to open a draft revision.');
+    }
+    if (record.status === 'DEACTIVATED') {
+      return editable
+        ? t('fnAdmin.deactivatedHint', 'Deactivated and hidden from visitors. Edit it here and submit it for review to publish it again.')
+        : t('fnAdmin.deactivatedReadOnly', 'Deactivated and hidden from visitors. Service editor access is required to change it.');
+    }
+    if (editable) return isRevision ? null : t('fnAdmin.draftHint', 'Save the draft, then submit it for review. Nothing is public until a reviewer publishes it.');
+    return requirementsOnly ? null : t('fnAdmin.readOnly');
+  })();
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <PageHeader
-        eyebrow={t('nav.functions')}
+        eyebrow={isRevision ? `${t('nav.functions')} · ${t('fnAdmin.revisionBadge', 'Draft revision')}` : t('nav.functions')}
         title={title}
         description={`#${record.id} · ${organizationName}`}
         breadcrumbs={[{ label: t('nav.functions'), to: '/admin/functions' }, { label: title }]}
         badge={
           <span className="flex flex-wrap items-center gap-2">
             <FunctionStatusBadge status={record.status} />
-            {isDirty && <Badge tone="warning" dot>{t('fnAdmin.unsaved')}</Badge>}
+            {isDirty && <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill>}
           </span>
         }
         actions={
-          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline' })}>
+          <Link to="/admin/functions" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <ArrowLeftIcon aria-hidden="true" />
             {t('action.back')}
           </Link>
         }
       />
 
+      {isRevision && (
+        <InlineAlert
+          tone="info"
+          className="mb-6"
+          action={
+            <Link to={`/admin/functions/${record.revisionOfId}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <GitBranchIcon aria-hidden="true" />
+              {t('fnAdmin.openPublished', 'Open published version')}
+            </Link>
+          }
+        >
+          <span className="font-semibold">{t('fnAdmin.revisionOf', 'Draft revision of service')} #{record.revisionOfId}.</span>{' '}
+          {t('fnAdmin.revisionHint', 'The published version stays visible to visitors until this revision is reviewed and published.')}
+        </InlineAlert>
+      )}
+      {!isRevision && record.revision && (
+        <InlineAlert
+          tone="warning"
+          className="mb-6"
+          action={
+            <Link to={`/admin/functions/${record.revision.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <GitBranchIcon aria-hidden="true" />
+              {t('fnAdmin.openRevision', 'Open draft revision')}
+            </Link>
+          }
+        >
+          {record.revision.status === 'PENDING_REVIEW'
+            ? t('fnAdmin.revisionPending', 'A revision is pending review; the published version stays visible until it is approved.')
+            : t('fnAdmin.revisionExists', 'A draft revision of this service is in progress. Visitors still see the published version.')}
+        </InlineAlert>
+      )}
       {statusHint && <InlineAlert tone="info" className="mb-6">{statusHint}</InlineAlert>}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} icon={<FileTextIcon className="h-4 w-4" />} />
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="min-w-0 space-y-6">
+          <Card id="function-details">
+            <CardHeader title={t('fnAdmin.original')} description={t('fnAdmin.originalHint')} />
             {options.isPending ? (
               <CardBody><SkeletonText lines={8} /></CardBody>
             ) : options.error ? (
@@ -166,15 +216,15 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
                     categories={options.data?.categories ?? []}
                     disabled={!editable || busy || secondaryDirty}
                   />
-                  {editable && <p className="text-xs leading-5 text-content-muted">{t('fnAdmin.sourceChanged')}</p>}
+                  {editable && <p className="text-sm leading-5 text-secondary">{t('fnAdmin.sourceChanged')}</p>}
                   {formError && <InlineAlert tone="danger">{formError}</InlineAlert>}
                 </CardBody>
                 {editable && (
-                  <CardFooter>
-                    <Button type="submit" icon={<SaveIcon />} loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
-                      {t('action.save')}
+                  <ActionBar status={isDirty ? <StatusPill tone="pending">{t('fnAdmin.unsaved')}</StatusPill> : undefined}>
+                    <Button type="submit" variant="dark" loading={update.isPending} disabled={busy || secondaryDirty || !isDirty}>
+                      {t('fnAdmin.saveDraft', 'Save draft')}
                     </Button>
-                  </CardFooter>
+                  </ActionBar>
                 )}
               </form>
             )}
@@ -185,8 +235,10 @@ function FunctionEditor({ record }: { record: AdminFunction }) {
           {hasPermission('AUDIT_VIEW') && <FunctionAudit functionId={record.id} />}
         </div>
 
-        <aside className="space-y-6 xl:sticky xl:top-24">
+        <aside className="space-y-6 lg:sticky lg:top-24">
           <FunctionWorkflow record={record} dirty={isDirty || secondaryDirty} busy={busy} />
+          <FunctionVerification record={record} dirty={isDirty || secondaryDirty} busy={busy} />
+          <FunctionAssignee record={record} busy={busy} />
           <FunctionPreview record={record} />
         </aside>
       </div>

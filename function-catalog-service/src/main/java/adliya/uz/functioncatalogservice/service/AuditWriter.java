@@ -13,6 +13,10 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor
 public class AuditWriter {
+    public static final String REPORT_ENTITY = "INFORMATION_REPORT";
+    public static final String HELP_ENTITY = "HELP_CONVERSATION";
+    public static final String APPOINTMENT_ENTITY = "APPOINTMENT";
+    public static final String SCHEDULE_ENTITY = "APPOINTMENT_SCHEDULE";
     private final AuditLogRepository repository;
     private final CatalogAccess access;
 
@@ -28,6 +32,12 @@ public class AuditWriter {
     @Transactional(propagation = Propagation.MANDATORY)
     public void function(OrgFunction function, AuditAction action, String details) {
         write("FUNCTION", function.getId(), action, details, actor(), Set.of(function.getId()));
+    }
+
+    /** One history entry attached to both the published card and its draft revision. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void revision(OrgFunction published, OrgFunction revision, AuditAction action, String details) {
+        write("FUNCTION", published.getId(), action, details, actor(), Set.of(published.getId(), revision.getId()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -67,10 +77,51 @@ public class AuditWriter {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void seedTranslations(OrgFunction function) {
-        write("FUNCTION", function.getId(), AuditAction.TRANSLATION_EDIT,
-                "Generated missing en/uz translations through Azure Translator",
-                new Actor(null, "system:editorial-seed"), Set.of(function.getId()));
+    public void machineTranslation(OrgFunction function, String details) {
+        write("FUNCTION", function.getId(), AuditAction.TRANSLATION_EDIT, details,
+                new Actor(null, "system:machine-translation"), Set.of(function.getId()));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void categoryMachineTranslation(Long categoryId, String details) {
+        write("FUNCTION_CATEGORY", categoryId, AuditAction.TRANSLATION_EDIT, details,
+                new Actor(null, "system:machine-translation"), Set.of());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reportReceived(InformationReport report) {
+        write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_RECEIVED,
+                report.getEntityType() + " #" + report.getEntityId() + "; category=" + report.getCategory(),
+                new Actor(null, "public:anonymous"), relatedFunctions(report));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void reportStatusChanged(InformationReport report, ReportStatus previous, String explanation) {
+        String transition = "Report #" + report.getId() + ": " + previous + " -> " + report.getStatus();
+        write(REPORT_ENTITY, report.getId(), AuditAction.REPORT_STATUS_CHANGE,
+                explanation == null ? transition : transition + "\n" + explanation, actor(), relatedFunctions(report));
+    }
+
+    /** Staff action on a visitor question; message texts are never copied into the audit log. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void helpConversation(HelpConversation conversation, AuditAction action, String details) {
+        write(HELP_ENTITY, conversation.getId(), action, details, actor(), Set.of());
+    }
+
+    /** Staff change of an organization's appointment calendar; never contains visitor details. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void schedule(Long organizationId, AuditAction action, String details) {
+        write(SCHEDULE_ENTITY, organizationId, action, details, actor(), Set.of());
+    }
+
+    /** Status change of an appointment by staff, or a visitor's own cancellation/reschedule; no visitor details. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appointment(Long appointmentId, AuditAction action, String details, boolean byVisitor) {
+        write(APPOINTMENT_ENTITY, appointmentId, action, details, byVisitor ? new Actor(null, "public:visitor") : actor(), Set.of());
+    }
+
+    private static Set<Long> relatedFunctions(InformationReport report) {
+        return report.getEntityType() == ReportEntityType.FUNCTION ? Set.of(report.getEntityId()) : Set.of();
     }
 
     private void write(String type, Long id, AuditAction action, String details, Actor actor, Set<Long> ids) {

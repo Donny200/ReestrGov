@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -26,6 +27,7 @@ public class AzureTranslationClient implements TranslationClient {
 
     private static final int CONNECT_TIMEOUT_MILLIS = 3000;
     private static final int READ_TIMEOUT_MILLIS = 8000;
+    private static final int MAX_BATCH_TEXTS = 25;
 
     private final AzureTranslatorProperties properties;
     private final RestClient restClient;
@@ -59,32 +61,57 @@ public class AzureTranslationClient implements TranslationClient {
 
     @Override
     public Map<String, String> translateRequired(String text, String fromCode, List<String> toCodes) {
-        if (!StringUtils.hasText(text) || !StringUtils.hasText(fromCode)) {
+        if (!StringUtils.hasText(text)) {
             return Map.of();
+        }
+        List<Map<String, String>> translated = translateBatch(List.of(text), fromCode, toCodes);
+        return translated.isEmpty() ? Map.of() : translated.get(0);
+    }
+
+    /**
+     * One request for up to {@value #MAX_BATCH_TEXTS} texts (Azure accepts 100 texts / 50 000 characters per call);
+     * larger inputs are split. The response is matched to the inputs by position.
+     */
+    @Override
+    public List<Map<String, String>> translateBatch(List<String> texts, String fromCode, List<String> toCodes) {
+        if (texts == null || texts.isEmpty() || !StringUtils.hasText(fromCode)) {
+            return List.of();
         }
         List<String> targets = targetCodes(fromCode, toCodes);
         if (targets.isEmpty()) {
-            return Map.of();
+            return texts.stream().<Map<String, String>>map(ignored -> Map.of()).toList();
         }
         if (!isAvailable()) {
             throw new TranslationUnavailableException(HttpStatus.SERVICE_UNAVAILABLE, "Automatic translation is not configured");
         }
+        List<Map<String, String>> result = new ArrayList<>(texts.size());
+        for (int from = 0; from < texts.size(); from += MAX_BATCH_TEXTS) {
+            result.addAll(request(texts.subList(from, Math.min(texts.size(), from + MAX_BATCH_TEXTS)), fromCode, targets));
+        }
+        return result;
+    }
+
+    private List<Map<String, String>> request(List<String> texts, String fromCode, List<String> targets) {
         try {
             AzureResponse[] response = restClient.post()
                     .uri(translateUri(fromCode, targets))
                     .header("Ocp-Apim-Subscription-Key", properties.getKey())
                     .header("Ocp-Apim-Subscription-Region", properties.getRegion())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(List.of(Map.of("Text", text)))
+                    .body(texts.stream().map(text -> Map.of("Text", text)).toList())
                     .retrieve()
                     .body(AzureResponse[].class);
-            return toTranslations(response);
+            return toTranslations(response, texts.size());
         } catch (TranslationUnavailableException exception) {
             throw exception;
         } catch (ResourceAccessException exception) {
             throw new TranslationUnavailableException(HttpStatus.GATEWAY_TIMEOUT, "Translator did not respond; retry later");
         } catch (RestClientResponseException exception) {
-            log.warn("Azure Translator returned HTTP {}", exception.getStatusCode().value());
+            int status = exception.getStatusCode().value();
+            log.warn("Azure Translator returned HTTP {}", status);
+            if (status == HttpStatus.TOO_MANY_REQUESTS.value()) {
+                throw new TranslationUnavailableException(HttpStatus.TOO_MANY_REQUESTS, "Translator rate limit reached; retry later");
+            }
             throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY,
                     "Translator rejected the request; retry later or contact the administrator");
         } catch (Exception exception) {
@@ -112,17 +139,24 @@ public class AzureTranslationClient implements TranslationClient {
         return builder.build(true).toUri();
     }
 
-    private static Map<String, String> toTranslations(AzureResponse[] response) {
-        if (response == null || response.length == 0 || response[0].translations() == null) {
+    private static List<Map<String, String>> toTranslations(AzureResponse[] response, int expected) {
+        if (response == null || response.length != expected) {
             throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY, "Translator returned no translations");
         }
-        Map<String, String> translated = new LinkedHashMap<>();
-        for (AzureTranslation translation : response[0].translations()) {
-            if (translation != null && StringUtils.hasText(translation.to()) && StringUtils.hasText(translation.text())) {
-                translated.put(translation.to().toLowerCase(Locale.ROOT), translation.text());
+        List<Map<String, String>> result = new ArrayList<>(expected);
+        for (AzureResponse item : response) {
+            if (item == null || item.translations() == null) {
+                throw new TranslationUnavailableException(HttpStatus.BAD_GATEWAY, "Translator returned no translations");
             }
+            Map<String, String> translated = new LinkedHashMap<>();
+            for (AzureTranslation translation : item.translations()) {
+                if (translation != null && StringUtils.hasText(translation.to()) && StringUtils.hasText(translation.text())) {
+                    translated.put(translation.to().toLowerCase(Locale.ROOT), translation.text());
+                }
+            }
+            result.add(translated);
         }
-        return translated;
+        return result;
     }
 
     private static RestClient createRestClient() {

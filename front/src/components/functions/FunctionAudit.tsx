@@ -1,23 +1,25 @@
-import { HistoryIcon, RefreshCwIcon } from 'lucide-react';
+import { RefreshCwIcon } from 'lucide-react';
 import { useI18n } from '../../contexts/i18n';
 import { useFunctionAudit } from '../../features/functions/queries';
 import { FunctionErrorState } from '../../features/functions/FunctionErrorState';
 import { Card, CardBody, CardHeader } from '../ui/Card';
-import { Badge, type BadgeTone } from '../ui/Badge';
+import { StatusPill, type StatusTone } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { SkeletonText } from '../ui/Skeleton';
 import { EmptyState } from '../ui/States';
+import { formatDateTime } from '../../utils/format';
 
-const tones: Record<string, BadgeTone> = {
-  PUBLISH: 'success',
+const tones: Record<string, StatusTone> = {
+  PUBLISH: 'published',
   REJECT: 'danger',
   DEACTIVATE: 'danger',
   DELETE: 'danger',
-  SUBMIT_REVIEW: 'warning',
-  SUBMIT_FOR_REVIEW: 'warning',
-  REACTIVATE: 'warning',
-  CREATE: 'brand',
-  TRANSLATION_EDIT: 'info',
+  SUBMIT_REVIEW: 'pending',
+  SUBMIT_FOR_REVIEW: 'pending',
+  REACTIVATE: 'pending',
+  WITHDRAW: 'pending',
+  REVISION_CREATE: 'draft',
+  REVISION_DISCARD: 'danger',
 };
 
 function normalizeAction(action: string): string {
@@ -29,16 +31,6 @@ function humanize(action: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function formatTimestamp(value: string, locale: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-  } catch {
-    return date.toLocaleString();
-  }
-}
-
 export function FunctionAudit({ functionId }: { functionId: number }) {
   const { t, locale } = useI18n();
   const history = useFunctionAudit(functionId);
@@ -47,7 +39,6 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
     <Card>
       <CardHeader
         title={t('fnAdmin.audit')}
-        icon={<HistoryIcon className="h-4 w-4" />}
         actions={
           <Button variant="ghost" size="sm" icon={<RefreshCwIcon />} disabled={history.isFetching} onClick={() => void history.refetch()}>
             {t('fnAdmin.refresh')}
@@ -62,18 +53,18 @@ export function FunctionAudit({ functionId }: { functionId: number }) {
         ) : !history.data?.length ? (
           <EmptyState title={t('state.emptyTitle')} />
         ) : (
-          <ol className="relative space-y-6 border-l border-line pl-6">
+          <ol className="relative space-y-6 border-s border-line ps-6">
             {history.data.map((entry) => {
               const action = normalizeAction(entry.action);
               return (
                 <li key={entry.id} className="relative">
-                  <span className="absolute -left-[1.95rem] top-1 h-3 w-3 rounded-full bg-brand-gradient ring-4 ring-surface" aria-hidden="true" />
+                  <span className="absolute -start-[1.95rem] top-1.5 h-3 w-3 rounded-pill bg-ink ring-4 ring-background" aria-hidden="true" />
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Badge tone={tones[action] ?? 'neutral'}>{t(`fnAdmin.action.${action}`, humanize(action))}</Badge>
-                    <time className="text-xs tabular-nums text-content-muted" dateTime={entry.performedAt}>{formatTimestamp(entry.performedAt, locale)}</time>
+                    <StatusPill tone={tones[action] ?? 'draft'}>{t(`fnAdmin.action.${action}`, humanize(action))}</StatusPill>
+                    <time className="text-xs tabular-nums text-secondary" dateTime={entry.performedAt}>{formatDateTime(entry.performedAt, locale)}</time>
                   </div>
-                  <p className="mt-1.5 text-sm text-content-strong">{t('fnAdmin.actor')}: {entry.performedBy}</p>
-                  {entry.details && <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-content-muted">{entry.details}</p>}
+                  <p className="mt-1.5 text-sm text-foreground wrap-anywhere">{t('fnAdmin.actor')}: {entry.performedBy}</p>
+                  {entry.details && <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-secondary wrap-anywhere">{entry.details}</p>}
                 </li>
               );
             })}

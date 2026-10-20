@@ -1,5 +1,6 @@
 package adliya.uz.referenceservice.service;
 
+import adliya.uz.referenceservice.config.CacheConfig;
 import adliya.uz.referenceservice.dto.CreateTranslationKeyRequest;
 import adliya.uz.referenceservice.dto.TranslationKeyResponse;
 import adliya.uz.referenceservice.dto.UpdateTranslationKeyRequest;
@@ -41,9 +42,9 @@ public class TranslationKeyService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "interfaceDictionaries", allEntries = true)
+    @CacheEvict(cacheNames = CacheConfig.DICTIONARY_CACHE, allEntries = true)
     public TranslationKeyResponse create(CreateTranslationKeyRequest request) {
-        String keyName = normalizeKey(request.translationKey());
+        String keyName = TranslationKeys.normalize(request.translationKey());
         if (translationKeyRepository.findByTranslationKey(keyName).isPresent()) {
             throw new IllegalStateException("Translation key already exists: " + keyName);
         }
@@ -64,7 +65,7 @@ public class TranslationKeyService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "interfaceDictionaries", allEntries = true)
+    @CacheEvict(cacheNames = CacheConfig.DICTIONARY_CACHE, allEntries = true)
     public TranslationKeyResponse update(Long id, UpdateTranslationKeyRequest request) {
         TranslationKey key = requireKey(id);
         if (request.description() != null) {
@@ -88,7 +89,7 @@ public class TranslationKeyService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = "interfaceDictionaries", allEntries = true)
+    @CacheEvict(cacheNames = CacheConfig.DICTIONARY_CACHE, allEntries = true)
     public void deactivate(Long id) {
         TranslationKey key = requireKey(id);
         key.setActive(false);
@@ -98,17 +99,6 @@ public class TranslationKeyService {
     private TranslationKey requireKey(Long id) {
         return translationKeyRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Translation key not found, ID: " + id));
-    }
-
-    private String normalizeKey(String rawKey) {
-        if (rawKey == null || rawKey.isBlank()) {
-            throw new IllegalArgumentException("Translation key must not be blank");
-        }
-        String key = rawKey.trim();
-        if (key.length() > 150) {
-            throw new IllegalArgumentException("Translation key is too long: " + key);
-        }
-        return key;
     }
 
     private String normalizeDefaultValue(String value) {

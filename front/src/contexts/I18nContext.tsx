@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getInterfaceTranslations, getLanguages } from '../services/referenceService';
+import { readStored, writeStored } from '../lib/storage';
 import { I18nContext, type I18nValue, type InterfaceLanguage } from './i18n';
 const DEFAULT_LOCALE = 'uz';
 const STORAGE_KEY = 'reestr-task-locale';
@@ -19,7 +20,7 @@ function directionForLocale(locale: string): 'ltr' | 'rtl' {
 
 function initialLocale(): string {
   if (typeof window === 'undefined') return DEFAULT_LOCALE;
-  return window.localStorage.getItem(STORAGE_KEY) || DEFAULT_LOCALE;
+  return readStored(STORAGE_KEY) || DEFAULT_LOCALE;
 }
 
 export function I18nProvider({ children }: {children: ReactNode;}) {
@@ -33,7 +34,7 @@ export function I18nProvider({ children }: {children: ReactNode;}) {
 
   const setLocale = useCallback((nextLocale: string) => {
     setLocaleState(nextLocale);
-    if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, nextLocale);
+    if (typeof window !== 'undefined') writeStored(STORAGE_KEY, nextLocale);
   }, []);
 
   const reloadLanguages = useCallback(async () => {
@@ -51,11 +52,11 @@ export function I18nProvider({ children }: {children: ReactNode;}) {
           (language) => language.code.toLowerCase() === current.toLowerCase()
         );
         if (currentLanguage) {
-          if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, currentLanguage.code);
+          if (typeof window !== 'undefined') writeStored(STORAGE_KEY, currentLanguage.code);
           return currentLanguage.code;
         }
         const fallback = nextAvailable.find((language) => language.code === DEFAULT_LOCALE) ?? nextAvailable[0];
-        if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, fallback.code);
+        if (typeof window !== 'undefined') writeStored(STORAGE_KEY, fallback.code);
         return fallback.code;
       });
     } catch {
@@ -100,7 +101,7 @@ export function I18nProvider({ children }: {children: ReactNode;}) {
         const fallbackLocale = lastSuccessfulLocale.current;
         if (fallbackLocale && fallbackLocale !== locale) {
           setLocaleState(fallbackLocale);
-          window.localStorage.setItem(STORAGE_KEY, fallbackLocale);
+          writeStored(STORAGE_KEY, fallbackLocale);
         } else {
           setTranslations({});
         }
